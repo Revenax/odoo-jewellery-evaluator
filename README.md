@@ -49,14 +49,18 @@ jewellery_evaluator/
 
 ### Steps
 
-1. **Copy Module to Odoo Addons Directory**
+1. **Add the module to Odoo's addons path**
+
+   In `odoo.conf`, add the path to this repo (the directory that contains `__manifest__.py` and `jewellery_evaluator/`) to the `addons_path` option. For example:
+
+   ```ini
+   addons_path = /opt/odoo/addons,/path/to/odoo-jewellery-evaluator
+   ```
+
+   Or copy that directory into an existing addons directory:
 
    ```bash
-   # Navigate to your Odoo addons directory
-   cd /path/to/odoo/addons
-   
-   # Copy the jewellery_evaluator module
-   cp -r /path/to/jewellery_evaluator jewellery_evaluator
+   cp -r /path/to/odoo-jewellery-evaluator /path/to/odoo/addons/
    ```
 
 2. **Update Module List**
@@ -174,13 +178,27 @@ Diamond price input is in USD and converted to EGP for product prices:
 Current implementation uses a placeholder USD→EGP rate of `50.0` in
 `diamond.price.service.get_usd_to_egp_rate()`.
 
+### Silver Pricing
+
+Silver 999 price is set by the Selenium script (no regex). The script renders dahabmasr.com and reads the price from the XPath element.
+
+- **Silver 999 Price (EGP/g)**: Set by `scripts/selenium_automation.py`. Run with ODOO_URL, ODOO_DB, ODOO_USER, ODOO_PASSWORD to push to Odoo.
+- **Silver Markup per Gram (EGP/g)**: Markup per gram for silver products.
+
+Formulas (same as gold structure):
+
+- `silver_cost_price` = Silver 999 price per gram × weight
+- `list_price` = cost + (markup × weight), rounded to nearest 50
+- `silver_min_sale_price` = cost + (markup × weight × 0.7), rounded to nearest 50
+
 ### Price Updates
 
 Prices are automatically updated every 10 minutes via cron job:
 
-- Fetches latest gold price from configured API
-- Updates all gold products in batches of 100
-- Logs execution details to Odoo logs
+- **Gold**: Fetches latest gold price from configured API; updates all gold products in batches of 100.
+- **Diamond**: Updates diamond product prices from USD and exchange rate.
+- **Silver**: Uses stored price (set by Selenium script); updates all silver products.
+- Logs execution details to Odoo logs.
 
 **Manual Update** (if needed):
 
@@ -304,6 +322,22 @@ The module uses the following purity factors:
 3. **Review Network Settings**
    - Ensure Odoo server can reach API endpoint
    - Check firewall rules
+
+### Invoice report shows old columns (Type, Purity, etc.)
+
+The invoice layout (Karat, Weight, no Type column) is defined only in `jewellery_evaluator/report/report_invoice_gold.xml`. If you still see old headers or columns after changing that file, Odoo is serving a **cached view** stored in the database; a server restart does not re-load report XML.
+
+**To force the new layout:**
+
+1. **Upgrade the module** so Odoo re-loads the report view:
+   - **From the UI**: Apps → search "Jewellery Evaluator" → ⋮ menu → **Upgrade**.
+   - **From the command line** (with Odoo stopped):  
+     `odoo -u jewellery_evaluator -d YOUR_DATABASE --stop-after-init`  
+     then start Odoo as usual.
+
+2. **Optional**: Clear the report view cache for your database (Technical → User Interface → Views → search `report_invoice_document_gold`, open and Save to retrigger merge), or use **Settings → Technical → Database Structure → Views**, find the view and ensure it has the latest `arch` (upgrading the module does this).
+
+3. Hard-refresh the browser (Ctrl+Shift+R or Cmd+Shift+R) when opening an invoice PDF so the browser does not serve an old copy.
 
 ## Pre-Deployment Checks
 
