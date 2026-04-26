@@ -51,16 +51,24 @@ jewellery_evaluator/
 
 1. **Add the module to Odoo's addons path**
 
-   In `odoo.conf`, add the path to this repo (the directory that contains `__manifest__.py` and `jewellery_evaluator/`) to the `addons_path` option. For example:
+   Odoo rejects addon folder names that contain hyphens, so do **not** point `addons_path` at a checkout named `odoo-jewellery-evaluator` directly. Make the module available under a valid addon directory name such as `jewellery_evaluator`.
 
-   ```ini
-   addons_path = /opt/odoo/addons,/path/to/odoo-jewellery-evaluator
-   ```
-
-   Or copy that directory into an existing addons directory:
+   Recommended layout:
 
    ```bash
-   cp -r /path/to/odoo-jewellery-evaluator /path/to/odoo/addons/
+   /opt/odoo/custom-addons/jewellery_evaluator -> /opt/odoo/src/odoo-jewellery-evaluator
+   ```
+
+   Then add the parent addons directory to `odoo.conf`:
+
+   ```ini
+   addons_path = /opt/odoo/addons,/opt/odoo/custom-addons
+   ```
+
+   Or clone/copy the module directly into a valid folder name:
+
+   ```bash
+   cp -r /path/to/odoo-jewellery-evaluator /opt/odoo/custom-addons/jewellery_evaluator
    ```
 
 2. **Update Module List**
@@ -393,8 +401,8 @@ The repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml
    - `EC2_HOST`: Your EC2 instance hostname or IP (e.g., `ec2-xxx.compute.amazonaws.com`)
    - `EC2_USER`: SSH username (e.g., `ec2-user`, `ubuntu`, `admin`)
    - `EC2_SSH_KEY`: Private SSH key content for EC2 access
-   - `EC2_GIT_REPO_PATH`: Path to the repo on the server (where we pull and run the module), e.g. `/opt/odoo/custom-addons/jewellery_evaluator`
-   **Deploy user sudo (required for auto upgrade + restart):** The remote script runs `sudo -u odoo odoo -u jewellery_evaluator --stop-after-init -c /etc/odoo.conf` then `sudo systemctl restart odoo`. On the EC2 instance, allow the deploy user to run these without a password:
+   - `EC2_GIT_REPO_PATH`: Path to the repo on the server (where we pull and run the module), e.g. `/opt/odoo/src/odoo-jewellery-evaluator`
+   **Deploy user sudo (required for auto upgrade + restart):** The remote script stages the checkout under a valid `jewellery_evaluator` addon name, runs `odoo -u jewellery_evaluator --stop-after-init -c /etc/odoo.conf`, then restarts Odoo. On the EC2 instance, allow the deploy user to run these without a password:
    ```bash
    sudo visudo
    ```
@@ -406,11 +414,11 @@ The repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml
    If `odoo` is not at `/usr/bin/odoo`, use the full path (e.g. `/opt/odoo/venv/bin/odoo`). Save and exit.
 
 2. **Give the deploy user access to the repo path** (avoids "Permission denied" on `cd`):
-   CI runs as `EC2_USER` (e.g. `ubuntu`) and must be able to `cd` into `EC2_GIT_REPO_PATH` and run `git pull` there.
+    CI runs as `EC2_USER` (e.g. `ubuntu`) and must be able to `cd` into `EC2_GIT_REPO_PATH` and run `git pull` there. Keep this checkout outside the live `addons_path`; the deploy script stages a valid `jewellery_evaluator` addon name for the Odoo upgrade.
    - **Option A (recommended):** On the EC2 instance, make the deploy user owner of the repo directory:
      ```bash
-     sudo chmod o+x /opt /opt/odoo /opt/odoo/custom-addons
-     sudo chown -R ubuntu:ubuntu /opt/odoo/custom-addons/jewellery_evaluator
+       sudo chmod o+x /opt /opt/odoo /opt/odoo/src
+       sudo chown -R ubuntu:ubuntu /opt/odoo/src/odoo-jewellery-evaluator
      ```
    - **Option B (use sudo):** Run the remote deploy script with sudo so it can cd into a root-owned path (e.g. pass the script to `sudo bash -s`). Ensure the Odoo process user can read the files after update.
 
