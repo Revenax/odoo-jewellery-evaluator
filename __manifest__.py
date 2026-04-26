@@ -1,12 +1,12 @@
 {
     'name': 'Jewellery Evaluator',
-    'version': '17.0.3.0.0',
+    'version': '19.0.3.0.0',
     'category': 'Sales/Point of Sale',
     'summary': 'Automated gold pricing with live API updates and POS price enforcement',
     'description': """
         Jewellery Evaluator for Jewelry Business
         =========================================
-        Version: 17.0.1.0.0
+        Version: 19.0.3.0.0
 
         This module provides:
         * Automated gold price updates from external API (every 10 minutes)
@@ -31,20 +31,20 @@
         'stock',
     ],
     'data': [
-        'jewellery_evaluator/security/jewellery_evaluator_security.xml',
-        'jewellery_evaluator/security/ir.model.access.csv',
-        'jewellery_evaluator/views/jewellery_evaluator_config_views.xml',
-        'jewellery_evaluator/views/pos_config_views.xml',
-        'jewellery_evaluator/views/pos_order_views.xml',
-        'jewellery_evaluator/views/product_template_views.xml',
-        'jewellery_evaluator/views/account_move_views.xml',
-        'jewellery_evaluator/report/paperformat_gold.xml',
-        'jewellery_evaluator/report/report_invoice_gold.xml',
-        'jewellery_evaluator/report/external_layout_gold.xml',
-        'jewellery_evaluator/data/jewellery_evaluator_cron.xml',
+        'security/jewellery_evaluator_security.xml',
+        'security/ir.model.access.csv',
+        'views/jewellery_evaluator_config_views.xml',
+        'views/pos_config_views.xml',
+        'views/pos_order_views.xml',
+        'views/product_template_views.xml',
+        'views/account_move_views.xml',
+        'report/paperformat_gold.xml',
+        'report/report_invoice_gold.xml',
+        'report/external_layout_gold.xml',
+        'data/jewellery_evaluator_cron.xml',
     ],
     'assets': {
-        'point_of_sale.assets': [
+        'point_of_sale._assets_pos': [
             'jewellery_evaluator/static/src/js/pos_discount_override.js',
         ],
     },

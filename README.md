@@ -1,6 +1,6 @@
-# Jewellery Evaluator - Odoo 17 Module
+# Jewellery Evaluator - Odoo 19 Module
 
-Production-grade custom Odoo 17 Community module for jewelry and gold businesses with automated pricing, POS enforcement, and live API integration.
+Production-grade custom Odoo 19 Community module for jewelry and gold businesses with automated pricing, POS enforcement, and live API integration.
 
 ## Overview
 
@@ -43,7 +43,7 @@ jewellery_evaluator/
 
 ### Prerequisites
 
-- Odoo 17 Community Edition (self-hosted)
+- Odoo 19 Community Edition (self-hosted)
 - Python 3.10 or higher
 - `requests` library (usually included with Odoo)
 
@@ -525,7 +525,7 @@ See [LICENSE](LICENSE) file for full terms and conditions.
 
 ## Version
 
-17.0.2.0.0
+19.0.3.0.0
 
 ## Author
 
@@ -535,4 +535,4 @@ Website: <https://www.revenax.com/>
 
 ---
 
-**Note**: This module is designed for self-hosted Odoo 17 installations. It is not compatible with Odoo Online or Odoo.sh without modifications.
+**Note**: This module is designed for self-hosted Odoo 19 installations. It is not compatible with Odoo Online or Odoo.sh without modifications.

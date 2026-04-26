@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Odoo 17 pos.config form has no product_prices; it uses o_settings_container.
+    Odoo 19 pos.config form has no product_prices; it uses o_settings_container.
     We inject after the main settings block so "Invoicing" and "Require Customer" appear
     on the form. inherit_id: point_of_sale.pos_config_view_form.
 -->

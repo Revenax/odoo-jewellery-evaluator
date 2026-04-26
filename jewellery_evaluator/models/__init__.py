@@ -13,6 +13,7 @@ from . import (
     pos_make_payment,  # noqa: F401
     pos_order,  # noqa: F401
     pos_session,  # noqa: F401
+    product_product,  # noqa: F401
     product_template,  # noqa: F401
     silver_price_service,  # noqa: F401
 )

@@ -245,12 +245,14 @@ class PosOrder(models.Model):
                 )
 
     @api.model
-    def _get_invoice_lines_values(self, line_values, pos_order_line):
+    def _get_invoice_lines_values(self, line_values, pos_order_line, move_type):
         """
         Pass gold-specific fields from POS order line to invoice line so the
         invoice report can display them.
         """
-        result = super()._get_invoice_lines_values(line_values, pos_order_line)
+        result = super()._get_invoice_lines_values(
+            line_values, pos_order_line, move_type
+        )
         jewellery_fields = [
             'jewellery_type', 'jewellery_weight_g', 'diamond_karat', 'silver_purity',
         ]

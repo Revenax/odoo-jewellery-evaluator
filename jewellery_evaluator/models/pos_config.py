@@ -28,3 +28,7 @@ class PosConfig(models.Model):
         "* 'Required before paying';\n"
         "* 'Required before starting the order';",
     )
+
+    def _load_pos_data_fields(self, config):
+        fields = super()._load_pos_data_fields(config)
+        return list(dict.fromkeys([*fields, "default_to_invoice", "require_customer"]))

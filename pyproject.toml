@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jewellery-evaluator"
-version = "17.0.1.0.0"
-description = "Odoo 17 module for jewellery evaluation with live API updates and POS price enforcement"
+version = "19.0.3.0.0"
+description = "Odoo 19 module for jewellery evaluation with live API updates and POS price enforcement"
 requires-python = ">=3.10"
 
 [tool.ruff]

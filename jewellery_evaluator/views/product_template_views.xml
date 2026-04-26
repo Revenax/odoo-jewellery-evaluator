@@ -46,11 +46,11 @@
         </field>
     </record>
     
-    <!-- Tree view to show gold pricing info -->
-    <record id="product_template_tree_view_jewellery_evaluator" model="ir.ui.view">
-        <field name="name">product.template.tree.jewellery.evaluator</field>
+    <!-- List view to show jewellery pricing info -->
+    <record id="product_template_list_view_jewellery_evaluator" model="ir.ui.view">
+        <field name="name">product.template.list.jewellery.evaluator</field>
         <field name="model">product.template</field>
-        <field name="inherit_id" ref="product.product_template_tree_view"/>
+        <field name="inherit_id" ref="account.product_template_list_view_sellable_inherit"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='list_price']" position="after">
                 <field name="jewellery_type" optional="show"/>
@@ -65,4 +65,3 @@
         </field>
     </record>
 </odoo>
-

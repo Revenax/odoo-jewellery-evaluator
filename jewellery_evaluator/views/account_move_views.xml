@@ -6,7 +6,7 @@
         shows only the consolidated columns requested by business users.
     -->
 
-    <!-- Invoice line tree (list) view: add unified Karat and Weight columns. -->
+    <!-- Invoice line list view: add unified Karat and Weight columns. -->
     <record id="view_move_line_tree_jewellery_evaluator" model="ir.ui.view">
         <field name="name">account.move.line.tree.jewellery.evaluator</field>
         <field name="model">account.move.line</field>
@@ -34,14 +34,14 @@
     </record>
 
     <!-- Invoice form: add unified Karat and Weight to the invoice line list on the move form.
-         In Odoo 17 the form may use an inline tree for invoice_line_ids; this xpath
+         In Odoo 19 the form uses an inline list for invoice_line_ids; this xpath
          adds our columns there so they are visible when editing an invoice. -->
     <record id="view_move_form_jewellery_evaluator" model="ir.ui.view">
         <field name="name">account.move.form.jewellery.evaluator</field>
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='invoice_line_ids']/tree/field[@name='quantity']" position="before">
+            <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='quantity']" position="before">
                 <field name="karat_display" string="Karat"/>
                 <field name="weight_display_g" string="Weight"/>
             </xpath>
@@ -49,4 +49,3 @@
     </record>
 
 </odoo>
-
