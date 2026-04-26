@@ -1,14 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="privilege_jewellery_evaluator" model="res.groups.privilege">
+        <field name="name">Jewellery Evaluator</field>
+        <field name="category_id" ref="base.module_category_sales"/>
+        <field name="description">Access levels for jewellery evaluator pricing and configuration.</field>
+        <field name="placeholder">No Access</field>
+    </record>
+
     <record id="group_jewellery_evaluator_user" model="res.groups">
         <field name="name">Jewellery Evaluator User</field>
-        <field name="category_id" ref="base.module_category_sales"/>
+        <field name="privilege_id" ref="jewellery_evaluator.privilege_jewellery_evaluator"/>
         <field name="comment">Can view jewellery evaluation information but cannot modify pricing rules.</field>
     </record>
 
     <record id="group_jewellery_evaluator_manager" model="res.groups">
         <field name="name">Jewellery Evaluator Manager</field>
-        <field name="category_id" ref="base.module_category_sales"/>
+        <field name="privilege_id" ref="jewellery_evaluator.privilege_jewellery_evaluator"/>
         <field name="implied_ids" eval="[(4, ref('group_jewellery_evaluator_user'))]"/>
         <field name="comment">Can configure jewellery evaluator settings and API parameters.</field>
     </record>
