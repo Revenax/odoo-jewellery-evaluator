@@ -19,11 +19,12 @@
     </xpath>
 
     <!-- Complete header deletion -->
-        <xpath expr="//div[contains(@class, 'row')]" position="replace" />
+        <xpath expr="//t[@t-call='web.external_layout']/div[contains(@class, 'row')][1]" position="replace" />
 
         <!-- Our custom doc title -->
-        <xpath expr="//div[contains(@class, 'page') and contains(@class, 'mb-4')]/h2" position="replace">
-            <span style="margin-bottom: 10px; margin-top: 200px;">
+        <xpath expr="//t[@t-set='layout_document_title']" position="replace">
+            <t t-set="layout_document_title">
+                <span style="margin-bottom: 10px; margin-top: 200px;">
                 <center>
                 <br/>
                 <br/>
@@ -38,9 +39,10 @@
                     <span t-elif="o.move_type == 'out_refund' and o.state == 'cancel'">Cancelled Credit Note</span>
                     <span t-elif="o.move_type == 'in_refund'">Vendor Credit Note</span>
                     <span t-elif="o.move_type == 'in_invoice'">Vendor Bill</span>
-                    <span t-if="o.name != '/'" t-field="o.name">INV/2023/0001</span>    
+                    <span t-if="o.name != '/'" t-field="o.name">INV/2023/0001</span>
                 </center>
-            </span>
+                </span>
+            </t>
         </xpath>
 
         <!-- Our Custom Info Block -->
