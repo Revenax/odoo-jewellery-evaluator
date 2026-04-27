@@ -18,8 +18,13 @@
         <t t-set="report_show_unit_price" t-value="report_show_quantity"/>
     </xpath>
 
-    <!-- Complete header deletion -->
-        <xpath expr="//t[@t-call='web.external_layout']/div[contains(@class, 'row')][1]" position="replace" />
+    <!-- Remove the partner address row that sits above the invoice body (Odoo 19) -->
+        <xpath expr="//div[contains(@class, 'invoice_main')]/preceding-sibling::div[contains(@class, 'row')][1]" position="replace"/>
+
+        <!-- Force the tax-column conditional off so colspans/totals don't reserve space for taxes -->
+        <xpath expr="//t[@t-set='display_taxes']" position="replace">
+            <t t-set="display_taxes" t-value="False"/>
+        </xpath>
 
         <!-- Our custom doc title -->
         <xpath expr="//t[@t-set='layout_document_title']" position="replace">
@@ -126,28 +131,11 @@
         <xpath expr="//td[@name='td_taxes']" position="replace"/>
         <xpath expr="//t[@t-set='taxes'][@t-value]" position="replace"/>
 
-        <!-- Custom footer at the very bottom of the invoice body -->
-        <xpath expr="//div[contains(@class, 'page') and contains(@class, 'mb-4')]" position="after">
-            <!-- Dynamic margin: 500px base for 1 product, minus 50px per additional line -->
-            <t t-set="line_count" t-value="len(o.invoice_line_ids)"/>
-            <t t-set="footer_margin" t-value="450 - ((line_count - 1) * 50) if (400 - ((line_count - 1) * 50)) &gt; 0 else 0"/>
-            <div t-attf-style="border-top: 2px solid #000; padding: 8px 0 0 0; font-size: 10px; color: #555; margin-top: #{footer_margin}px;">
-                <div class="row">
-                    <div class="col-4 text-start">
-                        <strong style="color: #000;">Contact Us</strong><br/>
-                        Tel: (+2)01000 226 992
-                    </div>
-                    <div class="col-4 text-center">
-                        <strong style="color: #000;">Marjaan Jewellery</strong><br/>
-                        27 Ismael Ramzy St, Heliopolis, Cairo, Egypt
-                    </div>
-                    <div class="col-4 text-end">
-                        <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                        Info@Marjaanjewellery.com<br/>
-                        www.marjaanjewellery.com
-                    </div>
-                </div>
-            </div>
-        </xpath>
+        <!-- Remove "Payment Communication: ..." paragraph (Odoo 19 default outside the totals block) -->
+        <xpath expr="//p[@name='payment_communication']" position="replace"/>
+
+        <!-- The custom 3-column footer is rendered as a real PDF page footer
+             via external_layout_gold (see report/external_layout_gold.xml), so no
+             in-body footer block here. -->
     </template>
 </odoo>

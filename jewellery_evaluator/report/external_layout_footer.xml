@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Custom footer in external layout (bottom of every PDF page).
-     Layout must be enabled: Settings → Companies → Configure Document Layout → choose Standard (or add same footer for Striped/Bold/Boxed). See docs/INVOICE_LAYOUT_SETUP.md. -->
-<odoo>
-    <template id="external_layout_gold" inherit_id="web.external_layout">
-        
-    </template>
-</odoo>
