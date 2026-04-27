@@ -125,8 +125,6 @@
         <!-- Remove Taxes cell and the t-set for taxes from product line -->
         <xpath expr="//td[@name='td_taxes']" position="replace"/>
         <xpath expr="//t[@t-set='taxes'][@t-value]" position="replace"/>
-        <!-- Remove Payment Communication block (div containing p name="payment_communication") -->
-        <xpath expr="//p[@name='payment_communication']/parent::div" position="replace"/>
 
         <!-- Custom footer at the very bottom of the invoice body -->
         <xpath expr="//div[contains(@class, 'page') and contains(@class, 'mb-4')]" position="after">
