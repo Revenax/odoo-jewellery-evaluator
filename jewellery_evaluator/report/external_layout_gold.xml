@@ -15,7 +15,7 @@
          needs to be DRY, promote to a named template and t-call it. -->
 
     <template id="external_layout_gold_standard" inherit_id="web.external_layout_standard">
-        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+        <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
                     <strong style="color: #000;">Contact Us</strong><br/>
@@ -35,7 +35,7 @@
     </template>
 
     <template id="external_layout_gold_striped" inherit_id="web.external_layout_striped">
-        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+        <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
                     <strong style="color: #000;">Contact Us</strong><br/>
@@ -55,7 +55,7 @@
     </template>
 
     <template id="external_layout_gold_bold" inherit_id="web.external_layout_bold">
-        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+        <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
                     <strong style="color: #000;">Contact Us</strong><br/>
@@ -75,7 +75,7 @@
     </template>
 
     <template id="external_layout_gold_boxed" inherit_id="web.external_layout_boxed">
-        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+        <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
                     <strong style="color: #000;">Contact Us</strong><br/>
@@ -95,7 +95,7 @@
     </template>
 
     <template id="external_layout_gold_folder" inherit_id="web.external_layout_folder">
-        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+        <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
                     <strong style="color: #000;">Contact Us</strong><br/>
@@ -115,7 +115,7 @@
     </template>
 
     <template id="external_layout_gold_wave" inherit_id="web.external_layout_wave">
-        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+        <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
                     <strong style="color: #000;">Contact Us</strong><br/>
@@ -135,7 +135,7 @@
     </template>
 
     <template id="external_layout_gold_bubble" inherit_id="web.external_layout_bubble">
-        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+        <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
                     <strong style="color: #000;">Contact Us</strong><br/>
