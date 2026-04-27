@@ -91,16 +91,24 @@
             </div>
         </xpath>
 
-        <!-- Add unified Karat and Weight cells to each product line. -->
+        <!-- Add unified Karat and Weight cells to each product line.
+             Reads the line's own value first; falls back to the linked product
+             so that POS/auto-generated invoices (which don't currently propagate
+             gold/diamond/silver fields onto move lines) still show data. -->
         <xpath expr="//td[@name='account_invoice_line_name']" position="after">
             <td name="td_karat" class="text-end">
                 <span t-if="line.gold_purity" t-field="line.gold_purity"/>
                 <span t-elif="line.diamond_karat" t-field="line.diamond_karat"/>
                 <span t-elif="line.silver_purity" t-field="line.silver_purity"/>
+                <span t-elif="line.product_id.gold_purity" t-field="line.product_id.gold_purity"/>
+                <span t-elif="line.product_id.diamond_karat" t-field="line.product_id.diamond_karat"/>
+                <span t-elif="line.product_id.silver_purity" t-field="line.product_id.silver_purity"/>
             </td>
             <td name="td_weight" class="text-end">
                 <span t-if="line.jewellery_weight_g" t-field="line.jewellery_weight_g"/>
                 <span t-elif="line.gold_weight_g" t-field="line.gold_weight_g"/>
+                <span t-elif="line.product_id.jewellery_weight_g" t-field="line.product_id.jewellery_weight_g"/>
+                <span t-elif="line.product_id.gold_weight_g" t-field="line.product_id.gold_weight_g"/>
             </td>
         </xpath>
 

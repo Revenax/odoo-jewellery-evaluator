@@ -2,17 +2,19 @@
 <!--
     Custom per-page PDF footer for the Marjaan Jewellery invoice.
 
-    We inherit web.external_layout_standard (the default "Standard" Document
-    Layout) and replace the inner content of its footer div. The outer wrapper
+    We inherit every Odoo 19 external_layout variant and replace the inner
+    o_footer_content div with our 3-column branding strip. The outer wrapper
     keeps t-attf-class="footer ..." so wkhtmltopdf still recognizes the block
-    as the page footer and renders it on every page automatically.
-
-    REQUIRED setup: Settings -> Companies -> Configure Document Layout ->
-    pick "Standard". If a different layout is chosen, this override won't
-    fire and the standard footer will render instead.
+    as the page footer and renders it on every page automatically — no matter
+    which Document Layout the company has chosen in
+    Settings -> Companies -> Configure Document Layout.
 -->
 <odoo>
-    <template id="external_layout_gold" inherit_id="web.external_layout_standard">
+    <!-- Reusable footer body. We can't use <template> for a plain fragment,
+         so each layout override below repeats the same markup. If this ever
+         needs to be DRY, promote to a named template and t-call it. -->
+
+    <template id="external_layout_gold_standard" inherit_id="web.external_layout_standard">
         <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
             <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
                 <div class="col-4 text-start">
@@ -31,4 +33,125 @@
             </div>
         </xpath>
     </template>
+
+    <template id="external_layout_gold_striped" inherit_id="web.external_layout_striped">
+        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+                <div class="col-4 text-start">
+                    <strong style="color: #000;">Contact Us</strong><br/>
+                    Tel: (+2)01000 226 992
+                </div>
+                <div class="col-4 text-center">
+                    <strong style="color: #000;">Marjaan Jewellery</strong><br/>
+                    27 Ismael Ramzy St, Heliopolis, Cairo, Egypt
+                </div>
+                <div class="col-4 text-end">
+                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
+                    Info@Marjaanjewellery.com<br/>
+                    www.marjaanjewellery.com
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="external_layout_gold_bold" inherit_id="web.external_layout_bold">
+        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+                <div class="col-4 text-start">
+                    <strong style="color: #000;">Contact Us</strong><br/>
+                    Tel: (+2)01000 226 992
+                </div>
+                <div class="col-4 text-center">
+                    <strong style="color: #000;">Marjaan Jewellery</strong><br/>
+                    27 Ismael Ramzy St, Heliopolis, Cairo, Egypt
+                </div>
+                <div class="col-4 text-end">
+                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
+                    Info@Marjaanjewellery.com<br/>
+                    www.marjaanjewellery.com
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="external_layout_gold_boxed" inherit_id="web.external_layout_boxed">
+        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+                <div class="col-4 text-start">
+                    <strong style="color: #000;">Contact Us</strong><br/>
+                    Tel: (+2)01000 226 992
+                </div>
+                <div class="col-4 text-center">
+                    <strong style="color: #000;">Marjaan Jewellery</strong><br/>
+                    27 Ismael Ramzy St, Heliopolis, Cairo, Egypt
+                </div>
+                <div class="col-4 text-end">
+                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
+                    Info@Marjaanjewellery.com<br/>
+                    www.marjaanjewellery.com
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="external_layout_gold_folder" inherit_id="web.external_layout_folder">
+        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+                <div class="col-4 text-start">
+                    <strong style="color: #000;">Contact Us</strong><br/>
+                    Tel: (+2)01000 226 992
+                </div>
+                <div class="col-4 text-center">
+                    <strong style="color: #000;">Marjaan Jewellery</strong><br/>
+                    27 Ismael Ramzy St, Heliopolis, Cairo, Egypt
+                </div>
+                <div class="col-4 text-end">
+                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
+                    Info@Marjaanjewellery.com<br/>
+                    www.marjaanjewellery.com
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="external_layout_gold_wave" inherit_id="web.external_layout_wave">
+        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+                <div class="col-4 text-start">
+                    <strong style="color: #000;">Contact Us</strong><br/>
+                    Tel: (+2)01000 226 992
+                </div>
+                <div class="col-4 text-center">
+                    <strong style="color: #000;">Marjaan Jewellery</strong><br/>
+                    27 Ismael Ramzy St, Heliopolis, Cairo, Egypt
+                </div>
+                <div class="col-4 text-end">
+                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
+                    Info@Marjaanjewellery.com<br/>
+                    www.marjaanjewellery.com
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="external_layout_gold_bubble" inherit_id="web.external_layout_bubble">
+        <xpath expr="//div[contains(@class, 'o_footer_content')]" position="replace">
+            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+                <div class="col-4 text-start">
+                    <strong style="color: #000;">Contact Us</strong><br/>
+                    Tel: (+2)01000 226 992
+                </div>
+                <div class="col-4 text-center">
+                    <strong style="color: #000;">Marjaan Jewellery</strong><br/>
+                    27 Ismael Ramzy St, Heliopolis, Cairo, Egypt
+                </div>
+                <div class="col-4 text-end">
+                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
+                    Info@Marjaanjewellery.com<br/>
+                    www.marjaanjewellery.com
+                </div>
+            </div>
+        </xpath>
+    </template>
+
 </odoo>
