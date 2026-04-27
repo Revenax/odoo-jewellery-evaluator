@@ -29,6 +29,10 @@ class PosConfig(models.Model):
         "* 'Required before starting the order';",
     )
 
-    def _load_pos_data_fields(self, config):
-        fields = super()._load_pos_data_fields(config)
-        return list(dict.fromkeys([*fields, "default_to_invoice", "require_customer"]))
+    def _load_pos_data_read(self, records, config):
+        read_records = super()._load_pos_data_read(records, config)
+        for record in read_records:
+            pos_config = self.browse(record["id"])
+            record["default_to_invoice"] = pos_config.default_to_invoice
+            record["require_customer"] = pos_config.require_customer
+        return read_records
