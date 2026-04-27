@@ -31,8 +31,8 @@ class PosConfig(models.Model):
 
     def _load_pos_data_read(self, records, config):
         read_records = super()._load_pos_data_read(records, config)
-        for record in read_records:
-            pos_config = self.browse(record["id"])
+        pos_configs = self.browse([r["id"] for r in read_records])
+        for record, pos_config in zip(read_records, pos_configs):
             record["default_to_invoice"] = pos_config.default_to_invoice
             record["require_customer"] = pos_config.require_customer
         return read_records
