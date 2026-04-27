@@ -127,8 +127,13 @@
         <xpath expr="//td[@name='td_taxes']" position="replace"/>
         <xpath expr="//t[@t-set='taxes'][@t-value]" position="replace"/>
 
-        <!-- Remove "Payment Communication: ..." paragraph (Odoo 19 default outside the totals block) -->
-        <xpath expr="//p[@name='payment_communication']" position="replace"/>
+        <!-- Suppress "Payment Communication: ..." paragraph.
+             We use t-if="False" instead of position="replace" so that other
+             inheriting views (e.g. account.report_invoice_document_preview)
+             can still locate the inner <t t-if="o.partner_bank_id"/> element. -->
+        <xpath expr="//p[@name='payment_communication']" position="attributes">
+            <attribute name="t-if">False</attribute>
+        </xpath>
 
         <!-- The custom 3-column footer is rendered as a real PDF page footer
              via external_layout_gold (see report/external_layout_gold.xml), so no
