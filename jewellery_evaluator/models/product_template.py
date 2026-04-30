@@ -259,13 +259,6 @@ class ProductTemplate(models.Model):
         store=True,
         readonly=True,
     )
-    diamond_requires_manual_pricing = fields.Boolean(
-        string='Requires Manual Pricing',
-        compute='_compute_diamond_jewellery_prices',
-        store=True,
-        readonly=True,
-        help='True when at least one stone is ≥ 0.260 ct and needs a manual price.',
-    )
 
     @api.depends('jewellery_type')
     def _compute_is_gold_product(self):
@@ -336,7 +329,7 @@ class ProductTemplate(models.Model):
 
     @api.depends(
         'jewellery_type', 'gold_purity', 'jewellery_weight_g',
-        'stone_ids.unit_price_usd', 'stone_ids.requires_manual_pricing',
+        'stone_ids.unit_price_usd', 'stone_ids.total_price_usd',
     )
     def _compute_diamond_jewellery_prices(self):
         """Compute all pricing outputs for diamond jewellery products."""
@@ -365,7 +358,6 @@ class ProductTemplate(models.Model):
             'diamond_ticket_price_usd': 0.0,
             'diamond_sale_price_usd': 0.0,
             'diamond_sale_price_egp': 0.0,
-            'diamond_requires_manual_pricing': False,
         }
 
         for record in self:
@@ -387,10 +379,8 @@ class ProductTemplate(models.Model):
             valid_stone_prices = [
                 s.total_price_usd
                 for s in record.stone_ids
-                if not s.requires_manual_pricing and s.total_price_usd > 0
+                if s.total_price_usd > 0
             ]
-            has_manual = any(
-                s.requires_manual_pricing for s in record.stone_ids)
 
             try:
                 result = compute_diamond_jewellery_price(
@@ -417,7 +407,6 @@ class ProductTemplate(models.Model):
             record.diamond_ticket_price_usd = result['ticket_price_usd']
             record.diamond_sale_price_usd = result['sale_price_usd']
             record.diamond_sale_price_egp = result['sale_price_egp']
-            record.diamond_requires_manual_pricing = has_manual
 
     def _map_jewellery_type_to_gold_type(self, jewellery_type):
         return self.JEWELLERY_TYPE_TO_GOLD_TYPE.get(jewellery_type)

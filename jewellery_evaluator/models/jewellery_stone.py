@@ -55,8 +55,7 @@ class JewelleryStone(models.Model):
         string='Carat',
         required=True,
         digits=(6, 3),
-        help='Stone weight in carats (0.001 – 7.000). '
-             'Stones at or above 0.260 ct require manual pricing.',
+        help='Stone weight in carats (0.001 – 7.000).',
     )
     color = fields.Selection(
         selection=STONE_COLOR_SELECTION,
@@ -86,7 +85,7 @@ class JewelleryStone(models.Model):
         digits=(16, 2),
         compute='_compute_unit_price_usd',
         store=True,
-        help='Per-carat tier price × carat weight (USD). Zero when manual pricing is required.',
+        help='Per-carat tier price × carat weight (USD).',
     )
     total_price_usd = fields.Float(
         string='Total Price (USD)',
@@ -94,12 +93,6 @@ class JewelleryStone(models.Model):
         compute='_compute_unit_price_usd',
         store=True,
         help='Unit price × quantity (USD). Sum this across all stones to get total stones cost.',
-    )
-    requires_manual_pricing = fields.Boolean(
-        string='Manual Pricing?',
-        compute='_compute_unit_price_usd',
-        store=True,
-        help='True when the stone carat is ≥ 0.260 — price must be set manually.',
     )
 
     @api.constrains('carat')
@@ -121,7 +114,6 @@ class JewelleryStone(models.Model):
     @api.depends('carat', 'quantity')
     def _compute_unit_price_usd(self):
         for stone in self:
-            price, manual = get_stone_tier_price(self.env, stone.carat)
-            stone.unit_price_usd = price or 0.0
-            stone.total_price_usd = (price or 0.0) * stone.quantity
-            stone.requires_manual_pricing = manual
+            price = get_stone_tier_price(self.env, stone.carat)
+            stone.unit_price_usd = price
+            stone.total_price_usd = price * stone.quantity

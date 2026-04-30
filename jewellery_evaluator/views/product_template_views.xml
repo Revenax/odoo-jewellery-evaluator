@@ -41,7 +41,6 @@
                                 <field name="diamond_ticket_price_usd" readonly="1" string="Ticket Price (USD)"/>
                                 <field name="diamond_sale_price_usd" readonly="1" string="Sale Price (USD)"/>
                                 <field name="diamond_sale_price_egp" readonly="1" string="Sale Price (EGP)"/>
-                                <field name="diamond_requires_manual_pricing" readonly="1" widget="boolean_toggle"/>
                             </group>
                         </group>
 
@@ -73,7 +72,6 @@
                             <field name="clarity"/>
                             <field name="unit_price_usd" readonly="1" string="Unit Price (USD)"/>
                             <field name="total_price_usd" readonly="1" string="Total Price (USD)"/>
-                            <field name="requires_manual_pricing" readonly="1" string="Manual?" widget="boolean"/>
                         </list>
                         <form>
                             <group>

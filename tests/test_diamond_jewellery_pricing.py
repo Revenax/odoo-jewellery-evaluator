@@ -68,66 +68,58 @@ class TestStoneTierPrice:
 
     def test_tier_1_lower_boundary(self):
         # 0.001 ct × $800/ct = $0.80
-        price, manual = get_stone_tier_price(_env, 0.001)
+        price = get_stone_tier_price(_env, 0.001)
         assert price == 0.80
-        assert manual is False
 
     def test_tier_1_upper_boundary(self):
         # 0.089 ct × $800/ct = $71.20
-        price, manual = get_stone_tier_price(_env, 0.089)
+        price = get_stone_tier_price(_env, 0.089)
         assert price == 71.20
-        assert manual is False
 
     def test_tier_2_lower(self):
         # 0.090 ct × $950/ct = $85.50
-        price, manual = get_stone_tier_price(_env, 0.090)
+        price = get_stone_tier_price(_env, 0.090)
         assert price == 85.50
-        assert manual is False
 
     def test_tier_2_upper(self):
         # 0.109 ct × $950/ct = $103.55
-        price, manual = get_stone_tier_price(_env, 0.109)
+        price = get_stone_tier_price(_env, 0.109)
         assert price == 103.55
-        assert manual is False
 
     def test_tier_3(self):
         # 0.130 ct × $1100/ct = $143.00
-        price, manual = get_stone_tier_price(_env, 0.130)
+        price = get_stone_tier_price(_env, 0.130)
         assert price == 143.00
-        assert manual is False
 
     def test_tier_4(self):
         # 0.175 ct × $1250/ct = $218.75
-        price, manual = get_stone_tier_price(_env, 0.175)
+        price = get_stone_tier_price(_env, 0.175)
         assert price == 218.75
-        assert manual is False
 
     def test_tier_5_lower(self):
         # 0.200 ct × $1350/ct = $270.00
-        price, manual = get_stone_tier_price(_env, 0.200)
+        price = get_stone_tier_price(_env, 0.200)
         assert price == 270.00
-        assert manual is False
 
     def test_tier_5_upper(self):
         # 0.259 ct × $1350/ct = $349.65
-        price, manual = get_stone_tier_price(_env, 0.259)
+        price = get_stone_tier_price(_env, 0.259)
         assert price == 349.65
-        assert manual is False
 
-    def test_manual_pricing_at_threshold(self):
-        price, manual = get_stone_tier_price(_env, 0.260)
-        assert price is None
-        assert manual is True
+    def test_tier_5_unlimited_above_threshold(self):
+        # 0.260 ct × $1350/ct = $351.00 (tier 5 now applies to all >= 0.200)
+        price = get_stone_tier_price(_env, 0.260)
+        assert price == 351.00
 
-    def test_manual_pricing_above_threshold(self):
-        price, manual = get_stone_tier_price(_env, 1.5)
-        assert price is None
-        assert manual is True
+    def test_tier_5_large_stone(self):
+        # 5.0 ct × $1350/ct = $6750.00
+        price = get_stone_tier_price(_env, 5.0)
+        assert price == 6750.00
 
-    def test_manual_pricing_large_stone(self):
-        price, manual = get_stone_tier_price(_env, 7.0)
-        assert price is None
-        assert manual is True
+    def test_tier_5_maximum_carat(self):
+        # 7.0 ct × $1350/ct = $9450.00
+        price = get_stone_tier_price(_env, 7.0)
+        assert price == 9450.00
 
 
 # ---------------------------------------------------------------------------

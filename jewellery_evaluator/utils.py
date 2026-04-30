@@ -246,7 +246,8 @@ def _get_diamond_config_float(env, param_suffix: str, default: float) -> float:
 
 
 # Stone carat tiers: (min_carat_inclusive, max_carat_inclusive, config_param_suffix, hardcoded_default_usd_per_carat)
-# Note: All prices are per 1.00 carat; actual stone price = tier_price_per_carat × carat_weight
+# All prices are per 1.00 carat; actual stone price = tier_price_per_carat × carat_weight
+# Tier 5 applies to all stones >= 0.200 ct (unlimited)
 _STONE_TIERS = [
     # Tier 1: 0.001–0.089 ct @ $800/ct
     (0.001, 0.089, 'diamond_stone_tier_1_usd', 800.0),
@@ -256,30 +257,29 @@ _STONE_TIERS = [
     (0.110, 0.149, 'diamond_stone_tier_3_usd', 1100.0),
     # Tier 4: 0.150–0.199 ct @ $1250/ct
     (0.150, 0.199, 'diamond_stone_tier_4_usd', 1250.0),
-    # Tier 5: 0.200–0.259 ct @ $1350/ct
-    (0.200, 0.259, 'diamond_stone_tier_5_usd', 1350.0),
+    # Tier 5: 0.200 ct and above @ $1350/ct (unlimited)
+    (0.200, 7.0, 'diamond_stone_tier_5_usd', 1350.0),
 ]
 
 
-def get_stone_tier_price(env, carat: float) -> tuple[float | None, bool]:
+def get_stone_tier_price(env, carat: float) -> float:
     """
-    Return (price_usd, requires_manual) for a stone of the given carat weight.
+    Return the USD price for a stone of the given carat weight.
 
-    Tiers 1–5 cover 0.001–0.259 ct. Prices are stored per-carat (e.g., tier 1 = $800/ct),
+    Tiers 1–5 cover 0.001+ ct. Prices are stored per-carat (e.g., tier 1 = $800/ct),
     so actual stone price = tier_price_per_carat × carat_weight.
-    Anything at or above 0.260 ct is flagged as manual pricing required.
+    Tier 5 ($1350/ct) applies to all stones >= 0.200 ct (unlimited).
 
     Example:
         For a 0.05 ct stone in Tier 1 (default $800/ct): price = $800 × 0.05 = $40.
+        For a 5.0 ct stone in Tier 5 (default $1350/ct): price = $1350 × 5.0 = $6750.
 
     Args:
         env: Odoo environment.
         carat: Stone weight in carats.
 
     Returns:
-        (price_usd, requires_manual):
-            price_usd       – float price (tier_price_per_carat × carat) when a tier matches, None otherwise.
-            requires_manual – True when carat >= 0.260.
+        float: Calculated stone price in USD (tier_price_per_carat × carat_weight).
     """
     for lo, hi, param, default in _STONE_TIERS:
         if lo <= carat <= hi:
@@ -288,9 +288,9 @@ def get_stone_tier_price(env, carat: float) -> tuple[float | None, bool]:
             adjusted_price = (Decimal(str(price_per_carat)) * Decimal(str(carat))).quantize(
                 Decimal('0.01'), rounding=ROUND_HALF_UP
             )
-            return (float(adjusted_price), False)
-    # Carat >= 0.260 (or below 0.001, though constraints block that)
-    return (None, True)
+            return float(adjusted_price)
+    # Should never reach here with valid carat (constraints ensure 0.001–7.0)
+    return 0.0
 
 
 def compute_diamond_jewellery_price(
