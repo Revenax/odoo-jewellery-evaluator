@@ -245,12 +245,18 @@ def _get_diamond_config_float(env, param_suffix: str, default: float) -> float:
         return default
 
 
-# Stone carat tiers: (min_carat_inclusive, max_carat_inclusive, config_param_suffix, hardcoded_default_usd)
+# Stone carat tiers: (min_carat_inclusive, max_carat_inclusive, config_param_suffix, hardcoded_default_usd_per_carat)
+# Note: All prices are per 1.00 carat; actual stone price = tier_price_per_carat × carat_weight
 _STONE_TIERS = [
+    # Tier 1: 0.001–0.089 ct @ $800/ct
     (0.001, 0.089, 'diamond_stone_tier_1_usd', 800.0),
+    # Tier 2: 0.090–0.109 ct @ $950/ct
     (0.090, 0.109, 'diamond_stone_tier_2_usd', 950.0),
+    # Tier 3: 0.110–0.149 ct @ $1100/ct
     (0.110, 0.149, 'diamond_stone_tier_3_usd', 1100.0),
+    # Tier 4: 0.150–0.199 ct @ $1250/ct
     (0.150, 0.199, 'diamond_stone_tier_4_usd', 1250.0),
+    # Tier 5: 0.200–0.259 ct @ $1350/ct
     (0.200, 0.259, 'diamond_stone_tier_5_usd', 1350.0),
 ]
 
@@ -259,8 +265,12 @@ def get_stone_tier_price(env, carat: float) -> tuple[float | None, bool]:
     """
     Return (price_usd, requires_manual) for a stone of the given carat weight.
 
-    Tiers 1–5 cover 0.001–0.259 ct and return a configurable USD price.
+    Tiers 1–5 cover 0.001–0.259 ct. Prices are stored per-carat (e.g., tier 1 = $800/ct),
+    so actual stone price = tier_price_per_carat × carat_weight.
     Anything at or above 0.260 ct is flagged as manual pricing required.
+
+    Example:
+        For a 0.05 ct stone in Tier 1 (default $800/ct): price = $800 × 0.05 = $40.
 
     Args:
         env: Odoo environment.
@@ -268,13 +278,17 @@ def get_stone_tier_price(env, carat: float) -> tuple[float | None, bool]:
 
     Returns:
         (price_usd, requires_manual):
-            price_usd       – float price when a tier matches, None otherwise.
+            price_usd       – float price (tier_price_per_carat × carat) when a tier matches, None otherwise.
             requires_manual – True when carat >= 0.260.
     """
     for lo, hi, param, default in _STONE_TIERS:
         if lo <= carat <= hi:
-            price = _get_diamond_config_float(env, param, default)
-            return (price, False)
+            price_per_carat = _get_diamond_config_float(env, param, default)
+            # Multiply per-carat price by actual carat weight
+            adjusted_price = (Decimal(str(price_per_carat)) * Decimal(str(carat))).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            )
+            return (float(adjusted_price), False)
     # Carat >= 0.260 (or below 0.001, though constraints block that)
     return (None, True)
 

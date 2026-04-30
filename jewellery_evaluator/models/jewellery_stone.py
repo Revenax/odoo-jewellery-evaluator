@@ -79,7 +79,7 @@ class JewelleryStone(models.Model):
         digits=(16, 2),
         compute='_compute_unit_price_usd',
         store=True,
-        help='Tier price in USD. Zero when manual pricing is required.',
+        help='Per-carat tier price × carat weight (USD). Zero when manual pricing is required.',
     )
     requires_manual_pricing = fields.Boolean(
         string='Manual Pricing?',
