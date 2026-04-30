@@ -66,11 +66,13 @@
                             </control>
                             <field name="sequence" widget="handle"/>
                             <field name="carat"/>
+                            <field name="quantity" string="Qty"/>
                             <field name="color"/>
                             <field name="cut"/>
                             <field name="shape"/>
                             <field name="clarity"/>
-                            <field name="unit_price_usd" readonly="1" string="Price (USD)"/>
+                            <field name="unit_price_usd" readonly="1" string="Unit Price (USD)"/>
+                            <field name="total_price_usd" readonly="1" string="Total Price (USD)"/>
                             <field name="requires_manual_pricing" readonly="1" string="Manual?" widget="boolean"/>
                         </list>
                         <form>

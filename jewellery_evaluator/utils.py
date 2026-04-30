@@ -319,7 +319,8 @@ def compute_diamond_jewellery_price(
         base_gold_price_21k_egp: 21K gold price per gram in EGP (from gold.price.service).
         gold_purity:             '24K', '21K', or '18K'.
         weight_g:                Gold weight in grams.
-        stone_prices_usd:        List of per-stone USD prices (exclude manual-priced stones).
+        stone_prices_usd:        List of stone total prices (unit_price × quantity) in USD.
+                                 Excludes manual-priced stones (carat ≥ 0.260 ct).
         exchange_rate_usd:       How many EGP = 1 USD.
         fee_per_gram_usd:        Fixed USD making fee per gram of gold.
         ticket_multiplier:       Multiply (gold + stones) to get ticket price.

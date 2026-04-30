@@ -73,13 +73,27 @@ class JewelleryStone(models.Model):
         string='Clarity',
         help='GIA clarity grade.',
     )
+    quantity = fields.Integer(
+        string='Qty',
+        default=1,
+        required=True,
+        help='Number of identical stones with this specification. '
+             'Avoids manual duplication when multiple stones are identical.',
+    )
 
     unit_price_usd = fields.Float(
-        string='Price (USD)',
+        string='Unit Price (USD)',
         digits=(16, 2),
         compute='_compute_unit_price_usd',
         store=True,
         help='Per-carat tier price × carat weight (USD). Zero when manual pricing is required.',
+    )
+    total_price_usd = fields.Float(
+        string='Total Price (USD)',
+        digits=(16, 2),
+        compute='_compute_unit_price_usd',
+        store=True,
+        help='Unit price × quantity (USD). Sum this across all stones to get total stones cost.',
     )
     requires_manual_pricing = fields.Boolean(
         string='Manual Pricing?',
@@ -96,9 +110,18 @@ class JewelleryStone(models.Model):
                     f'Carat must be between 0.001 and 7.000 (got {stone.carat:.3f}).'
                 )
 
-    @api.depends('carat')
+    @api.constrains('quantity')
+    def _check_quantity_positive(self):
+        for stone in self:
+            if stone.quantity < 1:
+                raise ValidationError(
+                    f'Quantity must be at least 1 (got {stone.quantity}).'
+                )
+
+    @api.depends('carat', 'quantity')
     def _compute_unit_price_usd(self):
         for stone in self:
             price, manual = get_stone_tier_price(self.env, stone.carat)
             stone.unit_price_usd = price or 0.0
+            stone.total_price_usd = (price or 0.0) * stone.quantity
             stone.requires_manual_pricing = manual

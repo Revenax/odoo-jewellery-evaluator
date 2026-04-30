@@ -195,6 +195,14 @@ class TestComputeDiamondJewelleryPrice:
         assert abs(r['total_stones_cost_usd'] - 1900.0) < 0.01
         assert abs(r['ticket_price_usd'] - 6216.0) < 0.01
 
+    def test_with_multiple_quantity_stones(self):
+        # Test that quantity multiplier works: 2 stones @ $85.50 each = $171.00 total
+        r = self._call('21K', 10.0, [171.0])
+        # 171.0 is the total price for 2 stones of 0.090 ct each
+        # gold = 320, stones = 171 → ticket = 491 * 2.8 = 1374.8
+        assert abs(r['total_stones_cost_usd'] - 171.0) < 0.01
+        assert abs(r['ticket_price_usd'] - 1374.8) < 0.01
+
     def test_sale_price_egp_round_trip(self):
         r = self._call('21K', 5.0, [950.0])
         # sale_egp should equal sale_usd * exchange_rate (within rounding)

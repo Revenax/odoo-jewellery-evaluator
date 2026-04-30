@@ -385,9 +385,9 @@ class ProductTemplate(models.Model):
                 continue
 
             valid_stone_prices = [
-                s.unit_price_usd
+                s.total_price_usd
                 for s in record.stone_ids
-                if not s.requires_manual_pricing and s.unit_price_usd > 0
+                if not s.requires_manual_pricing and s.total_price_usd > 0
             ]
             has_manual = any(
                 s.requires_manual_pricing for s in record.stone_ids)
