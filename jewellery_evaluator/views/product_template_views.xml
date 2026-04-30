@@ -6,7 +6,7 @@
         <field name="inherit_id" ref="product.product_template_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Jewellery">
+                <page string="Jewellery" name="jewellery_main">
                     <group>
                         <field name="is_gold_product" invisible="1"/>
                         <field name="is_diamond_jewellery_product" invisible="1"/>
@@ -29,7 +29,7 @@
                             </group>
                         </group>
 
-                        <!-- Diamond Jewellery -->
+                        <!-- Diamond Jewellery: Gold body + read-only pricing -->
                         <group invisible="jewellery_type != 'diamond_jewellery'">
                             <group col="2" string="Gold Body">
                                 <field name="gold_purity" string="Karat"/>
@@ -56,8 +56,9 @@
                             </group>
                         </group>
                     </group>
-                    <!-- Stones list lives at page level so the editable list works -->
-                    <field name="stone_ids" string="Stones"
+                    <!-- Stones table: outside <group> so the editable list shows "Add a line" -->
+                    <separator string="Stones" invisible="jewellery_type != 'diamond_jewellery'"/>
+                    <field name="stone_ids" nolabel="1" colspan="2"
                            invisible="jewellery_type != 'diamond_jewellery'">
                         <list editable="bottom">
                             <field name="sequence" widget="handle"/>
@@ -69,6 +70,21 @@
                             <field name="unit_price_usd" readonly="1" string="Price (USD)"/>
                             <field name="requires_manual_pricing" readonly="1" string="Manual?" widget="boolean"/>
                         </list>
+                        <form>
+                            <group>
+                                <group>
+                                    <field name="carat"/>
+                                    <field name="color"/>
+                                    <field name="clarity"/>
+                                </group>
+                                <group>
+                                    <field name="shape"/>
+                                    <field name="cut"/>
+                                    <field name="unit_price_usd" readonly="1"/>
+                                    <field name="requires_manual_pricing" readonly="1"/>
+                                </group>
+                            </group>
+                        </form>
                     </field>
                 </page>
             </xpath>
