@@ -43,18 +43,6 @@
                                 <field name="diamond_sale_price_egp" readonly="1" string="Sale Price (EGP)"/>
                                 <field name="diamond_requires_manual_pricing" readonly="1" widget="boolean_toggle"/>
                             </group>
-                            <field name="stone_ids" string="Stones" mode="list" colspan="2">
-                                <list editable="bottom">
-                                    <field name="sequence" widget="handle"/>
-                                    <field name="carat"/>
-                                    <field name="color"/>
-                                    <field name="cut"/>
-                                    <field name="shape"/>
-                                    <field name="clarity"/>
-                                    <field name="unit_price_usd" readonly="1" string="Price (USD)"/>
-                                    <field name="requires_manual_pricing" readonly="1" string="Manual?" widget="boolean"/>
-                                </list>
-                            </field>
                         </group>
 
                         <!-- Silver -->
@@ -68,6 +56,20 @@
                             </group>
                         </group>
                     </group>
+                    <!-- Stones list lives at page level so the editable list works -->
+                    <field name="stone_ids" string="Stones"
+                           invisible="jewellery_type != 'diamond_jewellery'">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="carat"/>
+                            <field name="color"/>
+                            <field name="cut"/>
+                            <field name="shape"/>
+                            <field name="clarity"/>
+                            <field name="unit_price_usd" readonly="1" string="Price (USD)"/>
+                            <field name="requires_manual_pricing" readonly="1" string="Manual?" widget="boolean"/>
+                        </list>
+                    </field>
                 </page>
             </xpath>
         </field>
