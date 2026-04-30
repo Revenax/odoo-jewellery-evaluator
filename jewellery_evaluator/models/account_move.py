@@ -41,7 +41,6 @@ class AccountMove(models.Model):
                 line.jewellery_type
                 or line.jewellery_weight_g
                 or line.gold_purity
-                or line.diamond_karat
                 or line.silver_purity
             )
         )

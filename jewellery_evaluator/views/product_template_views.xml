@@ -9,12 +9,15 @@
                 <page string="Jewellery">
                     <group>
                         <field name="is_gold_product" invisible="1"/>
-                        <field name="is_diamond_product" invisible="1"/>
+                        <field name="is_diamond_jewellery_product" invisible="1"/>
                         <field name="is_silver_product" invisible="1"/>
                         <group col="2">
                             <field name="jewellery_type"/>
-                            <field name="jewellery_weight_g"/>
+                            <field name="jewellery_weight_g"
+                                   invisible="jewellery_type == 'diamond_jewellery'"/>
                         </group>
+
+                        <!-- Gold (local / foreign / bars) -->
                         <group invisible="jewellery_type not in ('gold_local', 'gold_foreign', 'gold_bars')">
                             <group col="2">
                                 <field name="gold_purity" string="Jewellery Karat"/>
@@ -25,12 +28,36 @@
                                 <field name="gold_min_sale_price" readonly="1"/>
                             </group>
                         </group>
+
+                        <!-- Diamond Jewellery -->
                         <group invisible="jewellery_type != 'diamond_jewellery'">
-                            <group col="2">
-                                <field name="diamond_karat" string="Jewellery Karat"/>
-                                <field name="diamond_usd_price" string="Diamond USD Ticket Price"/>
+                            <group col="2" string="Gold Body">
+                                <field name="gold_purity" string="Karat"/>
+                                <field name="jewellery_weight_g" string="Gold Weight (g)"/>
                             </group>
+                            <group col="2" string="Pricing (read-only)">
+                                <field name="diamond_total_gold_cost_usd" readonly="1" string="Gold Cost (USD)"/>
+                                <field name="diamond_total_stones_cost_usd" readonly="1" string="Stones Cost (USD)"/>
+                                <field name="diamond_ticket_price_usd" readonly="1" string="Ticket Price (USD)"/>
+                                <field name="diamond_sale_price_usd" readonly="1" string="Sale Price (USD)"/>
+                                <field name="diamond_sale_price_egp" readonly="1" string="Sale Price (EGP)"/>
+                                <field name="diamond_requires_manual_pricing" readonly="1" widget="boolean_toggle"/>
+                            </group>
+                            <field name="stone_ids" string="Stones" mode="list" colspan="2">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="carat"/>
+                                    <field name="color"/>
+                                    <field name="cut"/>
+                                    <field name="shape"/>
+                                    <field name="clarity"/>
+                                    <field name="unit_price_usd" readonly="1" string="Price (USD)"/>
+                                    <field name="requires_manual_pricing" readonly="1" string="Manual?" widget="boolean"/>
+                                </list>
+                            </field>
                         </group>
+
+                        <!-- Silver -->
                         <group invisible="jewellery_type != 'silver'">
                             <group col="2">
                                 <field name="silver_purity" string="Jewellery Karat"/>
@@ -45,7 +72,7 @@
             </xpath>
         </field>
     </record>
-    
+
     <!-- List view to show jewellery pricing info -->
     <record id="product_template_list_view_jewellery_evaluator" model="ir.ui.view">
         <field name="name">product.template.list.jewellery.evaluator</field>
@@ -55,11 +82,13 @@
             <xpath expr="//field[@name='list_price']" position="after">
                 <field name="jewellery_type" optional="show"/>
                 <field name="is_gold_product" optional="hide"/>
-                <field name="is_diamond_product" optional="hide"/>
+                <field name="is_diamond_jewellery_product" optional="hide"/>
                 <field name="is_silver_product" optional="hide"/>
-                <field name="gold_min_sale_price" optional="hide" 
+                <field name="gold_min_sale_price" optional="hide"
                        invisible="not is_gold_product"/>
-                <field name="silver_min_sale_price" optional="hide" 
+                <field name="diamond_sale_price_egp" optional="hide"
+                       invisible="not is_diamond_jewellery_product"/>
+                <field name="silver_min_sale_price" optional="hide"
                        invisible="not is_silver_product"/>
             </xpath>
         </field>

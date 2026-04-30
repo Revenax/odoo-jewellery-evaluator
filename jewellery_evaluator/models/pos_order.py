@@ -63,7 +63,6 @@ class PosOrder(models.Model):
 
         line_vals['jewellery_type'] = getattr(product, 'jewellery_type', False)
         line_vals['jewellery_weight_g'] = getattr(product, 'jewellery_weight_g', 0.0) or 0.0
-        line_vals['diamond_karat'] = getattr(product, 'diamond_karat', False)
         line_vals['silver_purity'] = getattr(product, 'silver_purity', False)
 
         if not getattr(product, 'is_gold_product', False):
@@ -254,7 +253,7 @@ class PosOrder(models.Model):
             line_values, pos_order_line, move_type
         )
         jewellery_fields = [
-            'jewellery_type', 'jewellery_weight_g', 'diamond_karat', 'silver_purity',
+            'jewellery_type', 'jewellery_weight_g', 'silver_purity',
         ]
         for fname in jewellery_fields:
             if hasattr(pos_order_line, fname):
@@ -296,10 +295,6 @@ class PosOrderLine(models.Model):
         string='Jewellery Weight (g)',
         digits=(16, 2),
         help='Jewellery weight in grams at order time (copied from product).',
-    )
-    diamond_karat = fields.Char(
-        string='Diamond Karat',
-        help='Diamond karat/grade at order time (copied from product).',
     )
     silver_purity = fields.Selection(
         selection=SILVER_PURITY_SELECTION,

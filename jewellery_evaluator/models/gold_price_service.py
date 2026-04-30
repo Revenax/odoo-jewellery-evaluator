@@ -196,6 +196,18 @@ class GoldPriceService(models.Model):
                 _logger.info('Updated batch: %d products (total: %d)',
                              len(batch), total_updated)
 
+            # Also refresh diamond jewellery prices — they share the same 21K base
+            diamond_products = self.env['product.template'].search([
+                ('jewellery_type', '=', 'diamond_jewellery'),
+                ('gold_purity', '!=', False),
+                ('jewellery_weight_g', '>', 0),
+            ])
+            if diamond_products:
+                diamond_products.update_diamond_jewellery_prices(base_gold_price)
+                _logger.info(
+                    'Diamond jewellery price refresh: %d products', len(diamond_products)
+                )
+
             _logger.info(
                 'Gold price update completed: %d products updated with base price %s',
                 total_updated,

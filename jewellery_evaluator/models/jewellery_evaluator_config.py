@@ -165,21 +165,73 @@ class ResConfigSettings(models.TransientModel):
         help='Markup per gram for bars 1000g and above',
     )
 
-    global_diamond_discount = fields.Integer(
-        string='Global Diamond Discount',
-        config_parameter='jewellery_evaluator.global_diamond_discount',
-        default=40,
-        help='Discount percentage (0-80). Sale price = (USD x USD/EGP rate) x (100 - discount) / 100. E.g. 40 = 40%% off.',
+    # ── Diamond Jewellery Pricing ───────────────────────────────────────────────
+
+    diamond_exchange_rate_usd = fields.Float(
+        string='EGP → USD Exchange Rate',
+        config_parameter='jewellery_evaluator.diamond_exchange_rate_usd',
+        digits=(16, 4),
+        default=50.0,
+        help='How many EGP equal 1 USD. Used to convert gold cost and sale price for diamond jewellery.',
+    )
+    diamond_fee_per_gram_usd = fields.Float(
+        string='Making Fee per Gram (USD)',
+        config_parameter='jewellery_evaluator.diamond_fee_per_gram_usd',
+        digits=(16, 4),
+        default=17.0,
+        help='Fixed USD fee added per gram of gold on diamond jewellery products.',
+    )
+    diamond_ticket_multiplier = fields.Float(
+        string='Ticket Price Multiplier',
+        config_parameter='jewellery_evaluator.diamond_ticket_multiplier',
+        digits=(16, 4),
+        default=2.8,
+        help='Multiply (gold cost + stones cost) by this to get the ticket price in USD.',
+    )
+    diamond_ticket_discount = fields.Float(
+        string='Ticket Discount (0–1)',
+        config_parameter='jewellery_evaluator.diamond_ticket_discount',
+        digits=(16, 4),
+        default=0.20,
+        help='Fraction to discount off the ticket price. E.g. 0.20 = 20%% off. Sale = Ticket × (1 − discount).',
+    )
+    diamond_stone_tier_1_usd = fields.Float(
+        string='Stone Tier 1 Price — 0.001–0.089 ct (USD)',
+        config_parameter='jewellery_evaluator.diamond_stone_tier_1_usd',
+        digits=(16, 2),
+        default=800.0,
+    )
+    diamond_stone_tier_2_usd = fields.Float(
+        string='Stone Tier 2 Price — 0.090–0.109 ct (USD)',
+        config_parameter='jewellery_evaluator.diamond_stone_tier_2_usd',
+        digits=(16, 2),
+        default=950.0,
+    )
+    diamond_stone_tier_3_usd = fields.Float(
+        string='Stone Tier 3 Price — 0.110–0.149 ct (USD)',
+        config_parameter='jewellery_evaluator.diamond_stone_tier_3_usd',
+        digits=(16, 2),
+        default=1100.0,
+    )
+    diamond_stone_tier_4_usd = fields.Float(
+        string='Stone Tier 4 Price — 0.150–0.199 ct (USD)',
+        config_parameter='jewellery_evaluator.diamond_stone_tier_4_usd',
+        digits=(16, 2),
+        default=1250.0,
+    )
+    diamond_stone_tier_5_usd = fields.Float(
+        string='Stone Tier 5 Price — 0.200–0.259 ct (USD)',
+        config_parameter='jewellery_evaluator.diamond_stone_tier_5_usd',
+        digits=(16, 2),
+        default=1350.0,
     )
 
-    @api.constrains('global_diamond_discount')
-    def _check_global_diamond_discount(self):
+    @api.constrains('diamond_ticket_discount')
+    def _check_diamond_ticket_discount(self):
         for record in self:
-            if record.global_diamond_discount is not False and (
-                record.global_diamond_discount < 0 or record.global_diamond_discount > 80
-            ):
+            if not (0.0 <= record.diamond_ticket_discount <= 1.0):
                 raise ValidationError(
-                    'Global Diamond Discount must be between 0 and 80.'
+                    'Ticket Discount must be between 0 and 1 (e.g. 0.20 for 20%% off).'
                 )
 
     pos_config_id = fields.Many2one(

@@ -211,15 +211,70 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Diamond Jewellery Pricing -->
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <span class="o_form_label">Diamond Jewellery Pricing</span>
+                                <div class="text-muted">
+                                    Global parameters used to compute ticket and sale prices for diamond jewellery products.
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-12 col-lg-6 o_setting_box">
                             <div class="o_setting_left_pane"/>
                             <div class="o_setting_right_pane">
-                                <label for="global_diamond_discount"/>
-                                <div class="text-muted">
-                                    Discount percentage (0-80). E.g. 40 = 40% off. Sale = (USD x USD/EGP rate) x (100 - discount) / 100.
-                                </div>
+                                <label for="diamond_exchange_rate_usd"/>
+                                <div class="text-muted">EGP per 1 USD (update manually as rates change)</div>
                                 <div class="content-group">
-                                    <field name="global_diamond_discount"/>
+                                    <field name="diamond_exchange_rate_usd"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="diamond_fee_per_gram_usd"/>
+                                <div class="text-muted">Fixed USD making fee added per gram of gold</div>
+                                <div class="content-group">
+                                    <field name="diamond_fee_per_gram_usd"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="diamond_ticket_multiplier"/>
+                                <div class="text-muted">Multiply (gold + stones cost) by this to get the ticket price</div>
+                                <div class="content-group">
+                                    <field name="diamond_ticket_multiplier"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="diamond_ticket_discount"/>
+                                <div class="text-muted">Fraction off the ticket price (0–1, e.g. 0.20 = 20% off)</div>
+                                <div class="content-group">
+                                    <field name="diamond_ticket_discount"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <span class="o_form_label">Stone Tier Prices (USD per stone)</span>
+                                <div class="text-muted">Price per stone by carat range. Stones ≥ 0.260 ct require manual pricing.</div>
+                                <div class="content-group">
+                                    <field name="diamond_stone_tier_1_usd" string="Tier 1 — 0.001–0.089 ct"/>
+                                    <field name="diamond_stone_tier_2_usd" string="Tier 2 — 0.090–0.109 ct"/>
+                                    <field name="diamond_stone_tier_3_usd" string="Tier 3 — 0.110–0.149 ct"/>
+                                    <field name="diamond_stone_tier_4_usd" string="Tier 4 — 0.150–0.199 ct"/>
+                                    <field name="diamond_stone_tier_5_usd" string="Tier 5 — 0.200–0.259 ct"/>
                                 </div>
                             </div>
                         </div>

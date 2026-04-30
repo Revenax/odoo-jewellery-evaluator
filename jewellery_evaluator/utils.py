@@ -234,6 +234,125 @@ def compute_gold_product_price(
     return (float(cost), float(sale_price), float(min_sale_price))
 
 
+def _get_diamond_config_float(env, param_suffix: str, default: float) -> float:
+    """Read a single float config parameter for diamond jewellery, falling back to *default*."""
+    raw = env['ir.config_parameter'].sudo().get_param(
+        f'jewellery_evaluator.{param_suffix}', str(default)
+    )
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+# Stone carat tiers: (min_carat_inclusive, max_carat_inclusive, config_param_suffix, hardcoded_default_usd)
+_STONE_TIERS = [
+    (0.001, 0.089, 'diamond_stone_tier_1_usd', 800.0),
+    (0.090, 0.109, 'diamond_stone_tier_2_usd', 950.0),
+    (0.110, 0.149, 'diamond_stone_tier_3_usd', 1100.0),
+    (0.150, 0.199, 'diamond_stone_tier_4_usd', 1250.0),
+    (0.200, 0.259, 'diamond_stone_tier_5_usd', 1350.0),
+]
+
+
+def get_stone_tier_price(env, carat: float) -> tuple[float | None, bool]:
+    """
+    Return (price_usd, requires_manual) for a stone of the given carat weight.
+
+    Tiers 1–5 cover 0.001–0.259 ct and return a configurable USD price.
+    Anything at or above 0.260 ct is flagged as manual pricing required.
+
+    Args:
+        env: Odoo environment.
+        carat: Stone weight in carats.
+
+    Returns:
+        (price_usd, requires_manual):
+            price_usd       – float price when a tier matches, None otherwise.
+            requires_manual – True when carat >= 0.260.
+    """
+    for lo, hi, param, default in _STONE_TIERS:
+        if lo <= carat <= hi:
+            price = _get_diamond_config_float(env, param, default)
+            return (price, False)
+    # Carat >= 0.260 (or below 0.001, though constraints block that)
+    return (None, True)
+
+
+def compute_diamond_jewellery_price(
+    base_gold_price_21k_egp: float,
+    gold_purity: str,
+    weight_g: float,
+    stone_prices_usd: list[float],
+    exchange_rate_usd: float,
+    fee_per_gram_usd: float,
+    ticket_multiplier: float,
+    ticket_discount: float,
+) -> dict:
+    """
+    Compute all pricing outputs for a diamond jewellery product.
+
+    Formula
+    -------
+    Gold price per gram (USD) = (base_gold_price_21k_egp × purity_factor) / exchange_rate_usd
+    Total gold cost (USD)     = (gold_price_per_gram + fee_per_gram_usd) × weight_g
+    Total stones cost (USD)   = sum of all valid stone prices
+    Ticket price (USD)        = (gold_cost + stones_cost) × ticket_multiplier
+    Sale price (USD)          = ticket_price × (1 - ticket_discount)
+    Sale price (EGP)          = sale_price_usd × exchange_rate_usd
+
+    Args:
+        base_gold_price_21k_egp: 21K gold price per gram in EGP (from gold.price.service).
+        gold_purity:             '24K', '21K', or '18K'.
+        weight_g:                Gold weight in grams.
+        stone_prices_usd:        List of per-stone USD prices (exclude manual-priced stones).
+        exchange_rate_usd:       How many EGP = 1 USD.
+        fee_per_gram_usd:        Fixed USD making fee per gram of gold.
+        ticket_multiplier:       Multiply (gold + stones) to get ticket price.
+        ticket_discount:         Fraction discounted off the ticket (e.g. 0.20 = 20% off).
+
+    Returns:
+        dict with keys: total_gold_cost_usd, total_stones_cost_usd,
+        ticket_price_usd, sale_price_usd, sale_price_egp.
+    """
+    purity_factors = {
+        '24K': Decimal('8') / Decimal('7'),
+        '21K': Decimal('1'),
+        '18K': Decimal('7') / Decimal('8'),
+    }
+    purity_factor = purity_factors.get(gold_purity, Decimal('0'))
+    if purity_factor <= 0:
+        raise ValueError(f'Unsupported gold purity: {gold_purity!r}')
+    if exchange_rate_usd <= 0:
+        raise ValueError('Exchange rate must be greater than 0.')
+
+    base = Decimal(str(base_gold_price_21k_egp))
+    rate = Decimal(str(exchange_rate_usd))
+    fee  = Decimal(str(fee_per_gram_usd))
+    wt   = Decimal(str(weight_g))
+
+    gold_price_per_gram_usd = (base * purity_factor) / rate
+    total_gold_cost_usd = (gold_price_per_gram_usd + fee) * wt
+
+    total_stones_cost_usd = sum(Decimal(str(p)) for p in stone_prices_usd)
+
+    multiplier = Decimal(str(ticket_multiplier))
+    discount   = Decimal(str(ticket_discount))
+
+    ticket_price_usd = (total_gold_cost_usd + total_stones_cost_usd) * multiplier
+    sale_price_usd   = ticket_price_usd * (Decimal('1') - discount)
+    sale_price_egp   = sale_price_usd * rate
+
+    two_dp = Decimal('0.01')
+    return {
+        'total_gold_cost_usd':   float(total_gold_cost_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
+        'total_stones_cost_usd': float(total_stones_cost_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
+        'ticket_price_usd':      float(ticket_price_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
+        'sale_price_usd':        float(sale_price_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
+        'sale_price_egp':        float(sale_price_egp.quantize(two_dp, rounding=ROUND_HALF_UP)),
+    }
+
+
 def compute_silver_product_price(
     base_silver_999_per_gram: float,
     weight_g: float,

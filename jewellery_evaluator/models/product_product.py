@@ -16,7 +16,6 @@ class ProductProduct(models.Model):
             "jewellery_type",
             "jewellery_weight_g",
             "list_price",
-            "diamond_karat",
             "silver_purity",
             "gold_min_sale_price",
             "gold_cost_price",
@@ -26,7 +25,7 @@ class ProductProduct(models.Model):
             "gold_purity",
             "gold_type",
             "is_gold_product",
-            "is_diamond_product",
+            "is_diamond_jewellery_product",
             "is_silver_product",
         ]
         return list(dict.fromkeys([*fields, *jewellery_fields]))

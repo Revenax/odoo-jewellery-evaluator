@@ -11,17 +11,6 @@
         <field name="user_id" ref="base.user_root"/>
     </record>
 
-    <record id="ir_cron_update_diamond_prices" model="ir.cron">
-        <field name="name">Update Diamond Product Prices</field>
-        <field name="model_id" search="[('model', '=', 'diamond.price.service')]" model="ir.model"/>
-        <field name="state">code</field>
-        <field name="code">model.update_all_diamond_product_prices()</field>
-        <field name="interval_number">10</field>
-        <field name="interval_type">minutes</field>
-        <field name="active" eval="True"/>
-        <field name="user_id" ref="base.user_root"/>
-    </record>
-
     <record id="ir_cron_update_silver_prices" model="ir.cron">
         <field name="name">Update Silver Product Prices</field>
         <field name="model_id" search="[('model', '=', 'silver.price.service')]" model="ir.model"/>

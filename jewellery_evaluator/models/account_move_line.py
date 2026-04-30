@@ -44,10 +44,6 @@ class AccountMoveLine(models.Model):
         digits=(16, 2),
         help='Jewellery weight in grams for this line.',
     )
-    diamond_karat = fields.Char(
-        string='Diamond Karat',
-        help='Diamond karat/grade for this line.',
-    )
     silver_purity = fields.Selection(
         selection=SILVER_PURITY_SELECTION,
         string='Silver Purity',
@@ -94,13 +90,12 @@ class AccountMoveLine(models.Model):
         help='Making fee for this line.',
     )
 
-    @api.depends('gold_purity', 'diamond_karat', 'silver_purity', 'jewellery_weight_g', 'gold_weight_g')
+    @api.depends('gold_purity', 'silver_purity', 'jewellery_weight_g', 'gold_weight_g')
     def _compute_jewellery_display_fields(self):
         """Compute unified invoice-display fields for Karat and Weight."""
         for line in self:
             line.karat_display = (
                 line.gold_purity
-                or line.diamond_karat
                 or line.silver_purity
                 or False
             )
@@ -117,7 +112,6 @@ class AccountMoveLine(models.Model):
         Rules:
         - 24K/21K/18K -> gold_purity
         - 999.0/999.9 -> silver_purity
-        - anything else -> diamond_karat
         """
         gold_allowed = {'24K', '21K', '18K'}
         silver_allowed = {'999.0', '999.9'}
@@ -126,20 +120,16 @@ class AccountMoveLine(models.Model):
             if not value:
                 line.gold_purity = False
                 line.silver_purity = False
-                line.diamond_karat = False
                 continue
             if value in gold_allowed:
                 line.gold_purity = value
                 line.silver_purity = False
-                line.diamond_karat = False
             elif value in silver_allowed:
                 line.gold_purity = False
                 line.silver_purity = value
-                line.diamond_karat = False
             else:
                 line.gold_purity = False
                 line.silver_purity = False
-                line.diamond_karat = value
 
     def _inverse_weight_display_g(self):
         """Persist editable unified weight to both new and legacy weight fields."""

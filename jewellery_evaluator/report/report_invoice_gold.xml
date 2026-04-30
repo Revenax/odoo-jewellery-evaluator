@@ -98,10 +98,8 @@
         <xpath expr="//td[@name='account_invoice_line_name']" position="after">
             <td name="td_karat" class="text-end">
                 <span t-if="line.gold_purity" t-field="line.gold_purity"/>
-                <span t-elif="line.diamond_karat" t-field="line.diamond_karat"/>
                 <span t-elif="line.silver_purity" t-field="line.silver_purity"/>
                 <span t-elif="line.product_id.gold_purity" t-field="line.product_id.gold_purity"/>
-                <span t-elif="line.product_id.diamond_karat" t-field="line.product_id.diamond_karat"/>
                 <span t-elif="line.product_id.silver_purity" t-field="line.product_id.silver_purity"/>
             </td>
             <td name="td_weight" class="text-end">
