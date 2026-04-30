@@ -84,7 +84,6 @@
                                     <field name="shape"/>
                                     <field name="cut"/>
                                     <field name="unit_price_usd" readonly="1"/>
-                                    <field name="requires_manual_pricing" readonly="1"/>
                                 </group>
                             </group>
                         </form>

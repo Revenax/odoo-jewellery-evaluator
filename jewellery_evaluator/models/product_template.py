@@ -879,9 +879,9 @@ class ProductTemplate(models.Model):
 
         for product in diamond_products:
             valid_stone_prices = [
-                s.unit_price_usd
+                s.total_price_usd
                 for s in product.stone_ids
-                if not s.requires_manual_pricing and s.unit_price_usd > 0
+                if s.total_price_usd > 0
             ]
             try:
                 result = compute_diamond_jewellery_price(
