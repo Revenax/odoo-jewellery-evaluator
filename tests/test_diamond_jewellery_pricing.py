@@ -3,12 +3,38 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
-from jewellery_evaluator.utils import compute_diamond_jewellery_price, get_stone_tier_price
+import os
+import sys
 
+try:
+    from jewellery_evaluator_utils import (
+        compute_diamond_jewellery_price,
+        get_stone_tier_price,
+    )  # noqa: F401
+except ImportError:
+    import importlib.util
+
+    _project_root = os.path.join(os.path.dirname(__file__), '..')
+    sys.path.insert(0, os.path.abspath(_project_root))
+
+    _utils_path = os.path.join(os.path.dirname(
+        __file__), "..", "jewellery_evaluator", "utils.py")
+    _utils_path = os.path.abspath(_utils_path)
+
+    if not os.path.exists(_utils_path):
+        raise FileNotFoundError(
+            f"utils.py not found at {_utils_path}") from None
+
+    spec = importlib.util.spec_from_file_location("utils", _utils_path)
+    utils = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(utils)
+    compute_diamond_jewellery_price = utils.compute_diamond_jewellery_price
+    get_stone_tier_price = utils.get_stone_tier_price
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
 
 class _FakeICP:
     """Minimal stand-in for ir.config_parameter that returns fixed defaults."""
@@ -23,6 +49,7 @@ class _FakeEnv(dict):
             class _Sudo:
                 def get_param(self, key, default=''):
                     return default
+
             class _Model:
                 def sudo(self):
                     return _Sudo()
@@ -109,10 +136,10 @@ class TestComputeDiamondJewelleryPrice:
     """
 
     BASE_21K_EGP = 750.0   # 750 EGP/g (21K baseline)
-    RATE         = 50.0    # 50 EGP = 1 USD
-    FEE          = 17.0    # $17/g making fee
-    MULTIPLIER   = 2.8
-    DISCOUNT     = 0.20
+    RATE = 50.0    # 50 EGP = 1 USD
+    FEE = 17.0    # $17/g making fee
+    MULTIPLIER = 2.8
+    DISCOUNT = 0.20
 
     def _call(self, purity, weight, stones):
         return compute_diamond_jewellery_price(
@@ -181,7 +208,7 @@ class TestComputeDiamondJewelleryPrice:
                 ticket_multiplier=2.8,
                 ticket_discount=0.20,
             )
-            assert False, 'Expected ValueError'
+            raise AssertionError('Expected ValueError')
         except ValueError:
             pass
 
@@ -197,6 +224,6 @@ class TestComputeDiamondJewelleryPrice:
                 ticket_multiplier=2.8,
                 ticket_discount=0.20,
             )
-            assert False, 'Expected ValueError'
+            raise AssertionError('Expected ValueError')
         except ValueError:
             pass

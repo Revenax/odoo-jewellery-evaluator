@@ -328,20 +328,23 @@ def compute_diamond_jewellery_price(
 
     base = Decimal(str(base_gold_price_21k_egp))
     rate = Decimal(str(exchange_rate_usd))
-    fee  = Decimal(str(fee_per_gram_usd))
-    wt   = Decimal(str(weight_g))
+    fee = Decimal(str(fee_per_gram_usd))
+    wt = Decimal(str(weight_g))
 
     gold_price_per_gram_usd = (base * purity_factor) / rate
     total_gold_cost_usd = (gold_price_per_gram_usd + fee) * wt
 
-    total_stones_cost_usd = sum(Decimal(str(p)) for p in stone_prices_usd)
+    total_stones_cost_usd = sum(
+        (Decimal(str(p)) for p in stone_prices_usd), Decimal('0')
+    )
 
     multiplier = Decimal(str(ticket_multiplier))
-    discount   = Decimal(str(ticket_discount))
+    discount = Decimal(str(ticket_discount))
 
-    ticket_price_usd = (total_gold_cost_usd + total_stones_cost_usd) * multiplier
-    sale_price_usd   = ticket_price_usd * (Decimal('1') - discount)
-    sale_price_egp   = sale_price_usd * rate
+    ticket_price_usd = (total_gold_cost_usd +
+                        total_stones_cost_usd) * multiplier
+    sale_price_usd = ticket_price_usd * (Decimal('1') - discount)
+    sale_price_egp = sale_price_usd * rate
 
     two_dp = Decimal('0.01')
     return {

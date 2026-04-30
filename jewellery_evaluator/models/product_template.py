@@ -9,13 +9,13 @@ from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 from ..utils import (
+    _get_diamond_config_float,
     compute_diamond_jewellery_price,
     compute_gold_product_price,
     compute_silver_product_price,
     get_markup_per_gram,
     get_silver_markup_per_gram,
-    _get_diamond_config_float,
-)  # noqa: E402
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -354,19 +354,19 @@ class ProductTemplate(models.Model):
             except (TypeError, ValueError):
                 return default
 
-        exchange_rate   = _cfg('diamond_exchange_rate_usd', 50.0)
-        fee_per_gram    = _cfg('diamond_fee_per_gram_usd', 17.0)
-        multiplier      = _cfg('diamond_ticket_multiplier', 2.8)
-        discount        = _cfg('diamond_ticket_discount', 0.20)
+        exchange_rate = _cfg('diamond_exchange_rate_usd', 50.0)
+        fee_per_gram = _cfg('diamond_fee_per_gram_usd', 17.0)
+        multiplier = _cfg('diamond_ticket_multiplier', 2.8)
+        discount = _cfg('diamond_ticket_discount', 0.20)
 
-        zero = dict(
-            diamond_total_gold_cost_usd=0.0,
-            diamond_total_stones_cost_usd=0.0,
-            diamond_ticket_price_usd=0.0,
-            diamond_sale_price_usd=0.0,
-            diamond_sale_price_egp=0.0,
-            diamond_requires_manual_pricing=False,
-        )
+        zero = {
+            'diamond_total_gold_cost_usd': 0.0,
+            'diamond_total_stones_cost_usd': 0.0,
+            'diamond_ticket_price_usd': 0.0,
+            'diamond_sale_price_usd': 0.0,
+            'diamond_sale_price_egp': 0.0,
+            'diamond_requires_manual_pricing': False,
+        }
 
         for record in self:
             if not record.is_diamond_jewellery_product:
@@ -389,7 +389,8 @@ class ProductTemplate(models.Model):
                 for s in record.stone_ids
                 if not s.requires_manual_pricing and s.unit_price_usd > 0
             ]
-            has_manual = any(s.requires_manual_pricing for s in record.stone_ids)
+            has_manual = any(
+                s.requires_manual_pricing for s in record.stone_ids)
 
             try:
                 result = compute_diamond_jewellery_price(
@@ -411,11 +412,11 @@ class ProductTemplate(models.Model):
                     setattr(record, k, v)
                 continue
 
-            record.diamond_total_gold_cost_usd   = result['total_gold_cost_usd']
-            record.diamond_total_stones_cost_usd  = result['total_stones_cost_usd']
-            record.diamond_ticket_price_usd       = result['ticket_price_usd']
-            record.diamond_sale_price_usd         = result['sale_price_usd']
-            record.diamond_sale_price_egp         = result['sale_price_egp']
+            record.diamond_total_gold_cost_usd = result['total_gold_cost_usd']
+            record.diamond_total_stones_cost_usd = result['total_stones_cost_usd']
+            record.diamond_ticket_price_usd = result['ticket_price_usd']
+            record.diamond_sale_price_usd = result['sale_price_usd']
+            record.diamond_sale_price_egp = result['sale_price_egp']
             record.diamond_requires_manual_pricing = has_manual
 
     def _map_jewellery_type_to_gold_type(self, jewellery_type):
@@ -883,9 +884,9 @@ class ProductTemplate(models.Model):
                 return default
 
         exchange_rate = _cfg('diamond_exchange_rate_usd', 50.0)
-        fee_per_gram  = _cfg('diamond_fee_per_gram_usd', 17.0)
-        multiplier    = _cfg('diamond_ticket_multiplier', 2.8)
-        discount      = _cfg('diamond_ticket_discount', 0.20)
+        fee_per_gram = _cfg('diamond_fee_per_gram_usd', 17.0)
+        multiplier = _cfg('diamond_ticket_multiplier', 2.8)
+        discount = _cfg('diamond_ticket_discount', 0.20)
 
         for product in diamond_products:
             valid_stone_prices = [
