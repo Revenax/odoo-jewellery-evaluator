@@ -61,6 +61,9 @@
                     <field name="stone_ids" nolabel="1" colspan="2"
                            invisible="jewellery_type != 'diamond_jewellery'">
                         <list editable="bottom">
+                            <control>
+                                <create string="Add a stone"/>
+                            </control>
                             <field name="sequence" widget="handle"/>
                             <field name="carat"/>
                             <field name="color"/>
