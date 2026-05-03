@@ -76,16 +76,17 @@ class SilverPriceService(models.Model):
 
     def get_current_silver_price_999(self):
         """
-        Get current silver 999 price from the configured page or cache.
-        Returns silver 999 price per gram in base currency.
+        Get current silver 999 price per gram.
 
-        :return: float - Silver 999 price per gram
+        Reads the cached fallback (the last successfully scraped value). The
+        live headless-browser scrape runs only on the cron path
+        (``update_all_silver_product_prices``) so opening a product form does
+        not spawn Chrome. If you need a fresh value immediately, run the
+        scheduled action "Update Silver Prices" manually.
+
+        :return: float - Silver 999 price per gram (0.0 if not yet scraped)
         """
-        try:
-            return self._fetch_silver_price_from_web()
-        except Exception as e:
-            _logger.error('Failed to fetch silver price from web: %s', str(e))
-            return self._get_fallback_silver_price()
+        return self._get_fallback_silver_price()
 
     def _fetch_silver_price_from_web(self):
         """
@@ -200,7 +201,14 @@ class SilverPriceService(models.Model):
         _logger.info('Starting silver price update for all products')
 
         try:
-            base_silver_price = self.get_current_silver_price_999()
+            try:
+                base_silver_price = self._fetch_silver_price_from_web()
+            except Exception as e:
+                _logger.warning(
+                    'Live silver scrape failed (%s); falling back to stored value.',
+                    str(e),
+                )
+                base_silver_price = self._get_fallback_silver_price()
 
             if base_silver_price <= 0:
                 _logger.warning(

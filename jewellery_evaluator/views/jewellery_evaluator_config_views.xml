@@ -207,7 +207,7 @@
                             <div class="o_setting_right_pane">
                                 <span class="o_form_label">Silver Pricing</span>
                                 <div class="text-muted">
-                                    Configure the API source and pricing rules for silver products.
+                                    Configure the scrape source and pricing rules for silver products.
                                 </div>
                             </div>
                         </div>
@@ -240,7 +240,7 @@
                             <div class="o_setting_right_pane">
                                 <label for="silver_fallback_price"/>
                                 <div class="text-muted">
-                                    Fallback silver 999 price per gram when API is unavailable
+                                    Last successfully scraped silver 999 price per gram. Used by product computes; the scheduled scrape refreshes this value.
                                 </div>
                                 <div class="content-group">
                                     <field name="silver_fallback_price"/>
