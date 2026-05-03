@@ -46,25 +46,32 @@ OS="$(uname -s)"
 install_browser() {
   case "$OS" in
     Linux)
-      if command -v chromium-browser >/dev/null 2>&1 || \
-         command -v chromium >/dev/null 2>&1 || \
-         command -v google-chrome >/dev/null 2>&1; then
-        log "Chromium/Chrome already installed."
+      if command -v google-chrome >/dev/null 2>&1; then
+        log "google-chrome already installed: $(google-chrome --version)"
         return
       fi
       if command -v apt-get >/dev/null 2>&1; then
-        log "Installing chromium via apt-get…"
+        # Prefer Google Chrome (.deb pulls in every shared lib it needs).
+        # Ubuntu's "chromium" is a snap which fails to launch from systemd cron.
+        log "Installing google-chrome-stable from official Google repo…"
         sudo apt-get update -qq
-        sudo apt-get install -y --no-install-recommends chromium-browser \
-          || sudo apt-get install -y --no-install-recommends chromium
+        sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg
+        sudo install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+          | sudo gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+          | sudo tee /etc/apt/sources.list.d/google-chrome.list >/dev/null
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends google-chrome-stable
+        log "Installed: $(google-chrome --version)"
       elif command -v dnf >/dev/null 2>&1; then
-        log "Installing chromium via dnf…"
-        sudo dnf install -y chromium
+        log "Installing google-chrome-stable via dnf…"
+        sudo dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
       elif command -v yum >/dev/null 2>&1; then
-        log "Installing chromium via yum…"
-        sudo yum install -y chromium
+        log "Installing google-chrome-stable via yum…"
+        sudo yum install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
       else
-        err "No supported package manager (apt-get/dnf/yum). Install Chrome/Chromium manually."
+        err "No supported package manager (apt-get/dnf/yum). Install Google Chrome manually."
         exit 1
       fi
       ;;
