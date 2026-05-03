@@ -16,6 +16,8 @@ _PAGE_LOAD_TIMEOUT = 30
 
 def _create_driver():
     """Create a headless Chrome WebDriver (requires selenium + chromium)."""
+    import tempfile
+
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
 
@@ -24,6 +26,10 @@ def _create_driver():
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
+    # Unique writable profile dir — avoids "DevToolsActivePort file doesn't exist"
+    # when Chrome runs as root or when several drivers share /tmp.
+    opts.add_argument(f"--user-data-dir={tempfile.mkdtemp(prefix='chrome-silver-')}")
+    opts.add_argument("--remote-debugging-pipe")
     opts.add_experimental_option(
         "prefs",
         {

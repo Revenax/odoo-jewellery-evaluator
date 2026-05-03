@@ -99,7 +99,7 @@ fi
 # ── 4. Verify ──────────────────────────────────────────────────────────────
 log "Verifying selenium import and Chromium binary…"
 "$PY" - <<'PY'
-import selenium
+import selenium, tempfile
 print(f"selenium {selenium.__version__} OK")
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -107,6 +107,9 @@ opts = Options()
 opts.add_argument("--headless=new")
 opts.add_argument("--no-sandbox")
 opts.add_argument("--disable-dev-shm-usage")
+opts.add_argument("--disable-gpu")
+opts.add_argument(f"--user-data-dir={tempfile.mkdtemp(prefix='chrome-smoke-')}")
+opts.add_argument("--remote-debugging-pipe")
 try:
     d = webdriver.Chrome(options=opts)  # Selenium Manager fetches chromedriver
     d.quit()
