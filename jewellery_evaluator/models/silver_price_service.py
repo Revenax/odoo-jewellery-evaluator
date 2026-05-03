@@ -4,35 +4,14 @@
 # Website: https://www.revenax.com
 
 import logging
-import re
 
 from odoo import api, models
 
-from ..utils import compute_silver_product_price  # noqa: E402
+from ..utils import parse_silver_price_text  # noqa: E402
 
 _logger = logging.getLogger(__name__)
 
-# ---------- Selenium helpers (lazy-imported) ----------
-
-_SILVER_PAGE = "https://dahabmasr.com/silver-price-today-en"
-_PRICE_CELL_XPATH = (
-    "/html/body/div[3]/main/div[2]/div/div[2]/section"
-    "/div/div[2]/div[1]/table/tbody/tr[1]/td[3]"
-)
-_PRICE_NUMERIC = re.compile(r"[\d,]+(?:\.\d+)?")
-
-
-def _parse_price(text):
-    """Extract a numeric price from a string like '53.20 EGP'."""
-    if not text or not text.strip():
-        return None
-    m = _PRICE_NUMERIC.search(text.strip().replace(",", ""))
-    if not m:
-        return None
-    try:
-        return float(m.group(0).replace(",", ""))
-    except (ValueError, TypeError):
-        return None
+_PAGE_LOAD_TIMEOUT = 30
 
 
 def _create_driver():
@@ -62,30 +41,31 @@ def _create_driver():
         "--log-level=3",
     ):
         opts.add_argument(a)
-    d = webdriver.Chrome(options=opts)
-    d.implicitly_wait(10)
-    return d
+    driver = webdriver.Chrome(options=opts)
+    driver.implicitly_wait(10)
+    return driver
 
 
-def _fetch_silver_price_selenium():
+def _scrape_silver_price(page_url: str, xpath_selector: str) -> float:
     """
-    Launch headless Chrome, navigate to dahabmasr.com, and scrape silver 999
-    price. Returns float or None.
+    Launch headless Chrome, load *page_url*, wait for the element at
+    *xpath_selector* to render a non-placeholder value, then return its first
+    numeric token as a float.
     """
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
 
     driver = _create_driver()
     try:
-        driver.get(_SILVER_PAGE)
+        driver.get(page_url)
 
         def _text_ready(drv):
-            el = drv.find_element(By.XPATH, _PRICE_CELL_XPATH)
-            t = el.text.strip() if el.text else ""
-            return el if t and t != "--" else False
+            element = drv.find_element(By.XPATH, xpath_selector)
+            text = element.text.strip() if element.text else ""
+            return element if text and text != "--" else False
 
-        el = WebDriverWait(driver, 30).until(_text_ready)
-        return _parse_price(el.text)
+        element = WebDriverWait(driver, _PAGE_LOAD_TIMEOUT).until(_text_ready)
+        return parse_silver_price_text(element.text)
     finally:
         driver.quit()
 
@@ -94,40 +74,114 @@ class SilverPriceService(models.Model):
     _name = 'silver.price.service'
     _description = 'Silver Price Service'
 
-    @api.model
     def get_current_silver_price_999(self):
         """
-        Get current silver 999 price per gram.
-        Tries Selenium fetch first (like gold's API fetch); on failure or zero
-        uses stored fallback from Settings.
+        Get current silver 999 price from the configured page or cache.
+        Returns silver 999 price per gram in base currency.
+
+        :return: float - Silver 999 price per gram
         """
         try:
-            fetched = self._fetch_silver_price_from_web()
-            if fetched and fetched > 0:
-                return fetched
+            return self._fetch_silver_price_from_web()
         except Exception as e:
-            _logger.warning(
-                'Silver fetch failed, using fallback: %s', str(e))
-        return self._get_fallback_silver_price()
+            _logger.error('Failed to fetch silver price from web: %s', str(e))
+            return self._get_fallback_silver_price()
 
-    @api.model
+    def _fetch_silver_price_from_web(self):
+        """
+        Fetch silver 999 price by loading the configured page in a headless
+        browser and reading the cell at the configured XPath selector.
+
+        On success, the parsed price is written to the silver fallback parameter
+        (mirrors the gold fetch flow).
+
+        :return: float - Silver 999 price per gram
+        """
+        ICP = self.env['ir.config_parameter'].sudo()
+        page_url = ICP.get_param('jewellery_evaluator.silver_page_url', '')
+        xpath_selector = ICP.get_param(
+            'jewellery_evaluator.silver_xpath_selector', ''
+        )
+
+        if not page_url or not page_url.strip():
+            raise ValueError(
+                'Silver page URL is not configured. '
+                'Please set the "jewellery_evaluator.silver_page_url" system parameter in '
+                'Settings → Technical → Parameters → System Parameters'
+            )
+
+        if not xpath_selector or not xpath_selector.strip():
+            raise ValueError(
+                'Silver 999 XPath selector is not configured. '
+                'Please set the "jewellery_evaluator.silver_xpath_selector" system parameter in '
+                'Settings → Technical → Parameters → System Parameters'
+            )
+
+        # Validate URL is HTTP/HTTPS (mirrors gold endpoint validation)
+        has_http = page_url.startswith('http://')
+        has_https = page_url.startswith('https://')
+        if not (has_http or has_https):
+            raise ValueError(
+                'Silver page URL must be a valid HTTP/HTTPS URL. '
+                f'Current value: {page_url[:50]}...'
+            )
+
+        try:
+            price = _scrape_silver_price(page_url, xpath_selector)
+        except ImportError as e:
+            _logger.error(
+                'Selenium is not installed — cannot auto-fetch silver price. '
+                'Install with: pip install selenium'
+            )
+            raise ValueError(
+                'Silver scrape requires selenium. Install it on the Odoo host.'
+            ) from e
+        except ValueError:
+            # parse_silver_price_text already produced a useful message
+            raise
+        except Exception as e:
+            _logger.error(
+                'Selenium silver price scrape failed: %s', e, exc_info=True)
+            raise ValueError(
+                f'Silver scrape failed: {type(e).__name__}'
+            ) from e
+
+        ICP.set_param('jewellery_evaluator.silver_fallback_price', str(price))
+        _logger.info('Silver price fetched: %s; fallback price updated', price)
+        return price
+
     def _get_fallback_silver_price(self):
         """
-        Get fallback silver price from system parameters.
-        Used when Selenium fetch is unavailable or fails.
+        Get fallback silver 999 price from system parameters.
+        Used when the live scrape is unavailable.
+
+        :return: float - Fallback silver 999 price per gram (0.0 if not configured)
         """
-        raw = self.env['ir.config_parameter'].sudo().get_param(
-            'jewellery_evaluator.silver_fallback_price', '0.0'
+        fallback_price_str = self.env['ir.config_parameter'].sudo().get_param(
+            'jewellery_evaluator.silver_fallback_price',
+            '0.0'
         )
         try:
-            val = float(str(raw).replace(',', '').strip())
-            return val if val >= 0 else 0.0
+            fallback_price = float(
+                str(fallback_price_str).replace(',', '').strip()
+            )
+            if fallback_price < 0:
+                _logger.warning(
+                    'Invalid fallback silver price configured: %s. Using 0.0',
+                    fallback_price_str
+                )
+                return 0.0
+            return fallback_price
         except (ValueError, TypeError):
+            _logger.warning(
+                'Invalid fallback silver price format: %s. Using 0.0',
+                fallback_price_str
+            )
             return 0.0
 
     @api.model
     def set_silver_price_999(self, price_per_gram):
-        """Store silver 999 price. Called by Selenium script via RPC or internally."""
+        """Store silver 999 price. Available for external scripts via RPC."""
         if price_per_gram is None or price_per_gram <= 0:
             return
         self.env['ir.config_parameter'].sudo().set_param(
@@ -136,51 +190,30 @@ class SilverPriceService(models.Model):
         _logger.info('Silver 999 price updated: %s per gram', price_per_gram)
 
     @api.model
-    def _fetch_silver_price_from_web(self):
-        """
-        Fetch silver 999 price per gram from dahabmasr.com using Selenium.
-        Returns the price (float) or 0.0 on failure.
-        """
-        try:
-            price = _fetch_silver_price_selenium()
-        except ImportError:
-            _logger.warning(
-                'Selenium is not installed — cannot auto-fetch silver price. '
-                'Install with: pip install selenium'
-            )
-            return 0.0
-        except Exception as e:
-            _logger.error(
-                'Selenium silver price fetch failed: %s', e, exc_info=True)
-            return 0.0
-
-        if price is None or price <= 0:
-            _logger.warning(
-                'Silver price scrape returned invalid value: %s', price)
-            return 0.0
-
-        _logger.info('Silver 999 price fetched from web: %s', price)
-        return price
-
-    @api.model
     def update_all_silver_product_prices(self):
         """
-        Get current silver price (single entry point: Selenium or fallback),
-        then update all silver products. Called by cron every 10 minutes.
+        Update prices for all silver products.
+        Called by cron job every 10 minutes.
+
+        :return: dict - Execution summary
         """
         _logger.info('Starting silver price update for all products')
-        try:
-            base_silver = self.get_current_silver_price_999()
 
-            if base_silver <= 0:
+        try:
+            base_silver_price = self.get_current_silver_price_999()
+
+            if base_silver_price <= 0:
                 _logger.warning(
-                    'Silver price is 0 — neither Selenium nor stored value available.'
+                    'Silver price is 0 — neither live scrape nor stored fallback available.'
                 )
                 return {
-                    'success': True, 'products_updated': 0,
-                    'base_price': 0.0, 'message': 'Silver price not configured',
+                    'success': True,
+                    'products_updated': 0,
+                    'base_price': 0.0,
+                    'message': 'Silver price not configured',
                 }
-            _logger.info('Silver price: %s per gram', base_silver)
+
+            _logger.info('Fetched silver price: %s per gram', base_silver_price)
 
             silver_products = self.env['product.template'].search([
                 ('jewellery_type', '=', 'silver'),
@@ -191,22 +224,42 @@ class SilverPriceService(models.Model):
             if not silver_products:
                 _logger.info('No silver products found to update')
                 return {
-                    'success': True, 'products_updated': 0,
-                    'base_price': base_silver, 'message': 'No silver products found',
+                    'success': True,
+                    'products_updated': 0,
+                    'base_price': base_silver_price,
+                    'message': 'No silver products found',
                 }
 
-            silver_products.update_silver_prices(base_silver)
-            total = len(silver_products)
+            batch_size = 100
+            total_updated = 0
+
+            for i in range(0, len(silver_products), batch_size):
+                batch = silver_products[i:i + batch_size]
+                batch.update_silver_prices(base_silver_price)
+                total_updated += len(batch)
+                _logger.info('Updated batch: %d products (total: %d)',
+                             len(batch), total_updated)
+
             _logger.info(
-                'Silver price update completed: %d products, base %s', total, base_silver)
+                'Silver price update completed: %d products updated with base price %s',
+                total_updated,
+                base_silver_price
+            )
+
             return {
-                'success': True, 'products_updated': total,
-                'base_price': base_silver, 'message': f'Updated {total} products',
+                'success': True,
+                'products_updated': total_updated,
+                'base_price': base_silver_price,
+                'message': f'Successfully updated {total_updated} products',
             }
+
         except Exception as e:
             _logger.error('Silver price update failed: %s',
                           str(e), exc_info=True)
             return {
-                'success': False, 'products_updated': 0,
-                'base_price': None, 'message': str(e), 'error': str(e),
+                'success': False,
+                'products_updated': 0,
+                'base_price': None,
+                'message': f'Update failed: {str(e)}',
+                'error': str(e),
             }

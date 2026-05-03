@@ -154,6 +154,36 @@ def parse_gold_price_with_regex(text: str, pattern: str) -> float:
     return price
 
 
+def parse_silver_price_text(text: str) -> float:
+    """
+    Extract the first numeric value from the rendered text of a silver-price cell.
+
+    Used after a headless browser has resolved the configured XPath selector for
+    the silver 999 page; the cell typically contains text like '53.20 EGP'.
+
+    Returns:
+        float: Parsed price per gram.
+
+    Raises:
+        ValueError: When the text is empty or no positive number can be parsed.
+    """
+    if not text or not text.strip():
+        raise ValueError('Silver price cell is empty.')
+    cleaned = text.strip().replace(',', '')
+    match = re.search(r'\d+(?:\.\d+)?', cleaned)
+    if not match:
+        raise ValueError(f'No numeric value found in silver price cell: {text!r}')
+    try:
+        price = float(match.group(0))
+    except ValueError as e:
+        raise ValueError(
+            f'Silver price cell did not parse as a number: {text!r}') from e
+    if price <= 0:
+        raise ValueError(
+            f'Invalid silver price: {price} (must be greater than 0).')
+    return price
+
+
 def compute_gold_product_price(
     base_gold_price_21k: float,
     purity: str,

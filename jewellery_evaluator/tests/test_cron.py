@@ -94,15 +94,54 @@ class TestGoldPricingCron(common.TransactionCase):
         self.assertEqual(cron.interval_type, "minutes")
 
     def test_update_all_silver_product_prices_runs(self):
-        """Silver update method runs when price is set (mocked)."""
-        self.env["ir.config_parameter"].sudo().set_param(
-            "jewellery_evaluator.silver_fallback_price", "165.0"
-        )
+        """Silver update method runs without error when API is available (mocked)."""
         service = self.env["silver.price.service"]
-        result = service.update_all_silver_product_prices()
+        with mock.patch.object(
+            type(service),
+            "_fetch_silver_price_from_web",
+            return_value=165.0,
+        ):
+            result = service.update_all_silver_product_prices()
         self.assertIsInstance(result, dict)
         self.assertIn("success", result)
         self.assertIn("products_updated", result)
         self.assertIn("base_price", result)
+        self.assertIn("message", result)
         self.assertTrue(result["success"])
         self.assertEqual(result["base_price"], 165.0)
+
+    def test_update_all_silver_product_prices_skips_non_silver(self):
+        """Silver cron should update only silver jewellery types."""
+        self.env["ir.config_parameter"].sudo().set_param(
+            "jewellery_evaluator.silver_markup_per_gram", "5.0"
+        )
+        product_model = self.env["product.template"].with_context(
+            skip_gold_price_update=True,
+            skip_silver_price_update=True,
+        )
+        silver_product = product_model.create({
+            "name": "Silver Cron Product",
+            "jewellery_type": "silver",
+            "silver_purity": "999.9",
+            "jewellery_weight_g": 10.0,
+        })
+        gold_product = product_model.create({
+            "name": "Gold Cron Product",
+            "jewellery_type": "gold_local",
+            "jewellery_weight_g": 10.0,
+            "gold_purity": "21K",
+            "list_price": 1234.0,
+        })
+
+        service = self.env["silver.price.service"]
+        with mock.patch.object(
+            type(service),
+            "_fetch_silver_price_from_web",
+            return_value=165.0,
+        ):
+            service.update_all_silver_product_prices()
+
+        silver_product.invalidate_cache()
+        gold_product.invalidate_cache()
+        self.assertGreater(silver_product.list_price, 0.0)
+        self.assertEqual(gold_product.list_price, 1234.0)

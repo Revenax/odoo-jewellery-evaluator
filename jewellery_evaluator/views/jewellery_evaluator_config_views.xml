@@ -53,19 +53,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane"/>
-                            <div class="o_setting_right_pane">
-                                <span class="o_form_label">Silver</span>
-                                <div class="text-muted">
-                                    Silver 999 price (set by Selenium script). Markup per gram for silver.
-                                </div>
-                                <div class="content-group">
-                                    <field name="silver_fallback_price"/>
-                                    <field name="silver_markup_per_gram"/>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                     <div class="row mt16 o_settings_container">
                         <div class="col-12 o_setting_box">
@@ -208,6 +195,67 @@
                                 <div class="text-muted">Bars: 1000g+ (EGP/g)</div>
                                 <div class="content-group">
                                     <field name="markup_bars_1000g"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Silver Pricing -->
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <span class="o_form_label">Silver Pricing</span>
+                                <div class="text-muted">
+                                    Configure the API source and pricing rules for silver products.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="silver_page_url"/>
+                                <div class="text-muted">
+                                    URL of the page containing the silver 999 price (loaded with a headless browser)
+                                </div>
+                                <div class="content-group">
+                                    <field name="silver_page_url"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="silver_xpath_selector"/>
+                                <div class="text-muted">
+                                    XPath of the cell that holds the silver 999 price. The first numeric value in its text is used.
+                                </div>
+                                <div class="content-group">
+                                    <field name="silver_xpath_selector"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="silver_fallback_price"/>
+                                <div class="text-muted">
+                                    Fallback silver 999 price per gram when API is unavailable
+                                </div>
+                                <div class="content-group">
+                                    <field name="silver_fallback_price"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="silver_markup_per_gram"/>
+                                <div class="text-muted">
+                                    Markup per gram added on top of cost for silver products
+                                </div>
+                                <div class="content-group">
+                                    <field name="silver_markup_per_gram"/>
                                 </div>
                             </div>
                         </div>

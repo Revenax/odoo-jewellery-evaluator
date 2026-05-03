@@ -33,22 +33,6 @@ class ResConfigSettings(models.TransientModel):
              'Automatically updated to the last fetched price whenever the API returns successfully.',
     )
 
-    silver_fallback_price = fields.Float(
-        string='Silver 999 Price (EGP/g)',
-        config_parameter='jewellery_evaluator.silver_fallback_price',
-        digits=(16, 4),
-        default=0.0,
-        help='Silver 999 price per gram. Set by Selenium script (scripts/selenium_automation.py).',
-    )
-
-    silver_markup_per_gram = fields.Float(
-        string='Silver Markup per Gram (EGP/g)',
-        config_parameter='jewellery_evaluator.silver_markup_per_gram',
-        digits=(16, 4),
-        default=0.0,
-        help='Markup per gram for silver products.',
-    )
-
     markup_jewellery_local = fields.Float(
         string='Markup per Gram - Jewellery (Local)',
         config_parameter='jewellery_evaluator.markup_jewellery_local',
@@ -165,6 +149,39 @@ class ResConfigSettings(models.TransientModel):
         help='Markup per gram for bars 1000g and above',
     )
 
+    # ── Silver Pricing ──────────────────────────────────────────────────────────
+
+    silver_page_url = fields.Char(
+        string='Silver Page URL',
+        config_parameter='jewellery_evaluator.silver_page_url',
+        help='URL of the page containing the silver 999 price. Loaded with a headless '
+             'browser so JS-rendered prices are visible.',
+    )
+
+    silver_xpath_selector = fields.Char(
+        string='Silver 999 XPath Selector',
+        config_parameter='jewellery_evaluator.silver_xpath_selector',
+        help='XPath of the cell containing the silver 999 price on the configured page. '
+             'The first numeric value in the cell text is used as the price per gram.',
+    )
+
+    silver_fallback_price = fields.Float(
+        string='Fallback Silver Price',
+        config_parameter='jewellery_evaluator.silver_fallback_price',
+        digits=(16, 4),
+        default=0.0,
+        help='Fallback silver 999 price per gram when API is unavailable. '
+             'Automatically updated to the last fetched price whenever the API returns successfully.',
+    )
+
+    silver_markup_per_gram = fields.Float(
+        string='Silver Markup per Gram',
+        config_parameter='jewellery_evaluator.silver_markup_per_gram',
+        digits=(16, 4),
+        default=0.0,
+        help='Markup per gram added on top of cost for silver products.',
+    )
+
     # ── Diamond Jewellery Pricing ───────────────────────────────────────────────
 
     diamond_exchange_rate_usd = fields.Float(
@@ -279,8 +296,6 @@ class ResConfigSettings(models.TransientModel):
                 "require_customer": self.require_customer,
                 "default_to_invoice": self.pos_to_invoice_by_default,
             })
-        # Trigger silver product price recalculation when silver settings change
-        self.env['silver.price.service'].update_all_silver_product_prices()
 
     def get_markup_for_type(self, gold_type, weight_g=None):
         """
