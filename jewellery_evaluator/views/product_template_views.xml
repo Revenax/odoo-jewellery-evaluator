@@ -11,11 +11,11 @@
                         <field name="is_gold_product" invisible="1"/>
                         <field name="is_diamond_jewellery_product" invisible="1"/>
                         <field name="is_silver_product" invisible="1"/>
-                        <group col="2">
-                            <field name="jewellery_type"/>
-                            <field name="jewellery_weight_g"
-                                   invisible="jewellery_type == 'diamond_jewellery'"/>
-                        </group>
+                            <group col="2">
+                                <field name="jewellery_type"/>
+                                <field name="jewellery_weight_g"
+                                   invisible="not jewellery_type or jewellery_type == 'diamond_jewellery'"/>
+                            </group>
 
                         <!-- Gold (local / foreign / bars) -->
                         <group invisible="jewellery_type not in ('gold_local', 'gold_foreign', 'gold_bars')">
