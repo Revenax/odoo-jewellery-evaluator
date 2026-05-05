@@ -162,8 +162,10 @@ class TestComputeDiamondJewelleryPrice:
         assert abs(r['ticket_price_usd'] - 896.0) < 0.01
         # sale = 896 * 0.80 = 716.80
         assert abs(r['sale_price_usd'] - 716.80) < 0.01
-        # egp = 716.80 * 50 = 35840
-        assert abs(r['sale_price_egp'] - 35840.0) < 0.01
+        # egp = 716.80 * 50 = 35840, rounded to nearest 50 = 35850
+        assert abs(r['sale_price_egp'] - 35850.0) < 0.01
+        # Verify it's a multiple of 50 (rounded correctly)
+        assert r['sale_price_egp'] % 50 == 0
 
     def test_18k_purity_factor(self):
         r = self._call('18K', 10.0, [])
@@ -197,8 +199,10 @@ class TestComputeDiamondJewelleryPrice:
 
     def test_sale_price_egp_round_trip(self):
         r = self._call('21K', 5.0, [950.0])
-        # sale_egp should equal sale_usd * exchange_rate (within rounding)
-        assert abs(r['sale_price_egp'] - r['sale_price_usd'] * self.RATE) < 1.0
+        # sale_egp is rounded to nearest 50, so allow larger tolerance (up to ±25 from rounding)
+        assert abs(r['sale_price_egp'] - r['sale_price_usd'] * self.RATE) < 30.0
+        # Verify it's a multiple of 50 (rounded correctly)
+        assert r['sale_price_egp'] % 50 == 0
 
     def test_empty_stones_list(self):
         r = self._call('21K', 1.0, [])
