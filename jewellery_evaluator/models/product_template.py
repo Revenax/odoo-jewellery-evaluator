@@ -72,6 +72,9 @@ class ProductTemplate(models.Model):
     SILVER_PRICE_UPDATE_FIELDS = {
         'jewellery_type', 'jewellery_weight_g', 'silver_purity',
     }
+    DIAMOND_PRICE_UPDATE_FIELDS = {
+        'jewellery_type', 'jewellery_weight_g', 'gold_purity', 'stone_ids',
+    }
 
     jewellery_type = fields.Selection(
         selection=JEWELLERY_TYPE_SELECTION,
@@ -339,18 +342,7 @@ class ProductTemplate(models.Model):
         except Exception:
             base_gold_21k_egp = 0.0
 
-        ICP = self.env['ir.config_parameter'].sudo()
-
-        def _cfg(key, default):
-            try:
-                return float(ICP.get_param(f'jewellery_evaluator.{key}', str(default)))
-            except (TypeError, ValueError):
-                return default
-
-        exchange_rate = _cfg('diamond_exchange_rate_usd', 50.0)
-        fee_per_gram = _cfg('diamond_fee_per_gram_usd', 17.0)
-        multiplier = _cfg('diamond_ticket_multiplier', 2.8)
-        discount = _cfg('diamond_ticket_discount', 0.20)
+        exchange_rate, fee_per_gram, multiplier, discount = self._diamond_pricing_config()
 
         zero = {
             'diamond_total_gold_cost_usd': 0.0,
@@ -573,6 +565,58 @@ class ProductTemplate(models.Model):
         except ValueError:
             return {}
 
+    def _diamond_pricing_config(self):
+        """Return (exchange_rate, fee_per_gram, multiplier, discount) from ICP."""
+        env = self.env
+        return (
+            _get_diamond_config_float(env, 'diamond_exchange_rate_usd', 50.0),
+            _get_diamond_config_float(env, 'diamond_fee_per_gram_usd', 17.0),
+            _get_diamond_config_float(env, 'diamond_ticket_multiplier', 2.8),
+            _get_diamond_config_float(env, 'diamond_ticket_discount', 0.20),
+        )
+
+    def _get_diamond_price_update_vals(self, base_gold_21k_egp):
+        """
+        Prepare list_price update for diamond jewellery products.
+
+        :param base_gold_21k_egp: Current 21K gold price per gram in EGP.
+        :return: dict with list_price (rounded EGP sale price), or empty.
+        """
+        self.ensure_one()
+        if not self.is_diamond_jewellery_product:
+            return {}
+        if not self.gold_purity or not self.jewellery_weight_g or self.jewellery_weight_g <= 0:
+            return {}
+        if base_gold_21k_egp <= 0:
+            return {}
+
+        exchange_rate, fee_per_gram, multiplier, discount = self._diamond_pricing_config()
+        if exchange_rate <= 0:
+            return {}
+
+        valid_stone_prices = [
+            s.total_price_usd for s in self.stone_ids if s.total_price_usd > 0
+        ]
+        try:
+            result = compute_diamond_jewellery_price(
+                base_gold_price_21k_egp=base_gold_21k_egp,
+                gold_purity=self.gold_purity,
+                weight_g=self.jewellery_weight_g,
+                stone_prices_usd=valid_stone_prices,
+                exchange_rate_usd=exchange_rate,
+                fee_per_gram_usd=fee_per_gram,
+                ticket_multiplier=multiplier,
+                ticket_discount=discount,
+            )
+        except (ValueError, Exception) as e:
+            _logger.warning(
+                'Diamond price update failed for %s: %s',
+                self.display_name, e,
+            )
+            return {}
+
+        return {'list_price': result['sale_price_egp']}
+
     @api.onchange('jewellery_type', 'jewellery_weight_g')
     def _onchange_sync_gold_legacy_fields(self):
         for record in self:
@@ -605,10 +649,22 @@ class ProductTemplate(models.Model):
 
     @api.onchange('jewellery_type', 'jewellery_weight_g', 'gold_purity', 'stone_ids')
     def _onchange_diamond_jewellery_fields(self):
-        """Trigger stored compute re-evaluation when diamond jewellery inputs change in the UI."""
-        for record in self:
-            if record.is_diamond_jewellery_product:
+        """Refresh diamond computed fields and sync list_price in the UI."""
+        try:
+            gold_price_service = self.env['gold.price.service']
+            base_gold_21k_egp = gold_price_service.get_current_gold_price()
+            for record in self:
+                if not record.is_diamond_jewellery_product:
+                    continue
                 record._compute_diamond_jewellery_prices()
+                update_vals = record._get_diamond_price_update_vals(base_gold_21k_egp)
+                if update_vals:
+                    record.update(update_vals)
+        except Exception as e:
+            raise ValidationError(
+                _('Diamond price could not be updated. Please check gold price '
+                  'and diamond jewellery settings. Details: %s') % str(e)
+            ) from e
 
     @api.onchange('jewellery_type', 'jewellery_weight_g', 'silver_purity')
     def _onchange_silver_pricing_fields(self):
@@ -669,6 +725,24 @@ class ProductTemplate(models.Model):
                             record.with_context(
                                 skip_silver_price_update=True
                             ).write(update_vals)
+
+            if not self.env.context.get('skip_diamond_price_update'):
+                if any(
+                    self.DIAMOND_PRICE_UPDATE_FIELDS & vals.keys()
+                    for vals in normalized_vals_list
+                ):
+                    gold_price_service = self.env['gold.price.service']
+                    base_gold_21k_egp = gold_price_service.get_current_gold_price()
+                    for record in records:
+                        if not record.is_diamond_jewellery_product:
+                            continue
+                        update_vals = record._get_diamond_price_update_vals(
+                            base_gold_21k_egp
+                        )
+                        if update_vals:
+                            record.with_context(
+                                skip_diamond_price_update=True
+                            ).write(update_vals)
         except Exception as e:
             raise ValidationError(
                 _('Product price update failed. Please check gold/silver/diamond '
@@ -713,6 +787,23 @@ class ProductTemplate(models.Model):
                         if update_vals:
                             record.with_context(
                                 skip_silver_price_update=True
+                            ).write(update_vals)
+
+            if not self.env.context.get('skip_diamond_price_update'):
+                if self.DIAMOND_PRICE_UPDATE_FIELDS & set(normalized_vals.keys()):
+                    gold_price_service = self.env['gold.price.service']
+                    base_gold_21k_egp = (
+                        gold_price_service.get_current_gold_price()
+                    )
+                    for record in self:
+                        if not record.is_diamond_jewellery_product:
+                            continue
+                        update_vals = record._get_diamond_price_update_vals(
+                            base_gold_21k_egp
+                        )
+                        if update_vals:
+                            record.with_context(
+                                skip_diamond_price_update=True
                             ).write(update_vals)
         except Exception as e:
             raise ValidationError(
@@ -864,18 +955,7 @@ class ProductTemplate(models.Model):
         if not diamond_products:
             return
 
-        ICP = self.env['ir.config_parameter'].sudo()
-
-        def _cfg(key, default):
-            try:
-                return float(ICP.get_param(f'jewellery_evaluator.{key}', str(default)))
-            except (TypeError, ValueError):
-                return default
-
-        exchange_rate = _cfg('diamond_exchange_rate_usd', 50.0)
-        fee_per_gram = _cfg('diamond_fee_per_gram_usd', 17.0)
-        multiplier = _cfg('diamond_ticket_multiplier', 2.8)
-        discount = _cfg('diamond_ticket_discount', 0.20)
+        exchange_rate, fee_per_gram, multiplier, discount = self._diamond_pricing_config()
 
         for product in diamond_products:
             valid_stone_prices = [

@@ -391,12 +391,16 @@ def compute_diamond_jewellery_price(
     sale_price_egp = sale_price_usd * rate
 
     two_dp = Decimal('0.01')
+    round_to_50 = Decimal('50')
+    sale_price_egp = (sale_price_egp / round_to_50).quantize(
+        Decimal('1'), rounding=ROUND_HALF_UP
+    ) * round_to_50
     return {
         'total_gold_cost_usd':   float(total_gold_cost_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
         'total_stones_cost_usd': float(total_stones_cost_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
         'ticket_price_usd':      float(ticket_price_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
         'sale_price_usd':        float(sale_price_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
-        'sale_price_egp':        float(sale_price_egp.quantize(two_dp, rounding=ROUND_HALF_UP)),
+        'sale_price_egp':        float(sale_price_egp),
     }
 
 
