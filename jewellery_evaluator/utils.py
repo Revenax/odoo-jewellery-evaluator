@@ -15,6 +15,9 @@ BAR_TIER_PARAM_SUFFIXES = [
 BAR_TIER_DEFAULT_MARKUP = [200.0, 200.0, 125.0,
                            120.0, 120.0, 115.0, 100.0, 100.0, 80.0, 80.0, 80.0]
 
+# 1 (metric) carat = 0.2 grams.
+CARAT_TO_GRAM = Decimal('0.2')
+
 
 def _get_markup_bars_by_weight(env, weight_g: float) -> float:
     """
@@ -461,3 +464,75 @@ def compute_silver_product_price(
     ) * round_to_50
 
     return (float(cost), float(sale_price), float(min_sale_price))
+
+
+def compute_diamond_weight_g(stone_carat_qty: list[tuple[float, int]]) -> float:
+    """
+    Total stone weight in grams for a piece.
+
+    diamond_weight_g = sum over stones of (carat × quantity) × 0.2
+
+    Every stone counts (there is no diamond-vs-gemstone discriminator). The
+    carat→gram factor is the fixed metric carat (0.2 g).
+
+    Args:
+        stone_carat_qty: list of (carat, quantity) pairs, one per stone line.
+
+    Returns:
+        float: total stone weight in grams, rounded to 3 decimal places.
+    """
+    total_carats = sum(
+        (Decimal(str(carat)) * Decimal(str(qty)) for carat, qty in stone_carat_qty),
+        Decimal('0'),
+    )
+    grams = (total_carats * CARAT_TO_GRAM).quantize(
+        Decimal('0.001'), rounding=ROUND_HALF_UP
+    )
+    return float(grams)
+
+
+def compute_weight_reading_g(gross_weight_g: float, ticket_weight_g: float) -> float:
+    """
+    Scale reading of the finished, labelled piece.
+
+    weight_reading_g = gross_weight_g + ticket_weight_g
+
+    Args:
+        gross_weight_g: gold weight + diamond weight (grams).
+        ticket_weight_g: fixed per-piece ticket/label weight (grams).
+
+    Returns:
+        float: weight reading in grams, rounded to 3 decimal places.
+    """
+    reading = (Decimal(str(gross_weight_g)) + Decimal(str(ticket_weight_g))).quantize(
+        Decimal('0.001'), rounding=ROUND_HALF_UP
+    )
+    return float(reading)
+
+
+def compute_sku_prefix(default_code: str | None) -> str:
+    """
+    Extract the SKU prefix: the text before the first '-' in default_code.
+
+    'RING-18K-001' → 'RING'; 'PLAIN' → 'PLAIN'; '' / None → ''; '-X' → ''.
+
+    Args:
+        default_code: the product's internal reference (may be empty/None).
+
+    Returns:
+        str: the prefix, or '' when default_code is empty.
+    """
+    if not default_code:
+        return ''
+    return default_code.split('-', 1)[0]
+
+
+def get_ticket_weight_g(env) -> float:
+    """Read the per-piece ticket weight (grams) from system parameters."""
+    raw = env['ir.config_parameter'].sudo().get_param(
+        'jewellery_evaluator.ticket_weight_g', '0.06'
+    )
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.06

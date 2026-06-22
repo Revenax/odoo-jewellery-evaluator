@@ -3,4 +3,7 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
-from . import jewellery_inventory_count  # noqa: F401
+from . import (
+    jewellery_inventory_count,  # noqa: F401
+    jewellery_weight_inventory_report,  # noqa: F401
+)

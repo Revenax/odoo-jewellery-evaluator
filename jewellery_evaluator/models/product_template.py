@@ -11,10 +11,14 @@ from odoo.exceptions import ValidationError
 from ..utils import (
     _get_diamond_config_float,
     compute_diamond_jewellery_price,
+    compute_diamond_weight_g,
     compute_gold_product_price,
     compute_silver_product_price,
+    compute_sku_prefix,
+    compute_weight_reading_g,
     get_markup_per_gram,
     get_silver_markup_per_gram,
+    get_ticket_weight_g,
 )
 
 _logger = logging.getLogger(__name__)
@@ -263,6 +267,48 @@ class ProductTemplate(models.Model):
         readonly=True,
     )
 
+    # ── Weight breakdown (per piece) ───────────────────────────────────────────
+
+    diamond_weight_g = fields.Float(
+        string='Diamond Weight (g)',
+        digits=(16, 3),
+        compute='_compute_jewellery_weights',
+        store=True,
+        readonly=True,
+        help='Total stone weight: sum of (carat × qty) × 0.2 across all stones.',
+    )
+    net_gold_weight_g = fields.Float(
+        string='Net Gold Weight (g)',
+        digits=(16, 3),
+        compute='_compute_jewellery_weights',
+        store=True,
+        readonly=True,
+        help='Net gold weight = Jewellery Weight (gold metal weight, grams).',
+    )
+    gross_jewellery_weight_g = fields.Float(
+        string='Gross Jewellery Weight (g)',
+        digits=(16, 3),
+        compute='_compute_jewellery_weights',
+        store=True,
+        readonly=True,
+        help='Gross piece weight = gold weight + diamond weight (grams).',
+    )
+    weight_reading_g = fields.Float(
+        string='Weight Reading (g)',
+        digits=(16, 3),
+        compute='_compute_jewellery_weights',
+        store=True,
+        readonly=True,
+        help='Scale reading of the finished piece = gross weight + ticket weight.',
+    )
+    sku_prefix = fields.Char(
+        string='SKU Prefix',
+        compute='_compute_sku_prefix',
+        store=True,
+        index=True,
+        help='Internal reference up to the first "-". Groupable/filterable.',
+    )
+
     @api.depends('jewellery_type')
     def _compute_is_gold_product(self):
         """Mark product as gold product based on jewellery type."""
@@ -281,6 +327,46 @@ class ProductTemplate(models.Model):
         """Mark product as silver product based on jewellery type."""
         for record in self:
             record.is_silver_product = bool(record.jewellery_type == 'silver')
+
+    @api.depends('jewellery_weight_g', 'stone_ids.carat', 'stone_ids.quantity')
+    def _compute_jewellery_weights(self):
+        """Per-piece weight breakdown (net gold, diamond, gross, weight reading).
+
+        weight_reading_g also depends on the ticket_weight_g config parameter,
+        which @api.depends cannot track; changing that setting recomputes it via
+        _recompute_weight_reading_from_config().
+        """
+        ticket_weight = get_ticket_weight_g(self.env)
+        for record in self:
+            diamond_g = compute_diamond_weight_g(
+                [(s.carat, s.quantity) for s in record.stone_ids]
+            )
+            net_gold = record.jewellery_weight_g or 0.0
+            gross = net_gold + diamond_g
+            record.diamond_weight_g = diamond_g
+            record.net_gold_weight_g = net_gold
+            record.gross_jewellery_weight_g = gross
+            record.weight_reading_g = compute_weight_reading_g(gross, ticket_weight)
+
+    @api.depends('default_code')
+    def _compute_sku_prefix(self):
+        for record in self:
+            record.sku_prefix = compute_sku_prefix(record.default_code)
+
+    def _recompute_weight_reading_from_config(self):
+        """Refresh stored weight_reading_g after the ticket_weight_g setting changes.
+
+        weight_reading_g = gross_jewellery_weight_g + ticket_weight_g. Since
+        gross is already stored and config-independent, and the ticket is uniform,
+        a single SQL UPDATE is far cheaper than recomputing the ORM per record.
+        """
+        ticket = get_ticket_weight_g(self.env)
+        self.env.cr.execute(
+            "UPDATE product_template SET weight_reading_g = "
+            "ROUND(COALESCE(gross_jewellery_weight_g, 0.0)::numeric + %s::numeric, 3)",
+            (ticket,),
+        )
+        self.env['product.template'].invalidate_model(['weight_reading_g'])
 
     @api.depends('jewellery_type', 'jewellery_weight_g', 'silver_purity')
     def _compute_silver_prices(self):

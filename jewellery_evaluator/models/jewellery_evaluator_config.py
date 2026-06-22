@@ -243,6 +243,15 @@ class ResConfigSettings(models.TransientModel):
         default=1350.0,
     )
 
+    ticket_weight_g = fields.Float(
+        string='Ticket Weight per Piece (g)',
+        config_parameter='jewellery_evaluator.ticket_weight_g',
+        digits=(16, 3),
+        default=0.06,
+        help='Fixed weight (g) added per piece for the Weight Reading. '
+             'Changing this recomputes Weight Reading on all products.',
+    )
+
     @api.constrains('diamond_ticket_discount')
     def _check_diamond_ticket_discount(self):
         for record in self:
@@ -296,6 +305,9 @@ class ResConfigSettings(models.TransientModel):
                 "require_customer": self.require_customer,
                 "default_to_invoice": self.pos_to_invoice_by_default,
             })
+        # weight_reading_g depends on the ticket_weight_g config param, which
+        # @api.depends cannot track — refresh it after every settings save.
+        self.env['product.template']._recompute_weight_reading_from_config()
 
     def get_markup_for_type(self, gold_type, weight_g=None):
         """

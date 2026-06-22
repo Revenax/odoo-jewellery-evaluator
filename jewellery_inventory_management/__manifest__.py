@@ -16,10 +16,12 @@
     'website': 'https://www.revenax.com',
     'depends': [
         'jewellery_evaluator',
+        'stock',
     ],
     'data': [
         'security/ir.model.access.csv',
         'views/jewellery_inventory_count_views.xml',
+        'views/jewellery_weight_inventory_report_views.xml',
     ],
     'installable': True,
     'application': False,
