@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_jewellery_inventory_count_list" model="ir.ui.view">
+        <field name="name">jewellery.inventory.count.list</field>
+        <field name="model">jewellery.inventory.count</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="product_tmpl_id"/>
+                <field name="jewellery_type"/>
+                <field name="counted_qty"/>
+                <field name="count_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_jewellery_inventory_count_form" model="ir.ui.view">
+        <field name="name">jewellery.inventory.count.form</field>
+        <field name="model">jewellery.inventory.count</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="product_tmpl_id"/>
+                        <field name="jewellery_type"/>
+                        <field name="counted_qty"/>
+                        <field name="count_date"/>
+                    </group>
+                    <field name="note" placeholder="Notes..."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_jewellery_inventory_count" model="ir.actions.act_window">
+        <field name="name">Stock Counts</field>
+        <field name="res_model">jewellery.inventory.count</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_jewellery_inventory_root"
+              name="Jewellery Inventory"
+              sequence="90"/>
+    <menuitem id="menu_jewellery_inventory_count"
+              name="Stock Counts"
+              parent="menu_jewellery_inventory_root"
+              action="action_jewellery_inventory_count"
+              sequence="10"/>
+</odoo>

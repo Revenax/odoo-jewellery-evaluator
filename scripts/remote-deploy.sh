@@ -11,6 +11,10 @@ if [[ ! "$MODULE_NAME" =~ ^[a-z0-9_]+$ ]]; then
   exit 1
 fi
 
+# Modules that live as normal subdirectories of the repo (space-separated).
+# Unlike MODULE_NAME (the repo root itself), these are staged from $GIT_REPO_PATH/<name>.
+SUBMODULES="${SUBMODULES:-jewellery_inventory_management}"
+
 cd "$GIT_REPO_PATH" || exit 1
 [ -d .git ] || { echo "Error: not a git repo. Clone into $GIT_REPO_PATH first."; exit 1; }
 
@@ -37,7 +41,19 @@ OUT=$(mktemp)
 STAGE_ROOT=$(mktemp -d)
 trap 'rm -rf "$STAGE_ROOT" "$OUT"; sudo systemctl start odoo 2>/dev/null' EXIT
 
+# Primary module: the repo root IS the jewellery_evaluator addon (see CLAUDE.md packaging).
 ln -s "$GIT_REPO_PATH" "$STAGE_ROOT/$MODULE_NAME"
+UPGRADE_MODULES="$MODULE_NAME"
+
+# Stage each additional subdirectory module so Odoo sees it as a top-level addon.
+for sub in $SUBMODULES; do
+  if [ -f "$GIT_REPO_PATH/$sub/__manifest__.py" ]; then
+    ln -s "$GIT_REPO_PATH/$sub" "$STAGE_ROOT/$sub"
+    UPGRADE_MODULES="$UPGRADE_MODULES,$sub"
+  else
+    echo "Warning: submodule '$sub' has no __manifest__.py; skipping."
+  fi
+done
 
 EXISTING_ADDONS_PATH=$(awk -F= '/^[[:space:]]*addons_path[[:space:]]*=/{sub(/^[[:space:]]+/, "", $2); sub(/[[:space:]]+$/, "", $2); print $2; exit}' "$CONFIG")
 if [ -n "$EXISTING_ADDONS_PATH" ]; then
@@ -48,9 +64,9 @@ fi
 
 run_upgrade() {
   if [ -n "${ODOO_PYTHON:-}" ] && [ -x "$ODOO_PYTHON" ]; then
-    sudo -u odoo "$ODOO_PYTHON" "$ODOO_BIN" -u "$MODULE_NAME" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
+    sudo -u odoo "$ODOO_PYTHON" "$ODOO_BIN" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
   else
-    sudo -u odoo "$ODOO_BIN" -u "$MODULE_NAME" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
+    sudo -u odoo "$ODOO_BIN" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
   fi
 }
 run_upgrade >"$OUT" 2>&1 || { cat "$OUT"; exit 1; }
