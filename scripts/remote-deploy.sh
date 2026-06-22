@@ -45,9 +45,16 @@ trap 'rm -rf "$STAGE_ROOT" "$OUT"; sudo systemctl start odoo 2>/dev/null' EXIT
 ln -s "$GIT_REPO_PATH" "$STAGE_ROOT/$MODULE_NAME"
 UPGRADE_MODULES="$MODULE_NAME"
 
-# Stage each additional subdirectory module so Odoo sees it as a top-level addon.
+# Additional modules live as subdirectories of the repo. Because the repo root is
+# itself an addon, a nested subdir is NOT a top-level addon at runtime. The repo's
+# parent dir is on the runtime addons path (that's how MODULE_NAME is found), so make
+# each submodule a PERSISTENT sibling symlink there — this is what makes it visible to
+# "Update Apps List"/install and at runtime, not just during this upgrade. Also stage it
+# in STAGE_ROOT so the -u upgrade below sees it regardless of addons_path layout.
+ADDONS_PARENT="$(dirname "$GIT_REPO_PATH")"
 for sub in $SUBMODULES; do
   if [ -f "$GIT_REPO_PATH/$sub/__manifest__.py" ]; then
+    ln -sfn "$GIT_REPO_PATH/$sub" "$ADDONS_PARENT/$sub"
     ln -s "$GIT_REPO_PATH/$sub" "$STAGE_ROOT/$sub"
     UPGRADE_MODULES="$UPGRADE_MODULES,$sub"
   else
