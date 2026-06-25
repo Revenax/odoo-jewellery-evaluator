@@ -11,10 +11,9 @@
                 <field name="warehouse_id"/>
                 <field name="location_id"/>
                 <field name="categ_id"/>
-                <separator/>
                 <filter name="diamond_jewellery" string="Diamond Jewellery"
                         domain="[('jewellery_type', '=', 'diamond_jewellery')]"/>
-                <group expand="0" string="Group By">
+                <group string="Group By">
                     <filter name="g_warehouse" string="Warehouse" context="{'group_by': 'warehouse_id'}"/>
                     <filter name="g_location" string="Location" context="{'group_by': 'location_id'}"/>
                     <filter name="g_category" string="Category" context="{'group_by': 'categ_id'}"/>
