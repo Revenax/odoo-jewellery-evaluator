@@ -13,13 +13,11 @@
                 <field name="categ_id"/>
                 <filter name="diamond_jewellery" string="Diamond Jewellery"
                         domain="[('jewellery_type', '=', 'diamond_jewellery')]"/>
-                <group string="Group By">
-                    <filter name="g_warehouse" string="Warehouse" context="{'group_by': 'warehouse_id'}"/>
-                    <filter name="g_location" string="Location" context="{'group_by': 'location_id'}"/>
-                    <filter name="g_category" string="Category" context="{'group_by': 'categ_id'}"/>
-                    <filter name="g_prefix" string="SKU Prefix" context="{'group_by': 'sku_prefix'}"/>
-                    <filter name="g_type" string="Jewellery Type" context="{'group_by': 'jewellery_type'}"/>
-                </group>
+                <filter name="g_warehouse" string="Warehouse" context="{'group_by': 'warehouse_id'}"/>
+                <filter name="g_location" string="Location" context="{'group_by': 'location_id'}"/>
+                <filter name="g_category" string="Category" context="{'group_by': 'categ_id'}"/>
+                <filter name="g_prefix" string="SKU Prefix" context="{'group_by': 'sku_prefix'}"/>
+                <filter name="g_type" string="Jewellery Type" context="{'group_by': 'jewellery_type'}"/>
             </search>
         </field>
     </record>
