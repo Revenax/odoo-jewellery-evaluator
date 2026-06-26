@@ -128,6 +128,7 @@ class JewelleryStockCount(models.Model):
             'tag': 'jewellery_stock_count_scanner',
             'name': self.name,
             'params': {'count_id': self.id},
+            'context': {'active_id': self.id, 'count_id': self.id},
         }
 
     def action_finish(self):
