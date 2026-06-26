@@ -193,6 +193,26 @@ class GoldPriceService(models.Model):
         _logger.info('[gold-cron] started at %s', started_at)
 
         try:
+            icp = self.env['ir.config_parameter'].sudo()
+
+            def _num(key, fallback=0.0):
+                raw = icp.get_param(key)
+                try:
+                    return float(raw) if raw not in (None, False, '') else float(fallback)
+                except (TypeError, ValueError):
+                    return float(fallback)
+
+            # Capture the PAST inputs before anything changes, for the audit log.
+            # Gold's past is the cached fallback_price (the fetch below overwrites
+            # it). USD rate and (diamond) making fee are manual settings the cron
+            # never changes, so we stash each run's value in our own params and
+            # read them back next run to show the before -> after when they move.
+            new_usd = _num('jewellery_evaluator.diamond_exchange_rate_usd')
+            new_fee = _num('jewellery_evaluator.diamond_fee_per_gram_usd')
+            past_gold = _num('jewellery_evaluator.fallback_price')
+            past_usd = _num('jewellery_evaluator.gold_cron_prev_usd', new_usd)
+            past_fee = _num('jewellery_evaluator.gold_cron_prev_making_fee', new_fee)
+
             # The cron is the only path that fetches the live price; it also
             # refreshes the jewellery_evaluator.fallback_price cache used by the
             # @api.depends compute methods.
@@ -225,12 +245,18 @@ class GoldPriceService(models.Model):
                 updated += u
                 skipped += s
 
+            # Remember this run's USD / making fee so the next run can show the move.
+            icp.set_param('jewellery_evaluator.gold_cron_prev_usd', new_usd)
+            icp.set_param('jewellery_evaluator.gold_cron_prev_making_fee', new_fee)
+
             elapsed = time.perf_counter() - start
             summary = (
-                f'Gold price cron finished in {elapsed:.2f}s '
-                f'(started {started_at}) — base {base_gold_price}/g; '
+                f'Gold price cron finished in {elapsed:.2f}s (started {started_at}); '
                 f'{updated} updated, {skipped} unchanged '
-                f'(of {len(gold_products)} gold + {len(diamond_products)} diamond).'
+                f'(of {len(gold_products)} gold + {len(diamond_products)} diamond). '
+                f'Gold price {past_gold:g} -> {base_gold_price:g} EGP/g; '
+                f'USD {past_usd:g} -> {new_usd:g}; '
+                f'making fee {past_fee:g} -> {new_fee:g} USD/g.'
             )
             _logger.info('[gold-cron] %s', summary)
             if updated:
