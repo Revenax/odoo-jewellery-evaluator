@@ -204,14 +204,19 @@ class GoldPriceService(models.Model):
 
             # Capture the PAST inputs before anything changes, for the audit log.
             # Gold's past is the cached fallback_price (the fetch below overwrites
-            # it). USD rate and (diamond) making fee are manual settings the cron
-            # never changes, so we stash each run's value in our own params and
-            # read them back next run to show the before -> after when they move.
+            # it). USD rate and the gold making fees (local/foreign per-gram
+            # markup) are manual settings the cron never changes, so we stash each
+            # run's value in our own params and read them back next run to show the
+            # before -> after when they move.
             new_usd = _num('jewellery_evaluator.diamond_exchange_rate_usd')
-            new_fee = _num('jewellery_evaluator.diamond_fee_per_gram_usd')
+            new_fee_local = _num('jewellery_evaluator.markup_jewellery_local')
+            new_fee_foreign = _num('jewellery_evaluator.markup_jewellery_foreign')
             past_gold = _num('jewellery_evaluator.fallback_price')
             past_usd = _num('jewellery_evaluator.gold_cron_prev_usd', new_usd)
-            past_fee = _num('jewellery_evaluator.gold_cron_prev_making_fee', new_fee)
+            past_fee_local = _num(
+                'jewellery_evaluator.gold_cron_prev_fee_local', new_fee_local)
+            past_fee_foreign = _num(
+                'jewellery_evaluator.gold_cron_prev_fee_foreign', new_fee_foreign)
 
             # The cron is the only path that fetches the live price; it also
             # refreshes the jewellery_evaluator.fallback_price cache used by the
@@ -245,9 +250,10 @@ class GoldPriceService(models.Model):
                 updated += u
                 skipped += s
 
-            # Remember this run's USD / making fee so the next run can show the move.
+            # Remember this run's USD / making fees so the next run can show the move.
             icp.set_param('jewellery_evaluator.gold_cron_prev_usd', new_usd)
-            icp.set_param('jewellery_evaluator.gold_cron_prev_making_fee', new_fee)
+            icp.set_param('jewellery_evaluator.gold_cron_prev_fee_local', new_fee_local)
+            icp.set_param('jewellery_evaluator.gold_cron_prev_fee_foreign', new_fee_foreign)
 
             elapsed = time.perf_counter() - start
             summary = (
@@ -256,7 +262,9 @@ class GoldPriceService(models.Model):
                 f'(of {len(gold_products)} gold + {len(diamond_products)} diamond). '
                 f'Gold price {past_gold:g} -> {base_gold_price:g} EGP/g; '
                 f'USD {past_usd:g} -> {new_usd:g}; '
-                f'making fee {past_fee:g} -> {new_fee:g} USD/g.'
+                f'making fee (local/foreign) '
+                f'{past_fee_local:g}/{past_fee_foreign:g} -> '
+                f'{new_fee_local:g}/{new_fee_foreign:g} EGP/g.'
             )
             _logger.info('[gold-cron] %s', summary)
             if updated:
