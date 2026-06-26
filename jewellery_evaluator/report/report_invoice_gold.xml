@@ -34,17 +34,16 @@
                 <br/>
                 <br/>
                 <br/>
-                    <span t-if="not proforma"></span>
-                    <span t-else="">PROFORMA</span>
-                    <span t-if="o.move_type == 'out_invoice' and o.state == 'posted'">Invoice</span>
-                    <span t-elif="o.move_type == 'out_invoice' and o.state == 'draft'">Draft Invoice</span>
-                    <span t-elif="o.move_type == 'out_invoice' and o.state == 'cancel'">Cancelled Invoice</span>
-                    <span t-elif="o.move_type == 'out_refund' and o.state == 'posted'">Credit Note</span>
-                    <span t-elif="o.move_type == 'out_refund' and o.state == 'draft'">Draft Credit Note</span>
-                    <span t-elif="o.move_type == 'out_refund' and o.state == 'cancel'">Cancelled Credit Note</span>
-                    <span t-elif="o.move_type == 'in_refund'">Vendor Credit Note</span>
-                    <span t-elif="o.move_type == 'in_invoice'">Vendor Bill</span>
-                    <span t-if="o.name != '/'" t-field="o.name">INV/2023/0001</span>
+                    <!-- No "Invoice" word: show just the document number in a
+                         smaller font. Non-invoice document types keep a short
+                         qualifier so they stay distinguishable. -->
+                    <span style="font-size: 18px; font-weight: 600;">
+                        <span t-if="proforma">PROFORMA </span>
+                        <span t-elif="o.move_type == 'out_refund'">Credit Note </span>
+                        <span t-elif="o.move_type == 'in_refund'">Vendor Credit Note </span>
+                        <span t-elif="o.move_type == 'in_invoice'">Vendor Bill </span>
+                        <span t-if="o.name != '/'" t-field="o.name">INV/2023/0001</span>
+                    </span>
                 </center>
                 </span>
             </t>

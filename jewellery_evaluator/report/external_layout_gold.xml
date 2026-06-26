@@ -154,4 +154,19 @@
         </xpath>
     </template>
 
+    <!-- Blank the auto-header on the active (standard) layout.
+         Marjaan prints invoices on pre-printed letterhead, so the top of the
+         page must stay clear for the physical logo. The patched wkhtmltopdf
+         (now installed) renders page headers, which would otherwise drop the
+         company logo/address into that reserved space. We replace the header
+         div with an empty one — the `header` class is kept so wkhtmltopdf still
+         treats it as the page header (and reserves the top margin) but it
+         renders nothing. If the company's Document Layout is ever switched away
+         from "Standard", add the matching blank-header override here too. -->
+    <template id="external_layout_gold_standard_blank_header" inherit_id="web.external_layout_standard">
+        <xpath expr="//div[contains(@t-attf-class, 'header o_company')]" position="replace">
+            <div t-attf-class="header o_company_#{company.id}_layout"/>
+        </xpath>
+    </template>
+
 </odoo>
