@@ -181,8 +181,10 @@ class GoldPriceService(models.Model):
 
         Only products whose sale price moved by at least the configured threshold
         (``product.template._price_update_threshold``) are written, so a flat or
-        rounding-stable run is a cheap no-op. Logs start/end to the server log and
-        to ir.logging (Settings > Technical > Logging).
+        rounding-stable run is a cheap no-op. Every run is logged to the server
+        log; an ir.logging entry (Settings > Technical > Logging) is written only
+        when a price actually changed or on error — so 1-min no-op runs don't
+        flood the table.
 
         :return: dict - Execution summary
         """
@@ -231,7 +233,8 @@ class GoldPriceService(models.Model):
                 f'(of {len(gold_products)} gold + {len(diamond_products)} diamond).'
             )
             _logger.info('[gold-cron] %s', summary)
-            self._cron_log(summary)
+            if updated:
+                self._cron_log(summary)
 
             return {
                 'success': True,

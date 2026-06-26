@@ -343,8 +343,9 @@ class SilverPriceService(models.Model):
 
         Only products whose sale price moved by at least the configured threshold
         (``product.template._price_update_threshold``) are written, so a flat run
-        is a cheap no-op. Logs start/end to the server log and to ir.logging
-        (Settings > Technical > Logging).
+        is a cheap no-op. Every run is logged to the server log; an ir.logging
+        entry (Settings > Technical > Logging) is written only when a price
+        actually changed or on error.
 
         :return: dict - Execution summary
         """
@@ -397,7 +398,8 @@ class SilverPriceService(models.Model):
                 f'(of {len(silver_products)}).'
             )
             _logger.info('[silver-cron] %s', summary)
-            self._cron_log(summary)
+            if updated:
+                self._cron_log(summary)
 
             return {
                 'success': True,
