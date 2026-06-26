@@ -948,16 +948,36 @@ class ProductTemplate(models.Model):
                     f'Must be one of: {", ".join(sorted(self.VALID_SILVER_PURITY))}'
                 )
 
+    def _price_update_threshold(self):
+        """Minimum EGP change in a product's sale price before the cron rewrites
+        it.
+
+        Sale/min prices round to the nearest 50 EGP, so a tiny gold/silver move
+        usually produces no change at all — yet the cron used to rewrite every
+        product every run (bumping write_date, re-running the write override, and
+        churning ~650 rows). This gate makes a flat/rounding-stable run a no-op.
+
+        Tunable via system parameter ``jewellery_evaluator.price_update_threshold_egp``
+        (default 10). Applies ONLY to the cron batch updates — a user create/edit
+        always reprices regardless.
+        """
+        return float(self.env['ir.config_parameter'].sudo().get_param(
+            'jewellery_evaluator.price_update_threshold_egp', 10.0) or 10.0)
+
     def update_gold_prices(self, base_gold_price):
         """
         Update product prices based on new gold price.
         Called by cron job for batch updates.
-        Skips products missing required data (weight, purity, type).
+        Skips products missing required data, and products whose sale price moved
+        less than :meth:`_price_update_threshold`.
 
         :param base_gold_price: Current base gold price per gram
+        :return: tuple(updated_count, skipped_count)
         """
         if not self:
-            return
+            return (0, 0)
+
+        threshold = self._price_update_threshold()
 
         # Filter only gold products with all required data
         gold_products = self.filtered(
@@ -967,18 +987,14 @@ class ProductTemplate(models.Model):
             and p.jewellery_weight_g > 0
         )
 
-        if not gold_products:
-            return
-
-        # Prepare batch update values
-        update_values = []
-        skipped_count = 0
+        updated = 0
+        skipped = len(self) - len(gold_products)
 
         for product in gold_products:
             internal_gold_type = product._map_jewellery_type_to_gold_type(
                 product.jewellery_type)
             if not internal_gold_type:
-                skipped_count += 1
+                skipped += 1
                 continue
             weight_for_markup = product.jewellery_weight_g if internal_gold_type == 'bars' else None
             markup_per_gram = get_markup_per_gram(
@@ -987,7 +1003,7 @@ class ProductTemplate(models.Model):
 
             # Skip if markup not configured for this type
             if markup_per_gram <= 0:
-                skipped_count += 1
+                skipped += 1
                 continue
 
             # Use pure helper function to compute prices
@@ -998,28 +1014,24 @@ class ProductTemplate(models.Model):
                     weight_g=product.jewellery_weight_g,
                     markup_per_gram=markup_per_gram,
                 )
-                update_values.append({
-                    'record': product,
-                    'list_price': sale_price,
-                    'gold_cost_price': cost_price,
-                    'gold_min_sale_price': min_sale_price,
-                })
             except ValueError:
                 # Invalid purity or other error - skip this product
-                skipped_count += 1
+                skipped += 1
                 continue
 
-        # Log skipped products
-        if skipped_count > 0:
-            _logger.warning(
-                'Skipped %d gold products due to missing data or unconfigured markup.',
-                skipped_count
-            )
+            # Only write when the sale price actually moved enough to matter.
+            if abs(sale_price - (product.list_price or 0.0)) < threshold:
+                skipped += 1
+                continue
 
-        # Batch update using write
-        for vals in update_values:
-            product = vals.pop('record')
-            product.write(vals)
+            product.write({
+                'list_price': sale_price,
+                'gold_cost_price': cost_price,
+                'gold_min_sale_price': min_sale_price,
+            })
+            updated += 1
+
+        return (updated, skipped)
 
     def update_diamond_jewellery_prices(self, base_gold_21k_egp):
         """
@@ -1028,10 +1040,12 @@ class ProductTemplate(models.Model):
         Called by the gold cron after it updates gold products.
 
         :param base_gold_21k_egp: Current 21K gold price per gram in EGP.
+        :return: tuple(updated_count, skipped_count)
         """
         if not self:
-            return
+            return (0, 0)
 
+        threshold = self._price_update_threshold()
         diamond_products = self.filtered(
             lambda p: p.is_diamond_jewellery_product
             and p.gold_purity
@@ -1039,8 +1053,10 @@ class ProductTemplate(models.Model):
             and p.jewellery_weight_g > 0
         )
         if not diamond_products:
-            return
+            return (0, len(self))
 
+        updated = 0
+        skipped = len(self) - len(diamond_products)
         exchange_rate, fee_per_gram, multiplier, discount = self._diamond_pricing_config()
 
         for product in diamond_products:
@@ -1065,6 +1081,12 @@ class ProductTemplate(models.Model):
                     'Diamond jewellery cron price update failed for %s: %s',
                     product.display_name, e,
                 )
+                skipped += 1
+                continue
+
+            # Only write when the sale price actually moved enough to matter.
+            if abs(result['sale_price_egp'] - (product.list_price or 0.0)) < threshold:
+                skipped += 1
                 continue
 
             product.write({
@@ -1075,6 +1097,9 @@ class ProductTemplate(models.Model):
                 'diamond_sale_price_usd':         result['sale_price_usd'],
                 'diamond_sale_price_egp':         result['sale_price_egp'],
             })
+            updated += 1
+
+        return (updated, skipped)
 
     def update_silver_prices(self, base_silver_999):
         """
@@ -1082,9 +1107,11 @@ class ProductTemplate(models.Model):
         Called by cron (silver.price.service).
 
         :param base_silver_999: Silver 999 price per gram (EGP)
+        :return: tuple(updated_count, skipped_count)
         """
         if not self:
-            return
+            return (0, 0)
+        threshold = self._price_update_threshold()
         silver_products = self.filtered(
             lambda p: p.is_silver_product
             and p.silver_purity
@@ -1092,7 +1119,9 @@ class ProductTemplate(models.Model):
             and p.jewellery_weight_g > 0
         )
         if not silver_products:
-            return
+            return (0, len(self))
+        updated = 0
+        skipped = len(self) - len(silver_products)
         markup_per_gram = get_silver_markup_per_gram(self.env)
         for product in silver_products:
             try:
@@ -1101,10 +1130,17 @@ class ProductTemplate(models.Model):
                     weight_g=product.jewellery_weight_g,
                     markup_per_gram=markup_per_gram,
                 )
-                product.write({
-                    'list_price': sale_price,
-                    'silver_cost_price': cost_price,
-                    'silver_min_sale_price': min_sale_price,
-                })
             except ValueError:
+                skipped += 1
                 continue
+            # Only write when the sale price actually moved enough to matter.
+            if abs(sale_price - (product.list_price or 0.0)) < threshold:
+                skipped += 1
+                continue
+            product.write({
+                'list_price': sale_price,
+                'silver_cost_price': cost_price,
+                'silver_min_sale_price': min_sale_price,
+            })
+            updated += 1
+        return (updated, skipped)

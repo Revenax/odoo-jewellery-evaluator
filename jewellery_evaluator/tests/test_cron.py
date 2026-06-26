@@ -24,7 +24,7 @@ class TestGoldPricingCron(common.TransactionCase):
             cron.code,
             "model.update_all_gold_product_prices()",
         )
-        self.assertEqual(cron.interval_number, 10)
+        self.assertEqual(cron.interval_number, 1)
         self.assertEqual(cron.interval_type, "minutes")
 
     def test_update_all_gold_product_prices_runs(self):

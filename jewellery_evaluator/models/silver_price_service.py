@@ -4,8 +4,9 @@
 # Website: https://www.revenax.com
 
 import logging
+import time
 
-from odoo import api, models
+from odoo import api, fields, models
 
 from ..utils import parse_silver_price_text  # noqa: E402
 
@@ -197,14 +198,34 @@ class SilverPriceService(models.Model):
         _logger.info('Silver 999 price updated: %s per gram', price_per_gram)
 
     @api.model
+    def _cron_log(self, message, level='INFO'):
+        """Write a UI-visible run entry to Settings > Technical > Logging so the
+        silver cron's start/end is auditable without tailing the server log."""
+        self.env['ir.logging'].sudo().create({
+            'name': 'jewellery_evaluator.silver_price_cron',
+            'type': 'server',
+            'dbname': self.env.cr.dbname,
+            'level': level,
+            'message': message,
+            'path': self._name,
+            'func': 'update_all_silver_product_prices',
+            'line': '0',
+        })
+
     def update_all_silver_product_prices(self):
         """
-        Update prices for all silver products.
-        Called by cron job every 10 minutes.
+        Update prices for all silver products. Called by cron.
+
+        Only products whose sale price moved by at least the configured threshold
+        (``product.template._price_update_threshold``) are written, so a flat run
+        is a cheap no-op. Logs start/end to the server log and to ir.logging
+        (Settings > Technical > Logging).
 
         :return: dict - Execution summary
         """
-        _logger.info('Starting silver price update for all products')
+        start = time.perf_counter()
+        started_at = fields.Datetime.to_string(fields.Datetime.now())
+        _logger.info('[silver-cron] started at %s', started_at)
 
         try:
             try:
@@ -217,17 +238,16 @@ class SilverPriceService(models.Model):
                 base_silver_price = self._get_fallback_silver_price()
 
             if base_silver_price <= 0:
-                _logger.warning(
-                    'Silver price is 0 — neither live scrape nor stored fallback available.'
-                )
+                msg = ('Silver price cron: no price (live scrape and stored '
+                       'fallback both unavailable); nothing updated.')
+                _logger.warning('[silver-cron] %s', msg)
+                self._cron_log(msg, level='WARNING')
                 return {
                     'success': True,
                     'products_updated': 0,
                     'base_price': 0.0,
-                    'message': 'Silver price not configured',
+                    'message': msg,
                 }
-
-            _logger.info('Fetched silver price: %s per gram', base_silver_price)
 
             silver_products = self.env['product.template'].search([
                 ('jewellery_type', '=', 'silver'),
@@ -235,41 +255,42 @@ class SilverPriceService(models.Model):
                 ('jewellery_weight_g', '>', 0),
             ])
 
-            if not silver_products:
-                _logger.info('No silver products found to update')
-                return {
-                    'success': True,
-                    'products_updated': 0,
-                    'base_price': base_silver_price,
-                    'message': 'No silver products found',
-                }
-
+            updated = 0
+            skipped = 0
             batch_size = 100
-            total_updated = 0
-
             for i in range(0, len(silver_products), batch_size):
-                batch = silver_products[i:i + batch_size]
-                batch.update_silver_prices(base_silver_price)
-                total_updated += len(batch)
-                _logger.info('Updated batch: %d products (total: %d)',
-                             len(batch), total_updated)
+                u, s = silver_products[i:i + batch_size].update_silver_prices(
+                    base_silver_price)
+                updated += u
+                skipped += s
 
-            _logger.info(
-                'Silver price update completed: %d products updated with base price %s',
-                total_updated,
-                base_silver_price
+            elapsed = time.perf_counter() - start
+            summary = (
+                f'Silver price cron finished in {elapsed:.2f}s '
+                f'(started {started_at}) — base {base_silver_price}/g; '
+                f'{updated} updated, {skipped} unchanged '
+                f'(of {len(silver_products)}).'
             )
+            _logger.info('[silver-cron] %s', summary)
+            self._cron_log(summary)
 
             return {
                 'success': True,
-                'products_updated': total_updated,
+                'products_updated': updated,
+                'products_skipped': skipped,
                 'base_price': base_silver_price,
-                'message': f'Successfully updated {total_updated} products',
+                'message': summary,
             }
 
         except Exception as e:
-            _logger.error('Silver price update failed: %s',
-                          str(e), exc_info=True)
+            elapsed = time.perf_counter() - start
+            msg = (f'Silver price cron FAILED after {elapsed:.2f}s '
+                   f'(started {started_at}): {e}')
+            _logger.error('[silver-cron] %s', msg, exc_info=True)
+            try:
+                self._cron_log(msg, level='ERROR')
+            except Exception:
+                pass
             return {
                 'success': False,
                 'products_updated': 0,

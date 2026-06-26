@@ -4,9 +4,10 @@
 # Website: https://www.revenax.com
 
 import logging
+import time
 
 import requests
-from odoo import api, models
+from odoo import api, fields, models
 
 from ..utils import parse_gold_price_with_regex  # noqa: E402
 
@@ -159,78 +160,96 @@ class GoldPriceService(models.Model):
             )
             return 75.0
 
+    def _cron_log(self, message, level='INFO'):
+        """Write a UI-visible run entry to Settings > Technical > Logging so the
+        gold cron's start/end is auditable without tailing the server log."""
+        self.env['ir.logging'].sudo().create({
+            'name': 'jewellery_evaluator.gold_price_cron',
+            'type': 'server',
+            'dbname': self.env.cr.dbname,
+            'level': level,
+            'message': message,
+            'path': self._name,
+            'func': 'update_all_gold_product_prices',
+            'line': '0',
+        })
+
     @api.model
     def update_all_gold_product_prices(self):
         """
-        Update prices for all gold products.
-        Called by cron job every 10 minutes.
+        Update prices for all gold and diamond products. Called by cron.
+
+        Only products whose sale price moved by at least the configured threshold
+        (``product.template._price_update_threshold``) are written, so a flat or
+        rounding-stable run is a cheap no-op. Logs start/end to the server log and
+        to ir.logging (Settings > Technical > Logging).
 
         :return: dict - Execution summary
         """
-        _logger.info('Starting gold price update for all products')
+        start = time.perf_counter()
+        started_at = fields.Datetime.to_string(fields.Datetime.now())
+        _logger.info('[gold-cron] started at %s', started_at)
 
         try:
-            # Fetch current gold price
+            # The cron is the only path that fetches the live price; it also
+            # refreshes the jewellery_evaluator.fallback_price cache used by the
+            # @api.depends compute methods.
             base_gold_price = self._fetch_gold_price_from_api()
-            _logger.info('Fetched gold price: %s per gram', base_gold_price)
 
-            # Get all gold products with required data
-            # Only update products that have weight, purity, and type configured
             gold_products = self.env['product.template'].search([
                 ('jewellery_type', 'in', [
                  'gold_local', 'gold_foreign', 'gold_bars']),
                 ('gold_purity', '!=', False),
                 ('jewellery_weight_g', '>', 0),
             ])
-
-            if not gold_products:
-                _logger.info('No gold products found to update')
-                return {
-                    'success': True,
-                    'products_updated': 0,
-                    'base_price': base_gold_price,
-                    'message': 'No gold products found',
-                }
-
-            # Update prices in batches for performance
-            batch_size = 100
-            total_updated = 0
-
-            for i in range(0, len(gold_products), batch_size):
-                batch = gold_products[i:i + batch_size]
-                batch.update_gold_prices(base_gold_price)
-                total_updated += len(batch)
-                _logger.info('Updated batch: %d products (total: %d)',
-                             len(batch), total_updated)
-
-            # Also refresh diamond jewellery prices — they share the same 21K base
+            # Diamonds share the same 21K base, so refresh them in the same run.
             diamond_products = self.env['product.template'].search([
                 ('jewellery_type', '=', 'diamond_jewellery'),
                 ('gold_purity', '!=', False),
                 ('jewellery_weight_g', '>', 0),
             ])
-            if diamond_products:
-                diamond_products.update_diamond_jewellery_prices(base_gold_price)
-                _logger.info(
-                    'Diamond jewellery price refresh: %d products', len(diamond_products)
-                )
 
-            _logger.info(
-                'Gold price update completed: %d products updated with base price %s',
-                total_updated,
-                base_gold_price
+            updated = 0
+            skipped = 0
+            batch_size = 100
+            for i in range(0, len(gold_products), batch_size):
+                u, s = gold_products[i:i + batch_size].update_gold_prices(
+                    base_gold_price)
+                updated += u
+                skipped += s
+            for i in range(0, len(diamond_products), batch_size):
+                u, s = diamond_products[i:i + batch_size].update_diamond_jewellery_prices(
+                    base_gold_price)
+                updated += u
+                skipped += s
+
+            elapsed = time.perf_counter() - start
+            summary = (
+                f'Gold price cron finished in {elapsed:.2f}s '
+                f'(started {started_at}) — base {base_gold_price}/g; '
+                f'{updated} updated, {skipped} unchanged '
+                f'(of {len(gold_products)} gold + {len(diamond_products)} diamond).'
             )
+            _logger.info('[gold-cron] %s', summary)
+            self._cron_log(summary)
 
             return {
                 'success': True,
-                'products_updated': total_updated,
+                'products_updated': updated,
+                'products_skipped': skipped,
                 'base_price': base_gold_price,
-                'message': f'Successfully updated {total_updated} products',
+                'message': summary,
             }
 
         except Exception as e:
-            _logger.error('Gold price update failed: %s',
-                          str(e), exc_info=True)
+            elapsed = time.perf_counter() - start
+            msg = (f'Gold price cron FAILED after {elapsed:.2f}s '
+                   f'(started {started_at}): {e}')
+            _logger.error('[gold-cron] %s', msg, exc_info=True)
+            try:
+                self._cron_log(msg, level='ERROR')
+            except Exception:
+                pass
             return {
                 'success': False,
                 'products_updated': 0,
