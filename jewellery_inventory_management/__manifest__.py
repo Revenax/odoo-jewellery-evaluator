@@ -1,6 +1,6 @@
 {
     'name': 'Jewellery Inventory Management',
-    'version': '19.0.1.0.0',
+    'version': '19.0.2.0.0',
     'category': 'Inventory/Inventory',
     'summary': 'Stock counts for jewellery products (extends Jewellery Evaluator)',
     'description': """
@@ -20,9 +20,17 @@
     ],
     'data': [
         'security/ir.model.access.csv',
+        'views/jewellery_stock_count_views.xml',
         'views/jewellery_inventory_count_views.xml',
         'views/jewellery_weight_inventory_report_views.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'jewellery_inventory_management/static/src/scss/stock_count_scanner.scss',
+            'jewellery_inventory_management/static/src/js/stock_count_scanner.js',
+            'jewellery_inventory_management/static/src/xml/stock_count_scanner.xml',
+        ],
+    },
     'installable': True,
     'application': False,
     'auto_install': False,

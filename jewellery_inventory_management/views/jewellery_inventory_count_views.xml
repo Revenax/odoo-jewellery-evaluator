@@ -45,6 +45,6 @@
     <menuitem id="menu_jewellery_inventory_count"
               name="Stock Counts"
               parent="menu_jewellery_inventory_root"
-              action="action_jewellery_inventory_count"
+              action="action_jewellery_stock_count"
               sequence="10"/>
 </odoo>

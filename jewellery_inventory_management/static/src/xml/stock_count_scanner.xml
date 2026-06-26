@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jewellery_inventory_management.StockCountScanner">
+        <div class="o_jsc_scanner p-3">
+            <t t-if="!state.loaded">
+                <div class="text-muted p-4">Loading…</div>
+            </t>
+            <t t-else="">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h2 class="mb-2" t-esc="state.name"/>
+                        <span class="badge text-bg-info me-1">
+                            <i class="fa fa-tag me-1"/><t t-esc="state.prefix"/>
+                        </span>
+                        <span class="badge text-bg-light">
+                            <i class="fa fa-building me-1"/><t t-esc="state.scope"/>
+                        </span>
+                    </div>
+                    <span t-att-class="state.countState === 'done' ? 'badge text-bg-success' : 'badge text-bg-warning'">
+                        <t t-esc="state.countState === 'done' ? 'Done' : 'In progress'"/>
+                    </span>
+                </div>
+
+                <div class="o_jsc_scanbox mb-2">
+                    <i class="fa fa-barcode o_jsc_scanicon"/>
+                    <input t-ref="scan" type="text" class="form-control o_jsc_scan"
+                           placeholder="Scan barcode…" autocomplete="off"
+                           t-on-keydown="onKeydown"/>
+                </div>
+
+                <div t-if="state.last" t-att-class="'o_jsc_banner mb-3 ' + banner.cls">
+                    <i t-att-class="'fa me-2 ' + banner.icon"/>
+                    <span><b t-esc="state.last.sku"/> — <t t-esc="state.last.message"/></span>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <span><t t-esc="state.stats.found"/> of <t t-esc="state.stats.expected"/> counted</span>
+                        <span><t t-esc="state.stats.progress"/>%</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" t-attf-style="width: {{ state.stats.progress }}%;"/>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col">
+                        <div class="o_jsc_metric">
+                            <div class="o_jsc_metric_l">Expected</div>
+                            <div class="o_jsc_metric_v" t-esc="state.stats.expected"/>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="o_jsc_metric o_jsc_m_ok">
+                            <div class="o_jsc_metric_l">Found</div>
+                            <div class="o_jsc_metric_v" t-esc="state.stats.found"/>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="o_jsc_metric o_jsc_m_warn">
+                            <div class="o_jsc_metric_l">Missing</div>
+                            <div class="o_jsc_metric_v" t-esc="state.stats.missing"/>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="o_jsc_metric o_jsc_m_err">
+                            <div class="o_jsc_metric_l">Unexpected</div>
+                            <div class="o_jsc_metric_v" t-esc="state.stats.unexpected"/>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="o_jsc_list">
+                            <div class="o_jsc_list_h text-warning">
+                                <i class="fa fa-search me-1"/>Still to find · <t t-esc="toFind.length"/>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1">
+                                <t t-foreach="toFind.slice(0, 24)" t-as="l" t-key="l.id">
+                                    <span class="badge text-bg-warning font-monospace" t-esc="l.sku"/>
+                                </t>
+                                <span t-if="toFind.length > 24" class="text-muted small">
+                                    +<t t-esc="toFind.length - 24"/> more
+                                </span>
+                                <span t-if="!toFind.length" class="text-success small">
+                                    <i class="fa fa-check me-1"/>All found
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="o_jsc_list">
+                            <div class="o_jsc_list_h text-success">
+                                <i class="fa fa-check me-1"/>Counted · <t t-esc="found.length"/>
+                            </div>
+                            <t t-foreach="found.slice(0, 12)" t-as="l" t-key="l.id">
+                                <div class="d-flex justify-content-between small">
+                                    <span class="font-monospace" t-esc="l.sku"/>
+                                    <span class="text-muted" t-esc="l.scanned_at"/>
+                                </div>
+                            </t>
+                            <div t-if="found.length > 12" class="text-muted small">
+                                +<t t-esc="found.length - 12"/> more
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div t-if="unexpected.length" class="o_jsc_list o_jsc_list_err mt-2">
+                    <div class="o_jsc_list_h text-danger">
+                        <i class="fa fa-exclamation-triangle me-1"/>Unexpected · <t t-esc="unexpected.length"/>
+                    </div>
+                    <t t-foreach="unexpected" t-as="l" t-key="l.id">
+                        <div class="d-flex justify-content-between small">
+                            <span class="font-monospace" t-esc="l.sku"/>
+                            <span class="text-muted" t-esc="l.reason"/>
+                        </div>
+                    </t>
+                </div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <button class="btn btn-primary" t-on-click="finish">
+                        <i class="fa fa-flag-checkered me-1"/>Finish count
+                    </button>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>

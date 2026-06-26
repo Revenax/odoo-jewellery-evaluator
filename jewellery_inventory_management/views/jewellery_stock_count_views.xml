@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_jewellery_stock_count" model="ir.sequence">
+        <field name="name">Jewellery Stock Count</field>
+        <field name="code">jewellery.stock.count</field>
+        <field name="prefix">SC/</field>
+        <field name="padding">4</field>
+        <field name="number_increment">1</field>
+    </record>
+
+    <record id="view_jewellery_stock_count_list" model="ir.ui.view">
+        <field name="name">jewellery.stock.count.list</field>
+        <field name="model">jewellery.stock.count</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state == 'done'" decoration-info="state == 'in_progress'">
+                <field name="name"/>
+                <field name="sku_prefix"/>
+                <field name="warehouse_id" optional="show"/>
+                <field name="location_id" optional="show"/>
+                <field name="found_count" string="Found"/>
+                <field name="expected_count" string="Expected"/>
+                <field name="missing_count" string="Missing"/>
+                <field name="unexpected_count" string="Unexpected"/>
+                <field name="progress" widget="progressbar"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'in_progress'"
+                       decoration-success="state == 'done'"/>
+                <field name="user_id" optional="hide"/>
+                <field name="start_date" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_jewellery_stock_count_form" model="ir.ui.view">
+        <field name="name">jewellery.stock.count.form</field>
+        <field name="model">jewellery.stock.count</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_start" type="object" string="Start scanning"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_open_scanner" type="object" string="Resume scanning"
+                            class="btn-primary" invisible="state != 'in_progress'"/>
+                    <button name="action_finish" type="object" string="Finish"
+                            invisible="state != 'in_progress'"/>
+                    <button name="action_reset_to_draft" type="object" string="Reset to draft"
+                            invisible="state == 'draft'"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="What to count">
+                            <field name="sku_prefix" placeholder="e.g. GBF8"
+                                   readonly="state != 'draft'"/>
+                            <field name="warehouse_id" readonly="state != 'draft'"/>
+                            <field name="location_id" readonly="state != 'draft'"
+                                   placeholder="Leave empty for the whole warehouse"/>
+                        </group>
+                        <group string="Result">
+                            <field name="expected_count"/>
+                            <field name="found_count"/>
+                            <field name="missing_count"/>
+                            <field name="unexpected_count"/>
+                            <field name="progress" widget="progressbar"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="user_id"/>
+                        <field name="start_date"/>
+                        <field name="end_date"/>
+                    </group>
+                    <notebook>
+                        <page string="Lines">
+                            <field name="line_ids" readonly="1">
+                                <list decoration-success="status == 'found'"
+                                      decoration-warning="status == 'to_find'"
+                                      decoration-danger="status == 'unexpected'">
+                                    <field name="default_code" string="SKU"/>
+                                    <field name="status" widget="badge"/>
+                                    <field name="reason"/>
+                                    <field name="scanned_at"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notes">
+                            <field name="note" placeholder="Notes..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_jewellery_stock_count_search" model="ir.ui.view">
+        <field name="name">jewellery.stock.count.search</field>
+        <field name="model">jewellery.stock.count</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="sku_prefix"/>
+                <field name="warehouse_id"/>
+                <field name="location_id"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="in_progress" string="In Progress" domain="[('state', '=', 'in_progress')]"/>
+                <filter name="done" string="Done" domain="[('state', '=', 'done')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="g_prefix" string="SKU Prefix" context="{'group_by': 'sku_prefix'}"/>
+                    <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_jewellery_stock_count" model="ir.actions.act_window">
+        <field name="name">Stock Counts</field>
+        <field name="res_model">jewellery.stock.count</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Start a stock count</p>
+            <p>Pick a SKU prefix and a warehouse or location, then scan every
+               piece on hand with a barcode scanner.</p>
+        </field>
+    </record>
+</odoo>
