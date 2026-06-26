@@ -99,7 +99,8 @@ def _resolve_chromedriver(browser_path: str) -> str | None:
         out = subprocess.run(
             args, capture_output=True, text=True, timeout=120, check=True,
         )
-        return json.loads(out.stdout).get('result', {}).get('driver_path')
+        driver_path = json.loads(out.stdout).get('result', {}).get('driver_path')
+        return driver_path if isinstance(driver_path, str) else None
     except (subprocess.SubprocessError, json.JSONDecodeError, OSError):
         return None
 
