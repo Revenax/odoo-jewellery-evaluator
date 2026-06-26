@@ -10,7 +10,7 @@
                  letterhead logo: this is a hard top page margin in mm, so the
                  invoice body (title downward) starts this far below the top
                  edge. Raise/lower this single number to taste. -->
-            <field name="margin_top">55</field>
+            <field name="margin_top">33</field>
             <!-- 25mm bottom leaves room for the 3-column custom footer.
                  Anything < ~20mm causes wkhtmltopdf to silently drop the footer. -->
             <field name="margin_bottom">25</field>
