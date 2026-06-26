@@ -19,20 +19,27 @@ class GoldPriceService(models.Model):
 
     def get_current_gold_price(self):
         """
-        Get current gold price from API or cache.
-        Returns 21K gold price per gram in base currency.
-        Note: The API returns 21K price, which must be converted for other purities.
+        Get current 21K gold price per gram in base currency.
+
+        Reads the cron-maintained cache (``jewellery_evaluator.fallback_price``)
+        instead of hitting the external API. The price-update cron
+        (:meth:`update_all_gold_product_prices`, every 10 min) is the *only* path
+        that fetches live and refreshes that cache, so the ``@api.depends`` price
+        computations on ``product.template`` (and POS min-price enforcement) stay
+        instant and never block a record create/write on a network round-trip.
+
+        A live fetch here used to cost ~0.4s per call and fired ~4x per product
+        create (~1.6s); the price only changes every 10 min, so the cache is the
+        correct source for compute paths. ``get_param`` is itself framework-cached
+        (and invalidated when the cron writes the value), so repeated calls within
+        one request share a single read.
+
+        Note: the API/cache returns the 21K price, which must be converted for
+        other purities.
 
         :return: float - 21K gold price per gram
         """
-        # In production, implement proper caching with expiration
-        # For now, fetch from API each time (cron will update frequently)
-        try:
-            return self._fetch_gold_price_from_api()
-        except Exception as e:
-            _logger.error('Failed to fetch gold price from API: %s', str(e))
-            # Fallback to last known price from config or default
-            return self._get_fallback_price()
+        return self._get_fallback_price()
 
     def _fetch_gold_price_from_api(self):
         """
