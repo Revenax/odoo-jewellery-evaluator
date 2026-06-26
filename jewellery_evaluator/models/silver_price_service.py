@@ -15,14 +15,131 @@ _logger = logging.getLogger(__name__)
 _PAGE_LOAD_TIMEOUT = 30
 
 
+_SYSTEM_CHROME_CANDIDATES = (
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+)
+
+
+def _find_system_chrome():
+    import os
+    for path in _SYSTEM_CHROME_CANDIDATES:
+        if os.path.exists(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def _detect_chrome_version(browser_path: str) -> str | None:
+    """Return the major version string of the Chrome at *browser_path*, e.g. '147'."""
+    import re
+    import subprocess
+    try:
+        out = subprocess.run(
+            [browser_path, '--version'],
+            capture_output=True, text=True, timeout=10, check=True,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    m = re.search(r'(\d+)\.\d+\.\d+', out.stdout) or re.search(r'(\d+)\.\d+\.\d+', out.stderr)
+    return m.group(1) if m else None
+
+
+def _resolve_chromedriver(browser_path: str) -> str | None:
+    """
+    Resolve a chromedriver matching the system Chrome's *major* version.
+
+    Strategy:
+      1. Detect the system Chrome's major version (e.g. '147').
+      2. Scan selenium's on-disk cache (~/.cache/selenium/chromedriver/<arch>/<ver>/)
+         for a directory whose version starts with that major. This is the same
+         cache selenium-manager populates, so any previously-downloaded matching
+         chromedriver is reused without going through selenium-manager again.
+      3. Fall back to selenium-manager with --browser-version to download a
+         matching chromedriver if the cache has none.
+
+    We avoid calling selenium-manager without --browser-version because its
+    se-metadata.json cache can serve a stale "latest" entry (e.g. 148) and
+    return a mismatched chromedriver that crashes with SIGTRAP at startup.
+    """
+    import glob
+    import json
+    import os
+    import subprocess
+
+    major = _detect_chrome_version(browser_path)
+
+    # 1. Look in the on-disk cache for a chromedriver matching the system Chrome
+    if major:
+        home = os.path.expanduser('~')
+        cache_root = os.path.join(home, '.cache', 'selenium', 'chromedriver')
+        for arch_dir in glob.glob(os.path.join(cache_root, '*')):
+            for ver_dir in glob.glob(os.path.join(arch_dir, f'{major}.*')):
+                candidate = os.path.join(ver_dir, 'chromedriver')
+                if os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                    return candidate
+
+    # 2. Fall back to selenium-manager with explicit --browser-version
+    import selenium
+    sel_root = os.path.dirname(selenium.__file__)
+    sm_candidates = [
+        os.path.join(sel_root, 'webdriver', 'common', 'linux', 'selenium-manager'),
+        os.path.join(sel_root, 'webdriver', 'common', 'macos', 'selenium-manager'),
+    ]
+    sm_bin = next((p for p in sm_candidates if os.path.exists(p) and os.access(p, os.X_OK)), None)
+    if not sm_bin:
+        return None
+    args = [sm_bin, '--browser', 'chrome', '--browser-path', browser_path,
+            '--output', 'JSON']
+    if major:
+        args.extend(['--browser-version', major])
+    try:
+        out = subprocess.run(
+            args, capture_output=True, text=True, timeout=120, check=True,
+        )
+        return json.loads(out.stdout).get('result', {}).get('driver_path')
+    except (subprocess.SubprocessError, json.JSONDecodeError, OSError):
+        return None
+
+
+def _ensure_chrome_address_space():
+    """
+    Chrome needs a large virtual address space at startup (typically > 4 GB).
+    The Odoo systemd service inherits the distro's default LimitAS (~2.5 GB),
+    so Chrome and chromedriver crash immediately with SIGTRAP. Raise the soft
+    limit on RLIMIT_AS up to the hard limit (which is unlimited) before
+    spawning chromedriver. Hard-limit raises require privilege so we leave
+    it alone — only the soft limit is bumped.
+    """
+    try:
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        if soft != resource.RLIM_INFINITY and (hard == resource.RLIM_INFINITY or hard > soft):
+            resource.setrlimit(resource.RLIMIT_AS, (hard, hard))
+    except (ImportError, ValueError, OSError) as e:
+        _logger.warning('Could not raise RLIMIT_AS for Chrome: %s', e)
+
+
 def _create_driver():
     """Create a headless Chrome WebDriver (requires selenium + chromium)."""
     import tempfile
 
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service
+
+    _ensure_chrome_address_space()
 
     opts = Options()
+    # Force the locally installed system Chrome — without this Selenium Manager
+    # may download its own (incomplete) "Chrome for Testing" binary that often
+    # crashes at startup with SIGTRAP because it lacks system libs the .deb
+    # would have pulled in.
+    chrome_bin = _find_system_chrome()
+    if chrome_bin:
+        opts.binary_location = chrome_bin
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
@@ -48,7 +165,14 @@ def _create_driver():
         "--log-level=3",
     ):
         opts.add_argument(a)
-    driver = webdriver.Chrome(options=opts)
+
+    # Resolve chromedriver against the actual binary so versions match.
+    service = None
+    if chrome_bin:
+        driver_path = _resolve_chromedriver(chrome_bin)
+        if driver_path:
+            service = Service(executable_path=driver_path)
+    driver = webdriver.Chrome(options=opts, service=service) if service else webdriver.Chrome(options=opts)
     driver.implicitly_wait(10)
     return driver
 
