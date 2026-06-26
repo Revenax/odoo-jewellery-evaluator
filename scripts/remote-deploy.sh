@@ -37,6 +37,15 @@ fi
 [ -n "$ODOO_BIN" ] && [ -x "$ODOO_BIN" ] || { echo "Error: ODOO_BIN not found. Set it or fix systemd unit."; sudo systemctl start odoo 2>/dev/null; exit 1; }
 
 CONFIG="${ODOO_CONFIG:-/etc/odoo.conf}"
+
+# Database to upgrade. CRITICAL: `odoo -u` needs a target database; without -d
+# (and with no db_name in the config) it SILENTLY upgrades nothing — every
+# data/XML change (cron records, report templates, views, security) is skipped
+# and only Python reloads via the restart. Resolve from $ODOO_DB, else the
+# config's db_name, defaulting to the known production DB. Override with ODOO_DB.
+DB_NAME="${ODOO_DB:-$(awk -F= '/^[[:space:]]*db_name[[:space:]]*=/{gsub(/[[:space:]]/,"",$2); print $2; exit}' "$CONFIG")}"
+[ -n "$DB_NAME" ] && [ "$DB_NAME" != "False" ] || DB_NAME="marjaan"
+
 OUT=$(mktemp)
 STAGE_ROOT=$(mktemp -d)
 trap 'rm -rf "$STAGE_ROOT" "$OUT"; sudo systemctl start odoo 2>/dev/null' EXIT
@@ -71,9 +80,9 @@ fi
 
 run_upgrade() {
   if [ -n "${ODOO_PYTHON:-}" ] && [ -x "$ODOO_PYTHON" ]; then
-    sudo -u odoo "$ODOO_PYTHON" "$ODOO_BIN" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
+    sudo -u odoo "$ODOO_PYTHON" "$ODOO_BIN" -d "$DB_NAME" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
   else
-    sudo -u odoo "$ODOO_BIN" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
+    sudo -u odoo "$ODOO_BIN" -d "$DB_NAME" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
   fi
 }
 run_upgrade >"$OUT" 2>&1 || { cat "$OUT"; exit 1; }
