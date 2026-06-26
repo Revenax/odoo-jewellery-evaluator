@@ -12,8 +12,11 @@
             <field name="margin_bottom">25</field>
             <field name="margin_left">10</field>
             <field name="margin_right">10</field>
-            <field name="header_line" eval="True"/>
-            <field name="header_spacing">5</field>
+            <!-- No rule under the header: the header is intentionally blank
+                 (pre-printed letterhead), so a line would just float at the top. -->
+            <field name="header_line" eval="False"/>
+            <!-- Blank header needs no breathing room below it. -->
+            <field name="header_spacing">0</field>
             <field name="dpi">90</field>
         </record>
     </data>
