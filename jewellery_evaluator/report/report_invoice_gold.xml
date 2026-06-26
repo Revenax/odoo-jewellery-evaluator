@@ -29,10 +29,10 @@
         <!-- Our custom doc title -->
         <xpath expr="//t[@t-set='layout_document_title']" position="replace">
             <t t-set="layout_document_title">
-                <!-- margin-top reserves the blank "forehead" for the pre-printed
-                     letterhead logo. Adjust this single value to raise/lower how
-                     far down the title (and the whole body) starts. -->
-                <span style="margin-bottom: 10px; margin-top: 160px;">
+                <!-- The blank letterhead "forehead" is reserved by the paper
+                     format's margin_top (mm) in paperformat_gold.xml — tune it
+                     there. This title just sits at the top of the body. -->
+                <span style="margin-bottom: 10px;">
                 <center>
                     <!-- No "Invoice" word: show just the document number in a
                          smaller font. Non-invoice document types keep a short

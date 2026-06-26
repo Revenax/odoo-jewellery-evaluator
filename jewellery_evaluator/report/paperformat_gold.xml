@@ -6,7 +6,11 @@
             <field name="name">Marjaan A5</field>
             <field name="format">A5</field>
             <field name="orientation">Portrait</field>
-            <field name="margin_top">10</field>
+            <!-- THE knob for the blank "forehead" reserved for the pre-printed
+                 letterhead logo: this is a hard top page margin in mm, so the
+                 invoice body (title downward) starts this far below the top
+                 edge. Raise/lower this single number to taste. -->
+            <field name="margin_top">55</field>
             <!-- 25mm bottom leaves room for the 3-column custom footer.
                  Anything < ~20mm causes wkhtmltopdf to silently drop the footer. -->
             <field name="margin_bottom">25</field>
