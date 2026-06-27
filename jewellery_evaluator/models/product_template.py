@@ -964,6 +964,40 @@ class ProductTemplate(models.Model):
         return float(self.env['ir.config_parameter'].sudo().get_param(
             'jewellery_evaluator.price_update_threshold_egp', 10.0) or 10.0)
 
+    def init_jewellery_stock(self, warehouse_code=None, qty=1.0):
+        """Set on-hand to exactly ``qty`` (default 1) at the given warehouse's
+        stock location, for a brand-new jewellery piece.
+
+        Called ONCE by the operations sync when an entirely new product is first
+        written to Odoo — the only inventory write the sync is allowed to make.
+        Uses an inventory adjustment with SET (not add) semantics and is
+        idempotent, so a stray re-call can never inflate stock. Sync edits and
+        re-syncs must never touch inventory.
+        """
+        self.ensure_one()
+        Warehouse = self.env['stock.warehouse']
+        warehouse = (
+            Warehouse.search([('code', '=', warehouse_code)], limit=1)
+            if warehouse_code else Warehouse.browse()
+        )
+        if not warehouse:
+            warehouse = Warehouse.search([], limit=1)
+        location = warehouse.lot_stock_id
+        product = self.product_variant_id
+        if not (location and product):
+            return False
+        Quant = self.env['stock.quant'].with_context(inventory_mode=True)
+        quant = Quant.search([
+            ('product_id', '=', product.id),
+            ('location_id', '=', location.id),
+        ], limit=1) or Quant.create({
+            'product_id': product.id,
+            'location_id': location.id,
+        })
+        quant.inventory_quantity = qty
+        quant.action_apply_inventory()
+        return True
+
     def update_gold_prices(self, base_gold_price):
         """
         Update product prices based on new gold price.
