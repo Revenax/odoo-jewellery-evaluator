@@ -978,8 +978,10 @@ class ProductTemplate(models.Model):
         # Jewellery pieces must be storable goods to carry on-hand stock. In
         # Odoo 19 "storable" is the ``is_storable`` flag on a ``consu`` good
         # (no more ``type='product'``); without it stock.quant refuses to exist.
-        if not self.is_storable:
-            self.is_storable = True
+        # Written via the ORM dict (not ``self.is_storable = True``) on purpose:
+        # a brand-new product is never storable yet, and the dict write keeps
+        # mypy from trying to infer the inherited field's type.
+        self.write({'is_storable': True})
         Warehouse = self.env['stock.warehouse']
         warehouse = (
             Warehouse.search([('code', '=', warehouse_code)], limit=1)
