@@ -49,6 +49,16 @@ class JewelleryStockCount(models.Model):
     unexpected_count = fields.Integer(compute='_compute_stats')
     progress = fields.Float(compute='_compute_stats', digits=(5, 1))
 
+    # Weights accounted for (found) vs not yet found (missing), in grams.
+    found_net_gold_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+    missing_net_gold_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+    found_stones_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+    missing_stones_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+    found_jewellery_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+    missing_jewellery_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+    found_reading_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+    missing_reading_g = fields.Float(compute='_compute_weights', digits=(16, 3))
+
     @api.depends('line_ids.status')
     def _compute_stats(self):
         for count in self:
@@ -58,6 +68,22 @@ class JewelleryStockCount(models.Model):
             count.unexpected_count = stats['unexpected']
             count.expected_count = stats['expected']
             count.progress = stats['progress']
+
+    @api.depends('line_ids.status', 'line_ids.net_gold_weight_g',
+                 'line_ids.stones_weight_g', 'line_ids.jewellery_weight_g',
+                 'line_ids.weight_reading_g')
+    def _compute_weights(self):
+        for count in self:
+            found = count.line_ids.filtered(lambda line: line.status == 'found')
+            missing = count.line_ids.filtered(lambda line: line.status == 'to_find')
+            count.found_net_gold_g = sum(found.mapped('net_gold_weight_g'))
+            count.missing_net_gold_g = sum(missing.mapped('net_gold_weight_g'))
+            count.found_stones_g = sum(found.mapped('stones_weight_g'))
+            count.missing_stones_g = sum(missing.mapped('stones_weight_g'))
+            count.found_jewellery_g = sum(found.mapped('jewellery_weight_g'))
+            count.missing_jewellery_g = sum(missing.mapped('jewellery_weight_g'))
+            count.found_reading_g = sum(found.mapped('weight_reading_g'))
+            count.missing_reading_g = sum(missing.mapped('weight_reading_g'))
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -187,10 +213,21 @@ class JewelleryStockCount(models.Model):
 
     # --- payloads for the OWL scan screen ------------------------------------
 
+    @staticmethod
+    def _wsum(lines):
+        return {
+            'net_gold': round(sum(lines.mapped('net_gold_weight_g')), 3),
+            'stones': round(sum(lines.mapped('stones_weight_g')), 3),
+            'jewellery': round(sum(lines.mapped('jewellery_weight_g')), 3),
+            'readings': round(sum(lines.mapped('weight_reading_g')), 3),
+        }
+
     def _stats_dict(self):
         self.ensure_one()
-        found = len(self.line_ids.filtered(lambda line: line.status == 'found'))
-        to_find = len(self.line_ids.filtered(lambda line: line.status == 'to_find'))
+        found_lines = self.line_ids.filtered(lambda line: line.status == 'found')
+        to_find_lines = self.line_ids.filtered(lambda line: line.status == 'to_find')
+        found = len(found_lines)
+        to_find = len(to_find_lines)
         unexpected = len(
             self.line_ids.filtered(lambda line: line.status == 'unexpected'))
         expected = found + to_find
@@ -200,6 +237,10 @@ class JewelleryStockCount(models.Model):
             'missing': to_find,
             'unexpected': unexpected,
             'progress': round(100.0 * found / expected, 1) if expected else 0.0,
+            'weights': {
+                'found': self._wsum(found_lines),
+                'missing': self._wsum(to_find_lines),
+            },
         }
 
     def _lines_payload(self):
@@ -259,3 +300,19 @@ class JewelleryStockCountLine(models.Model):
         default='to_find', required=True, index=True)
     reason = fields.Char(string='Note')
     scanned_at = fields.Datetime()
+
+    # Per-piece weights, pulled from the product template (see the Weight
+    # Inventory report). Stored so they aggregate per count without re-reading
+    # the product each time.
+    net_gold_weight_g = fields.Float(
+        related='product_id.product_tmpl_id.net_gold_weight_g',
+        string='Net Gold (g)', store=True, digits=(16, 3))
+    stones_weight_g = fields.Float(
+        related='product_id.product_tmpl_id.diamond_weight_g',
+        string='Stones (g)', store=True, digits=(16, 3))
+    jewellery_weight_g = fields.Float(
+        related='product_id.product_tmpl_id.gross_jewellery_weight_g',
+        string='Jewellery (g)', store=True, digits=(16, 3))
+    weight_reading_g = fields.Float(
+        related='product_id.product_tmpl_id.weight_reading_g',
+        string='Reading (g)', store=True, digits=(16, 3))

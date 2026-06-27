@@ -71,6 +71,41 @@
                     </div>
                 </div>
 
+                <div t-if="state.stats.weights" class="o_jsc_list mb-3">
+                    <div class="o_jsc_list_h"><i class="fa fa-balance-scale me-1"/>Weights (g) — found vs missing</div>
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Weight</th>
+                                <th class="text-end text-success">Found</th>
+                                <th class="text-end text-warning">Missing</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Net gold</td>
+                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.net_gold.toFixed(2)"/>
+                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.net_gold.toFixed(2)"/>
+                            </tr>
+                            <tr>
+                                <td>Stones</td>
+                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.stones.toFixed(2)"/>
+                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.stones.toFixed(2)"/>
+                            </tr>
+                            <tr>
+                                <td>Jewellery</td>
+                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.jewellery.toFixed(2)"/>
+                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.jewellery.toFixed(2)"/>
+                            </tr>
+                            <tr>
+                                <td>Reading</td>
+                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.readings.toFixed(2)"/>
+                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.readings.toFixed(2)"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="row g-2">
                     <div class="col-6">
                         <div class="o_jsc_list">

@@ -20,6 +20,7 @@
                 <field name="found_count" string="Found"/>
                 <field name="expected_count" string="Expected"/>
                 <field name="missing_count" string="Missing"/>
+                <field name="missing_net_gold_g" string="Missing Gold (g)" optional="show"/>
                 <field name="unexpected_count" string="Unexpected"/>
                 <field name="progress" widget="progressbar"/>
                 <field name="state" widget="badge"
@@ -68,6 +69,20 @@
                         </group>
                     </group>
                     <group>
+                        <group string="Found weight (g)">
+                            <field name="found_net_gold_g" string="Net Gold"/>
+                            <field name="found_stones_g" string="Stones"/>
+                            <field name="found_jewellery_g" string="Jewellery"/>
+                            <field name="found_reading_g" string="Reading"/>
+                        </group>
+                        <group string="Missing weight (g)">
+                            <field name="missing_net_gold_g" string="Net Gold"/>
+                            <field name="missing_stones_g" string="Stones"/>
+                            <field name="missing_jewellery_g" string="Jewellery"/>
+                            <field name="missing_reading_g" string="Reading"/>
+                        </group>
+                    </group>
+                    <group>
                         <field name="user_id"/>
                         <field name="start_date"/>
                         <field name="end_date"/>
@@ -80,6 +95,10 @@
                                       decoration-danger="status == 'unexpected'">
                                     <field name="default_code" string="SKU"/>
                                     <field name="status" widget="badge"/>
+                                    <field name="net_gold_weight_g" string="Net Gold" sum="Net Gold" optional="show"/>
+                                    <field name="stones_weight_g" string="Stones" sum="Stones" optional="hide"/>
+                                    <field name="jewellery_weight_g" string="Jewellery" sum="Jewellery" optional="show"/>
+                                    <field name="weight_reading_g" string="Reading" sum="Reading" optional="hide"/>
                                     <field name="reason"/>
                                     <field name="scanned_at"/>
                                 </list>
