@@ -975,6 +975,11 @@ class ProductTemplate(models.Model):
         re-syncs must never touch inventory.
         """
         self.ensure_one()
+        # Jewellery pieces must be storable goods to carry on-hand stock. In
+        # Odoo 19 "storable" is the ``is_storable`` flag on a ``consu`` good
+        # (no more ``type='product'``); without it stock.quant refuses to exist.
+        if not self.is_storable:
+            self.is_storable = True
         Warehouse = self.env['stock.warehouse']
         warehouse = (
             Warehouse.search([('code', '=', warehouse_code)], limit=1)
