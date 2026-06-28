@@ -1048,7 +1048,7 @@ class ProductTemplate(models.Model):
             partner.property_stock_supplier = self.env.ref(
                 'stock.stock_location_suppliers')
 
-        origin = self.default_code or ('JEWEL-%s' % self.id)
+        origin = self.default_code or f'JEWEL-{self.id}'
         price = price_unit if (price_unit and price_unit > 0) \
             else self._bought_from_customer_price_unit()
 
