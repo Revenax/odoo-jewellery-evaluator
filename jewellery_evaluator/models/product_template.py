@@ -6,7 +6,7 @@
 import logging
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 from ..utils import (
     _get_diamond_config_float,
@@ -1004,6 +1004,128 @@ class ProductTemplate(models.Model):
         quant.inventory_quantity = qty
         quant.action_apply_inventory()
         return True
+
+    def init_jewellery_from_customer(self, warehouse_code=None, price_unit=None,
+                                     partner=None):
+        """Bring a brand-new "Bought from Customer" piece on-hand via a real
+        Purchase Order receipt (qty 1) from a generic buy-back vendor, fulfilled
+        at the selected warehouse — instead of a direct inventory adjustment.
+
+        The whole flow runs in this single server-side call == one transaction,
+        so any failure rolls the entire PO + receipt back (no orphan PO, no
+        half-receipt). It is idempotent: at most one PO per piece, keyed on the
+        SKU (``origin``); a re-call after a successful receipt is a no-op and can
+        never duplicate the PO or inflate stock. "Reliable at any cost."
+        """
+        self.ensure_one()
+        self.write({'is_storable': True})
+        product = self.product_variant_id
+        if not product:
+            return False
+
+        # Warehouse -> its incoming picking type. Setting picking_type_id on the
+        # PO is the only lever needed: the receipt destination follows from the
+        # type's default_location_dest_id (that warehouse's stock location).
+        Warehouse = self.env['stock.warehouse']
+        warehouse = (
+            Warehouse.search([('code', '=', warehouse_code)], limit=1)
+            if warehouse_code else Warehouse.browse()
+        )
+        if not warehouse:
+            warehouse = Warehouse.search([], limit=1)
+        picking_type = warehouse.in_type_id or self.env['stock.picking.type'].search(
+            [('code', '=', 'incoming'), ('warehouse_id', '=', warehouse.id)], limit=1)
+        if not (warehouse and picking_type):
+            return False
+
+        # Vendor: the fixed module data partner (or an explicit override for
+        # future per-customer use). env.ref avoids a runtime find-or-create race.
+        if partner is None:
+            partner = self.env.ref(
+                'jewellery_evaluator.partner_bought_from_customer')
+        if not partner.property_stock_supplier:
+            partner = partner.with_company(self.env.company)
+            partner.property_stock_supplier = self.env.ref(
+                'stock.stock_location_suppliers')
+
+        origin = self.default_code or ('JEWEL-%s' % self.id)
+        price = price_unit if (price_unit and price_unit > 0) \
+            else self._bought_from_customer_price_unit()
+
+        # Idempotency: at most one non-cancelled PO per piece, keyed on the SKU.
+        PO = self.env['purchase.order']
+        po = PO.search([
+            ('origin', '=', origin),
+            ('order_line.product_id', '=', product.id),
+            ('state', '!=', 'cancel'),
+        ], limit=1)
+        if not po:
+            po = PO.create({
+                'partner_id': partner.id,
+                'picking_type_id': picking_type.id,
+                'origin': origin,
+                'order_line': [(0, 0, {
+                    'product_id': product.id,
+                    'product_qty': 1.0,
+                    'price_unit': price,
+                    'name': self.display_name,
+                })],
+            })
+
+        # Confirm: the sync user is a Purchase Manager, so this auto-approves
+        # (despite two-step validation) and creates the incoming picking.
+        if po.state in ('draft', 'sent'):
+            po.button_confirm()
+        if po.state == 'to approve':
+            raise UserError(_(
+                "Bought-from-customer PO %s is stuck awaiting approval; the "
+                "Odoo sync user must be in the Purchase Manager group.") % po.name)
+
+        picking = po.picking_ids.filtered(lambda p: p.state != 'cancel')[:1]
+        if not picking:
+            return False
+        if picking.state == 'done':
+            return True  # already received on a prior call -> no-op
+
+        if picking.state == 'draft':
+            picking.action_confirm()
+        picking.action_assign()
+        for move in picking.move_ids.filtered(
+                lambda m: m.state not in ('done', 'cancel')):
+            move.quantity = move.product_uom_qty or 1.0
+            move.picked = True
+            # serial-tracked goods need a lot before the receipt can validate.
+            if move.product_id.tracking == 'serial':
+                line = move.move_line_ids[:1] or self.env['stock.move.line'].create({
+                    'move_id': move.id,
+                    'picking_id': picking.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': move.location_dest_id.id,
+                })
+                if not line.lot_id and not line.lot_name:
+                    line.lot_name = origin
+                line.quantity = 1.0
+                line.picked = True
+
+        # Full-qty receipt -> no backorder; skip_backorder + the not-to-backorder
+        # context guarantee button_validate never pops a wizard. Trust the
+        # picking state, not the return value (it may return a report action).
+        picking.with_context(
+            skip_backorder=True,
+            picking_ids_not_to_backorder=picking.ids,
+        ).button_validate()
+        if picking.state != 'done':
+            picking.move_ids._action_done()
+        return picking.state == 'done'
+
+    def _bought_from_customer_price_unit(self):
+        """Fallback PO-line price when the operator entered no buy-back amount:
+        product cost, then computed gold cost, then list price, else 0."""
+        self.ensure_one()
+        return (self.standard_price or self.gold_cost_price
+                or self.list_price or 0.0)
 
     def update_gold_prices(self, base_gold_price):
         """

@@ -29,6 +29,7 @@
         'account',
         'web',
         'stock',
+        'purchase',
     ],
     'data': [
         'jewellery_evaluator/security/jewellery_evaluator_security.xml',
@@ -42,6 +43,7 @@
         'jewellery_evaluator/report/external_layout_gold.xml',
         'jewellery_evaluator/report/report_invoice_gold.xml',
         'jewellery_evaluator/data/jewellery_evaluator_cron.xml',
+        'jewellery_evaluator/data/bought_from_customer_vendor.xml',
     ],
     'assets': {
         'point_of_sale._assets_pos': [

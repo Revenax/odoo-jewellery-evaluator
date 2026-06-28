@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Generic vendor used for "Bought from Customer" pieces. The registration form
+    captures no customer identity, so every buy-back PO is attributed to this one
+    fixed partner. A data record (not a runtime find-or-create) means there is
+    exactly one, created at install/upgrade — no duplicates under concurrency.
+
+    `property_stock_supplier` is required: purchase_stock `_prepare_picking`
+    raises "You must set a Vendor Location for this partner" without it.
+-->
+<odoo>
+    <record id="partner_bought_from_customer" model="res.partner">
+        <field name="name">Walk-in Customer (Buy-back)</field>
+        <field name="company_type">person</field>
+        <field name="supplier_rank">1</field>
+        <field name="property_stock_supplier" ref="stock.stock_location_suppliers"/>
+    </record>
+</odoo>
