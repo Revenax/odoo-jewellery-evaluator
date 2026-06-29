@@ -1196,8 +1196,15 @@ class ProductTemplate(models.Model):
                 skipped += 1
                 continue
 
-            # Only write when the sale price actually moved enough to matter.
-            if abs(sale_price - (product.list_price or 0.0)) < threshold:
+            # Write whenever ANY computed value moved. The sale price is rounded
+            # to 50 (so it only changes in 50s), but cost and the minimum sale
+            # price are exact and shift with every gold-price tick — so a real
+            # gold move now refreshes the WHOLE inventory, not just the pieces
+            # whose rounded sale happened to cross a 50. A flat run (gold
+            # unchanged) leaves all three identical and writes nothing.
+            if (abs(sale_price - (product.list_price or 0.0)) < threshold
+                    and abs(cost_price - (product.gold_cost_price or 0.0)) < 0.005
+                    and abs(min_sale_price - (product.gold_min_sale_price or 0.0)) < 0.005):
                 skipped += 1
                 continue
 
@@ -1261,8 +1268,12 @@ class ProductTemplate(models.Model):
                 skipped += 1
                 continue
 
-            # Only write when the sale price actually moved enough to matter.
-            if abs(result['sale_price_egp'] - (product.list_price or 0.0)) < threshold:
+            # Write whenever the displayed price OR the (exact) gold cost moved,
+            # so a gold-price change refreshes diamond pieces too — not only the
+            # ones whose rounded EGP sale crossed a 50.
+            if (abs(result['sale_price_egp'] - (product.list_price or 0.0)) < threshold
+                    and abs(result['total_gold_cost_usd']
+                            - (product.diamond_total_gold_cost_usd or 0.0)) < 0.005):
                 skipped += 1
                 continue
 
@@ -1300,18 +1311,23 @@ class ProductTemplate(models.Model):
         updated = 0
         skipped = len(self) - len(silver_products)
         markup_per_gram = get_silver_markup_per_gram(self.env)
+        min_markup_per_gram = get_silver_min_markup_per_gram(self.env)
         for product in silver_products:
             try:
                 cost_price, sale_price, min_sale_price = compute_silver_product_price(
                     base_silver_999_per_gram=base_silver_999,
                     weight_g=product.jewellery_weight_g,
                     markup_per_gram=markup_per_gram,
+                    min_markup_per_gram=min_markup_per_gram,
                 )
             except ValueError:
                 skipped += 1
                 continue
-            # Only write when the sale price actually moved enough to matter.
-            if abs(sale_price - (product.list_price or 0.0)) < threshold:
+            # Write whenever any computed value moved (cost and the minimum are
+            # exact, so a real silver-price move refreshes the whole inventory).
+            if (abs(sale_price - (product.list_price or 0.0)) < threshold
+                    and abs(cost_price - (product.silver_cost_price or 0.0)) < 0.005
+                    and abs(min_sale_price - (product.silver_min_sale_price or 0.0)) < 0.005):
                 skipped += 1
                 continue
             product.write({
