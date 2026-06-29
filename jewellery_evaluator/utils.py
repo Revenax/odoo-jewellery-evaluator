@@ -300,11 +300,9 @@ def compute_gold_product_price(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
 
-    # Round both to nearest 50 (min_sale first, then sale)
+    # Round ONLY the sale price to the nearest 50. Cost and the minimum sale
+    # price keep their exact (0.01) values — never rounded to 50.
     round_to_50 = Decimal('50')
-    min_sale_price = (min_sale_price / round_to_50).quantize(
-        Decimal('1'), rounding=ROUND_HALF_UP
-    ) * round_to_50
     sale_price = (sale_price / round_to_50).quantize(
         Decimal('1'), rounding=ROUND_HALF_UP
     ) * round_to_50
@@ -510,10 +508,9 @@ def compute_silver_product_price(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
 
+    # Round ONLY the sale price to the nearest 50; cost and the minimum sale
+    # price keep their exact (0.01) values.
     round_to_50 = Decimal('50')
-    min_sale_price = (min_sale_price / round_to_50).quantize(
-        Decimal('1'), rounding=ROUND_HALF_UP
-    ) * round_to_50
     sale_price = (sale_price / round_to_50).quantize(
         Decimal('1'), rounding=ROUND_HALF_UP
     ) * round_to_50
