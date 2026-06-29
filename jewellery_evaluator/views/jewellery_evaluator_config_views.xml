@@ -79,12 +79,36 @@
                         <div class="col-12 col-lg-6 o_setting_box">
                             <div class="o_setting_left_pane"/>
                             <div class="o_setting_right_pane">
+                                <label for="markup_jewellery_local_min"/>
+                                <div class="text-muted">
+                                    Min making fee/g (local). Floor = cost + fee*weight. 0 = auto (70% of making fee).
+                                </div>
+                                <div class="content-group">
+                                    <field name="markup_jewellery_local_min"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
                                 <label for="markup_jewellery_foreign"/>
                                 <div class="text-muted">
                                     Markup per gram for foreign jewellery
                                 </div>
                                 <div class="content-group">
                                     <field name="markup_jewellery_foreign"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="markup_jewellery_foreign_min"/>
+                                <div class="text-muted">
+                                    Min making fee/g (foreign). Floor = cost + fee*weight. 0 = auto (70% of making fee).
+                                </div>
+                                <div class="content-group">
+                                    <field name="markup_jewellery_foreign_min"/>
                                 </div>
                             </div>
                         </div>
@@ -256,6 +280,18 @@
                                 </div>
                                 <div class="content-group">
                                     <field name="silver_markup_per_gram"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="silver_markup_per_gram_min"/>
+                                <div class="text-muted">
+                                    Min making fee/g (silver). Floor = cost + fee*weight. 0 = auto (70% of making fee).
+                                </div>
+                                <div class="content-group">
+                                    <field name="silver_markup_per_gram_min"/>
                                 </div>
                             </div>
                         </div>

@@ -72,6 +72,27 @@ def test_zero_markup():
     assert min_sale == 1000.0
 
 
+def test_min_making_fee_sets_floor():
+    """An explicit minimum making fee makes the floor = cost + min_fee × weight."""
+    cost, sale, min_sale = compute_gold_product_price(
+        100.0, '21K', 10.0, 50.0, min_markup_per_gram=30.0
+    )
+    assert cost == 1000.0
+    assert sale == 1500.0          # cost + 50 × 10
+    assert min_sale == 1300.0      # cost + 30 × 10 (NOT 70% of markup)
+
+
+def test_min_making_fee_default_falls_back_to_70_percent():
+    """No minimum making fee (default/0) keeps the legacy cost + 70% markup."""
+    _, _, min_default = compute_gold_product_price(100.0, '21K', 10.0, 50.0)
+    _, _, min_zero = compute_gold_product_price(
+        100.0, '21K', 10.0, 50.0, min_markup_per_gram=0.0
+    )
+    # markup_total = 500; min = 1000 + 0.7 × 500 = 1350
+    assert min_default == 1350.0
+    assert min_zero == 1350.0
+
+
 def test_invalid_purity_raises_error():
     """Test that invalid purity raises ValueError."""
     try:

@@ -6,8 +6,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-from ..utils import get_markup_per_gram
-
 # Same selections as product.template for gold fields on order line
 GOLD_PURITY_SELECTION = [
     ('24K', '24K'),
@@ -123,30 +121,6 @@ class PosOrder(models.Model):
                                 }
                             )
 
-                    # Check if discount exceeds 50% of markup
-                    # Markup total = markup per gram × weight (from settings)
-                    has_weight = product.jewellery_weight_g and product.jewellery_weight_g > 0
-                    if product.gold_type and has_weight:
-                        weight_for_markup = (
-                            product.jewellery_weight_g if product.gold_type == 'bars' else None
-                        )
-                        markup_per_gram = get_markup_per_gram(
-                            self.env,
-                            product.gold_type,
-                            weight_g=weight_for_markup,
-                        )
-
-                        if markup_per_gram > 0 and product.list_price > 0:
-                            markup_total = markup_per_gram * product.jewellery_weight_g
-                            max_discount_percent = (
-                                markup_total * 0.5 / product.list_price
-                            ) * 100
-                            if discount > max_discount_percent:
-                                raise ValidationError(
-                                    f'Discount for {product.name} cannot exceed '
-                                    f'{max_discount_percent:.2f}% (50% of markup). '
-                                    f'Current discount: {discount:.2f}%'
-                                )
                 elif getattr(product, 'is_silver_product', False):
                     effective_min = product.silver_min_sale_price or (price_unit * 0.8)
                     if effective_min > 0:

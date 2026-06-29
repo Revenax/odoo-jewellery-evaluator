@@ -17,7 +17,9 @@ from ..utils import (
     compute_sku_prefix,
     compute_weight_reading_g,
     get_markup_per_gram,
+    get_min_markup_per_gram,
     get_silver_markup_per_gram,
+    get_silver_min_markup_per_gram,
     get_ticket_weight_g,
 )
 
@@ -181,7 +183,9 @@ class ProductTemplate(models.Model):
         digits=(16, 2),
         compute='_compute_gold_prices',
         store=True,
-        help='Minimum allowed sale price: cost + (markup × 0.7)',
+        help='Minimum allowed sale price (POS floor): cost + (minimum making '
+             'fee × weight). When no minimum making fee is set, falls back to '
+             'cost + 70% of the making fee.',
     )
 
     silver_cost_price = fields.Float(
@@ -199,7 +203,9 @@ class ProductTemplate(models.Model):
         compute='_compute_silver_prices',
         store=True,
         readonly=True,
-        help='Minimum allowed sale price for silver: cost + (markup × 0.7).',
+        help='Minimum allowed sale price for silver (POS floor): cost + '
+             '(minimum making fee × weight). Falls back to cost + 70% of the '
+             'making fee when no minimum is set.',
     )
 
     is_gold_product = fields.Boolean(
@@ -396,6 +402,7 @@ class ProductTemplate(models.Model):
                 record.silver_min_sale_price = 0.0
                 continue
             markup_per_gram = get_silver_markup_per_gram(self.env)
+            min_markup_per_gram = get_silver_min_markup_per_gram(self.env)
             if markup_per_gram < 0:
                 record.silver_cost_price = 0.0
                 record.silver_min_sale_price = 0.0
@@ -409,6 +416,7 @@ class ProductTemplate(models.Model):
                     base_silver_999_per_gram=base_silver_999,
                     weight_g=record.jewellery_weight_g,
                     markup_per_gram=markup_per_gram,
+                    min_markup_per_gram=min_markup_per_gram,
                 )
                 record.silver_cost_price = cost_price
                 record.silver_min_sale_price = min_sale_price
@@ -553,6 +561,8 @@ class ProductTemplate(models.Model):
             markup_per_gram = get_markup_per_gram(
                 self.env, internal_gold_type, weight_g=weight_for_markup
             )
+            min_markup_per_gram = get_min_markup_per_gram(
+                self.env, internal_gold_type)
 
             if markup_per_gram <= 0:
                 # Skip if markup not configured for this type
@@ -567,6 +577,7 @@ class ProductTemplate(models.Model):
                     purity=record.gold_purity,
                     weight_g=record.jewellery_weight_g or 0,
                     markup_per_gram=markup_per_gram,
+                    min_markup_per_gram=min_markup_per_gram,
                 )
                 record.gold_cost_price = cost_price
                 record.gold_min_sale_price = min_sale_price
@@ -1163,6 +1174,8 @@ class ProductTemplate(models.Model):
             markup_per_gram = get_markup_per_gram(
                 self.env, internal_gold_type, weight_g=weight_for_markup
             )
+            min_markup_per_gram = get_min_markup_per_gram(
+                self.env, internal_gold_type)
 
             # Skip if markup not configured for this type
             if markup_per_gram <= 0:
@@ -1176,6 +1189,7 @@ class ProductTemplate(models.Model):
                     purity=product.gold_purity,
                     weight_g=product.jewellery_weight_g,
                     markup_per_gram=markup_per_gram,
+                    min_markup_per_gram=min_markup_per_gram,
                 )
             except ValueError:
                 # Invalid purity or other error - skip this product

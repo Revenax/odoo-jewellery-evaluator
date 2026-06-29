@@ -66,6 +66,39 @@ def get_silver_markup_per_gram(env) -> float:
         return 0.0
 
 
+def get_silver_min_markup_per_gram(env) -> float:
+    """Read the silver *minimum* making fee per gram (the price-floor fee).
+
+    0 (the default) means 'auto' — the floor falls back to 70% of the making fee.
+    """
+    raw = env['ir.config_parameter'].sudo().get_param(
+        'jewellery_evaluator.silver_markup_per_gram_min', '0.0'
+    )
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def get_min_markup_per_gram(env, gold_type: str) -> float:
+    """Read the *minimum* making fee per gram for a gold jewellery type — the
+    fee used for the price floor (cost + min_fee × weight).
+
+    Only local/foreign jewellery have their own minimum making fee; bars return
+    0. 0 (the default) means 'auto' — the floor falls back to 70% of the making
+    fee, so behaviour is unchanged until a minimum is configured.
+    """
+    if gold_type in ('jewellery_local', 'jewellery_foreign'):
+        raw = env['ir.config_parameter'].sudo().get_param(
+            f'jewellery_evaluator.markup_{gold_type}_min', '0.0'
+        )
+        try:
+            return max(0.0, float(raw))
+        except (TypeError, ValueError):
+            return 0.0
+    return 0.0
+
+
 def get_markup_per_gram(env, gold_type: str, weight_g=None) -> float:
     """
     Read markup per gram from system parameters.
@@ -192,6 +225,7 @@ def compute_gold_product_price(
     purity: str,
     weight_g: float,
     markup_per_gram: float,
+    min_markup_per_gram: float = 0.0,
 ) -> tuple[float, float, float]:
     """
     Compute gold product prices from base price, purity, weight, and markup.
@@ -200,13 +234,16 @@ def compute_gold_product_price(
         base_gold_price_21k: Base 21K gold price per gram (from API)
         purity: Gold purity ('24K', '21K', '18K')
         weight_g: Weight of gold in grams
-        markup_per_gram: Markup per gram (from settings)
+        markup_per_gram: Markup (making fee) per gram (from settings)
+        min_markup_per_gram: Minimum making fee per gram for the price floor.
+            When > 0 the floor is cost + (this × weight); when 0 (the default)
+            it falls back to cost + 70% of the making fee.
 
     Returns:
         tuple: (cost_price, sale_price, min_sale_price)
             - cost_price: Cost price (base × purity_factor × weight)
             - sale_price: Sale price (cost + markup), rounded to nearest 50
-            - min_sale_price: Minimum sale price (cost + 70% markup), rounded to nearest 50
+            - min_sale_price: Minimum sale price (the floor), rounded to nearest 50
     """
     # Purity factors mapping (relative to 21K, which is what the API returns)
     # 24K = 8/7 of 21K; 18K = 7/8 of 21K
@@ -250,8 +287,16 @@ def compute_gold_product_price(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
 
-    # Calculate minimum sale price: cost + (markup_total × 0.7)
-    min_sale_price = (cost + (markup_total * Decimal('0.7'))).quantize(
+    # Minimum sale price (the floor). If a minimum making fee per gram is
+    # configured (> 0), the floor is cost + (min_making_fee × weight); otherwise
+    # fall back to the legacy 70%-of-making-fee rule.
+    if min_markup_per_gram and min_markup_per_gram > 0:
+        min_markup_total = (Decimal(str(min_markup_per_gram)) * weight).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+    else:
+        min_markup_total = markup_total * Decimal('0.7')
+    min_sale_price = (cost + min_markup_total).quantize(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
 
@@ -411,6 +456,7 @@ def compute_silver_product_price(
     base_silver_999_per_gram: float,
     weight_g: float,
     markup_per_gram: float,
+    min_markup_per_gram: float = 0.0,
 ) -> tuple[float, float, float]:
     """
     Compute silver product prices from 999 price per gram, weight, and markup.
@@ -420,13 +466,16 @@ def compute_silver_product_price(
     Args:
         base_silver_999_per_gram: Silver 999 price per gram (EGP).
         weight_g: Weight in grams.
-        markup_per_gram: Markup per gram (from settings).
+        markup_per_gram: Markup (making fee) per gram (from settings).
+        min_markup_per_gram: Minimum making fee per gram for the price floor.
+            When > 0 the floor is cost + (this × weight); when 0 (the default)
+            it falls back to cost + 70% of the making fee.
 
     Returns:
         tuple: (cost_price, sale_price, min_sale_price)
             - cost_price: base_silver_999_per_gram * weight_g
             - sale_price: cost + markup_total, rounded to nearest 50
-            - min_sale_price: cost + (markup_total * 0.7), rounded to nearest 50
+            - min_sale_price: the floor, rounded to nearest 50
     """
     if weight_g <= 0:
         raise ValueError(f'Weight must be greater than 0, got: {weight_g}')
@@ -451,7 +500,13 @@ def compute_silver_product_price(
     sale_price = (cost + markup_total).quantize(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
-    min_sale_price = (cost + (markup_total * Decimal('0.7'))).quantize(
+    if min_markup_per_gram and min_markup_per_gram > 0:
+        min_markup_total = (Decimal(str(min_markup_per_gram)) * weight).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+    else:
+        min_markup_total = markup_total * Decimal('0.7')
+    min_sale_price = (cost + min_markup_total).quantize(
         Decimal('0.01'), rounding=ROUND_HALF_UP
     )
 

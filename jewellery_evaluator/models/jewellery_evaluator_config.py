@@ -49,6 +49,25 @@ class ResConfigSettings(models.TransientModel):
         help='Markup per gram for foreign jewellery',
     )
 
+    # Minimum making fee per gram — sets the price floor (cost + this × weight)
+    # the POS cannot sell below. 0 = auto (70%% of the making fee, the legacy rule).
+    markup_jewellery_local_min = fields.Float(
+        string='Minimum Making Fee per Gram - Jewellery (Local)',
+        config_parameter='jewellery_evaluator.markup_jewellery_local_min',
+        digits=(16, 4),
+        default=0.0,
+        help='Minimum making fee per gram for local jewellery. Price floor = '
+             'cost + (this × weight). 0 = auto (70%% of the making fee).',
+    )
+    markup_jewellery_foreign_min = fields.Float(
+        string='Minimum Making Fee per Gram - Jewellery (Foreign)',
+        config_parameter='jewellery_evaluator.markup_jewellery_foreign_min',
+        digits=(16, 4),
+        default=0.0,
+        help='Minimum making fee per gram for foreign jewellery. Price floor = '
+             'cost + (this × weight). 0 = auto (70%% of the making fee).',
+    )
+
     # Deprecated: kept so views or cache that still reference them do not raise KeyError.
     # Bar pricing uses the weight-tier fields below; these are not shown in the config view.
     markup_bars = fields.Float(
@@ -180,6 +199,15 @@ class ResConfigSettings(models.TransientModel):
         digits=(16, 4),
         default=0.0,
         help='Markup per gram added on top of cost for silver products.',
+    )
+
+    silver_markup_per_gram_min = fields.Float(
+        string='Minimum Silver Making Fee per Gram',
+        config_parameter='jewellery_evaluator.silver_markup_per_gram_min',
+        digits=(16, 4),
+        default=0.0,
+        help='Minimum making fee per gram for silver. Price floor = '
+             'cost + (this × weight). 0 = auto (70%% of the making fee).',
     )
 
     # ── Diamond Jewellery Pricing ───────────────────────────────────────────────

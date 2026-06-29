@@ -63,7 +63,7 @@ Legacy internal field `gold_type` (`jewellery_local`/`jewellery_foreign`/`bars`)
 - **`Decimal` arithmetic throughout** with `ROUND_HALF_UP`; final sale/min-sale prices are **rounded to the nearest 50** (EGP).
 - **Purity factors are relative to 21K** (what the gold API returns): 24K = 8/7, 21K = 1, 18K = 7/8. (`product_template.py` exposes a 24K/21K/18K selection; older docs mentioning 14K/10K are stale.)
 - **Bar markup is weight-tiered**: 11 tiers (1g…1000g+) resolved by closest neighbor (`get_markup_per_gram` → `_get_markup_bars_by_weight`); ≥1000g uses the 1000g tier; jewellery types use a single flat per-gram markup. Defaults live in `BAR_TIER_DEFAULT_MARKUP`.
-- `min_sale_price = cost + markup_total × 0.7` for gold/silver; the POS uses this as the floor.
+- `min_sale_price` (the POS floor) for gold/silver = `cost + (minimum_making_fee_per_gram × weight)`, where the minimum making fee is a configurable per-gram setting (`markup_jewellery_local_min` / `markup_jewellery_foreign_min` / `silver_markup_per_gram_min`) shown next to each making fee. When the minimum making fee is **0 (the default/"auto")** it falls back to the legacy `cost + markup_total × 0.7`. The POS enforces *only* this floor — the old "50% of markup" discount cap was removed so the minimum making fee is the single source of truth.
 
 ### Configuration = `ir.config_parameter`
 
