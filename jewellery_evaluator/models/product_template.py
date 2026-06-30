@@ -1153,7 +1153,8 @@ class ProductTemplate(models.Model):
         if not amount or amount <= 0:
             return
         warehouse = warehouse or self.env['stock.warehouse'].search([], limit=1)
-        vault = warehouse._vault_journal() if warehouse else False
+        vault = (warehouse._vault_journal() if warehouse
+                 else self.env['account.journal'])
         if not vault:
             _logger.warning(
                 "Buy-back %s: no Vault (cash) journal for warehouse %s; cash-out "
