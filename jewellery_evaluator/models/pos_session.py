@@ -31,11 +31,14 @@ class PosSession(models.Model):
         """Posted move lines that hit the Vault GL account during this session
         but are NOT POS-owned.
 
-        The key filter is ``statement_line_id.pos_session_id = False``: every POS
-        cash entry (cash-in/out AND the session-close cash lines) is an
-        ``account.bank.statement.line`` tied to a POS session, so excluding those
-        leaves foreign payments/transfers — whether they post as a plain payment
-        move (no statement line) or as a non-POS cash statement line.
+        The key filter excludes POS-owned cash, which is always an
+        ``account.bank.statement.line`` tied to a POS session. We keep a line if
+        it has NO statement line (a plain payment/journal move — how cash
+        payments post once the Vault journal is configured to post direct to its
+        account) OR its statement line is not a POS one (a manual cash statement).
+        It must be an explicit OR: ``statement_line_id.pos_session_id = False``
+        alone silently drops rows where ``statement_line_id`` itself is NULL
+        (Odoo joins through the m2o), i.e. exactly the payment lines we want.
         This counts each foreign movement exactly once in BOTH states:
           * open   -> POS sales are still only in ``pos.payment`` (not yet on the
                       journal), so this returns foreign moves only;
@@ -52,6 +55,8 @@ class PosSession(models.Model):
         domain = [
             ('account_id', '=', account.id),
             ('move_id.state', '=', 'posted'),
+            '|',
+            ('statement_line_id', '=', False),
             ('statement_line_id.pos_session_id', '=', False),
             ('move_id.create_date', '>=', self.start_at),
         ]
