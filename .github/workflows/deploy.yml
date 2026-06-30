@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main, ci-cd]
 
+# Serialize deploys: never let two pushes deploy at once. Overlapping
+# remote-deploy.sh runs (each stop/starting Odoo) on the tight-memory box are
+# what flapped Odoo into a transient failed-start. Queue, don't cancel.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   check:
     name: CI
