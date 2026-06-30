@@ -1096,7 +1096,11 @@ class ProductTemplate(models.Model):
         if not picking:
             return False
         if picking.state == 'done':
-            return True  # already received on a prior call -> no-op
+            # Already received on a prior call -> no stock change, but still
+            # settle the Vault in case a previous run stocked without paying
+            # (idempotent: skips when the bill is already paid).
+            self._settle_buyback_to_vault(po, warehouse, price)
+            return True
 
         if picking.state == 'draft':
             picking.action_confirm()
@@ -1129,7 +1133,57 @@ class ProductTemplate(models.Model):
         ).button_validate()
         if picking.state != 'done':
             picking.move_ids._action_done()
+        if picking.state == 'done':
+            self._settle_buyback_to_vault(po, warehouse, price)
         return picking.state == 'done'
+
+    def _settle_buyback_to_vault(self, po, warehouse, amount):
+        """Pay the buy-back cash out of the branch Vault so the POS shift count
+        reflects it: post the PO's vendor bill and settle it from the Vault
+        (cash) journal — net effect ``Cr Vault`` (cash leaves the drawer), which
+        the POS session override then folds into the shift's expected cash.
+
+        Idempotent: one bill + one payment per PO, skips when the bill is
+        already paid, so re-syncs never duplicate. Best-effort and isolated in a
+        savepoint — a payment hiccup logs loudly and is retried on the next
+        sync, but never rolls back or blocks the (already reliable) stock
+        receipt. A branch with no Vault journal is logged and skipped, not
+        failed.
+        """
+        if not amount or amount <= 0:
+            return
+        warehouse = warehouse or self.env['stock.warehouse'].search([], limit=1)
+        vault = warehouse._vault_journal() if warehouse else False
+        if not vault:
+            _logger.warning(
+                "Buy-back %s: no Vault (cash) journal for warehouse %s; cash-out "
+                "not recorded. Set a Vault journal so the POS count reflects it.",
+                po.name, warehouse.code if warehouse else '?')
+            return
+        try:
+            with self.env.cr.savepoint():
+                bill = po.invoice_ids.filtered(
+                    lambda m: m.move_type == 'in_invoice' and m.state != 'cancel')[:1]
+                if not bill:
+                    po.action_create_invoice()
+                    bill = po.invoice_ids.filtered(
+                        lambda m: m.move_type == 'in_invoice' and m.state != 'cancel')[:1]
+                if not bill:
+                    return
+                if bill.state == 'draft':
+                    if not bill.invoice_date:
+                        bill.invoice_date = fields.Date.context_today(bill)
+                    bill.action_post()
+                if bill.payment_state in ('paid', 'in_payment', 'reversed'):
+                    return  # already settled
+                self.env['account.payment.register'].with_context(
+                    active_model='account.move', active_ids=bill.ids,
+                ).create({'journal_id': vault.id}).action_create_payments()
+        except Exception as e:
+            _logger.error(
+                "Buy-back %s: could not pay %s out of Vault %s (%s). Stock is "
+                "fine; cash-out NOT recorded — will retry on re-sync.",
+                po.name, amount, vault.name, e)
 
     def _bought_from_customer_price_unit(self):
         """Fallback PO-line price when the operator entered no buy-back amount:
