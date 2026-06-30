@@ -31,10 +31,11 @@ class PosSession(models.Model):
         """Posted move lines that hit the Vault GL account during this session
         but are NOT POS-owned.
 
-        The key filter is ``statement_line_id = False``: every POS cash entry
-        (the cash-in/out lines AND the session-close cash statement lines) is an
-        ``account.bank.statement.line`` and carries a ``statement_line_id`` on
-        its move line, so excluding those leaves only foreign payments/transfers.
+        The key filter is ``statement_line_id.pos_session_id = False``: every POS
+        cash entry (cash-in/out AND the session-close cash lines) is an
+        ``account.bank.statement.line`` tied to a POS session, so excluding those
+        leaves foreign payments/transfers — whether they post as a plain payment
+        move (no statement line) or as a non-POS cash statement line.
         This counts each foreign movement exactly once in BOTH states:
           * open   -> POS sales are still only in ``pos.payment`` (not yet on the
                       journal), so this returns foreign moves only;
@@ -51,7 +52,7 @@ class PosSession(models.Model):
         domain = [
             ('account_id', '=', account.id),
             ('move_id.state', '=', 'posted'),
-            ('statement_line_id', '=', False),
+            ('statement_line_id.pos_session_id', '=', False),
             ('move_id.create_date', '>=', self.start_at),
         ]
         if self.stop_at:
