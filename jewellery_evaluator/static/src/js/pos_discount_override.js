@@ -25,6 +25,11 @@ patch(PosOrderline.prototype, {
    * price (cost + minimum making fee × weight).
    */
   setDiscount(discount) {
+    // A refund/return line (negative qty) is not a sale — never clamp it to the
+    // minimum sale price (its original price may be below today's higher min).
+    if (this.qty < 0) {
+      return super.setDiscount(...arguments);
+    }
     const product = this.getProduct();
     const isGold = product && product.is_gold_product;
     const isSilver = product && product.is_silver_product;
@@ -66,6 +71,10 @@ patch(PosOrderline.prototype, {
    * Override set_unit_price to prevent setting price below minimum.
    */
   setUnitPrice(price) {
+    // Refund/return lines (negative qty) bypass the minimum-price floor.
+    if (this.qty < 0) {
+      return super.setUnitPrice(price);
+    }
     const product = this.getProduct();
 
     if (product && (product.is_gold_product || product.is_silver_product)) {

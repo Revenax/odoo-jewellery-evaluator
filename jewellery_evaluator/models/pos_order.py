@@ -95,6 +95,15 @@ class PosOrder(models.Model):
             if len(line_data) < 3 or not isinstance(line_data[2], dict):
                 continue
             line_vals = line_data[2]
+            # A refund/return line has negative qty — it is not a sale, so the
+            # minimum sale-price floor must NOT block returning a piece (its
+            # original price can be below today's higher min after a gold move).
+            _qty = line_vals.get('qty', 0)
+            try:
+                if float(_qty) < 0:
+                    continue
+            except (TypeError, ValueError):
+                pass
             product_id = line_vals.get('product_id')
             price_unit = line_vals.get('price_unit', 0)
             discount = line_vals.get('discount', 0)
@@ -309,6 +318,8 @@ class PosOrderLine(models.Model):
         When no minimum sale price is set, assume 20% max discount (min = price_unit * 0.8).
         """
         for line in self:
+            if line.qty < 0:
+                continue  # refund/return line — the floor is for sales only
             if line.product_id.is_gold_product:
                 effective_min = (
                     line.product_id.gold_min_sale_price or (line.price_unit * 0.8)
