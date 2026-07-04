@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+-->
+<templates xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.ManagerOverridePopup">
+        <Dialog title="title" size="'sm'">
+            <div class="jewellery-override-popup p-2">
+                <p class="mb-2">
+                    Manager approval is required to sell
+                    <b><t t-esc="props.productName"/></b>
+                    below its minimum sale price of
+                    <b><t t-esc="floorLabel"/></b>.
+                </p>
+                <label class="mb-1" for="jewellery-override-pin">Manager PIN or badge</label>
+                <input id="jewellery-override-pin"
+                       type="password"
+                       autocomplete="off"
+                       class="form-control"
+                       t-model="state.pin"
+                       t-on-keydown="onKeydown"
+                       autofocus="autofocus"/>
+                <p t-if="state.error" class="text-danger mt-2 mb-0" t-esc="state.error"/>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-on-click="confirm">Approve</button>
+                <button class="btn btn-secondary" t-on-click="cancel">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

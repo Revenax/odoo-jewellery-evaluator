@@ -3,6 +3,7 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
+import hashlib
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -588,3 +589,25 @@ def get_ticket_weight_g(env) -> float:
         return float(raw)
     except (TypeError, ValueError):
         return 0.06
+
+
+def sha1_hex(text: str | None) -> str:
+    """
+    SHA-1 hex digest of a string — the same scheme Odoo POS uses (``Sha1.hash``).
+
+    Used to hash the fallback master override PIN so only its digest, never the
+    plaintext, is shipped to the register; the frontend reproduces it with the
+    POS ``Sha1.hash()`` global. This matches how pos_hr hashes employee PIN/badge
+    values, so the register can compare employee PIN, employee badge, and the
+    master PIN with a single hash function.
+
+    Args:
+        text: the raw value (may be None/empty/whitespace).
+
+    Returns:
+        str: lowercase hex sha1 of the trimmed value, or '' when empty.
+    """
+    normalized = (text or "").strip()
+    if not normalized:
+        return ""
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()

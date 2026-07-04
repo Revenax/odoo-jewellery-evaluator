@@ -48,6 +48,7 @@
     'assets': {
         'point_of_sale._assets_pos': [
             'jewellery_evaluator/static/src/js/pos_discount_override.js',
+            'jewellery_evaluator/static/src/xml/manager_override_popup.xml',
         ],
     },
     'installable': True,

@@ -1,4 +1,5 @@
 /** @odoo-module **/
+/* global Sha1 */
 /**
  * Copyright 2026 Revenax Digital Services
  * Author: Mohamed A. Abdallah
@@ -10,23 +11,203 @@ import { ProductScreen } from "@point_of_sale/app/screens/product_screen/product
 import { PosStore } from "@point_of_sale/app/services/pos_store";
 import OrderPaymentValidation from "@point_of_sale/app/utils/order_payment_validation";
 import { ask } from "@point_of_sale/app/utils/make_awaitable_dialog";
-import { onMounted } from "@odoo/owl";
+import { Component, onMounted, useState } from "@odoo/owl";
+import { Dialog } from "@web/core/dialog/dialog";
 import { patch } from "@web/core/utils/patch";
 import { _t } from "@web/core/l10n/translation";
 
+// Entries this length or shorter are tried as an employee PIN first; longer
+// entries are treated as a scanned badge first. Either way both are attempted,
+// so a mis-sized value still authorises.
+const PIN_MAX_LEN = 8;
+
 /**
- * Override POS discount functionality to enforce jewellery evaluator rules.
- * This prevents discounts that would violate minimum sale price requirements.
+ * Show the manager PIN/badge dialog and resolve with {approverId, approverName}
+ * when a valid PIN or badge is entered, or undefined if cancelled. Implemented
+ * directly on the dialog service so it does not depend on makeAwaitable's export.
+ */
+function askManagerOverride(dialog, props) {
+  return new Promise((resolve) => {
+    dialog.add(
+      ManagerOverridePopup,
+      { ...props, getPayload: resolve },
+      { onClose: () => resolve(undefined) },
+    );
+  });
+}
+
+/**
+ * PIN/badge popup that authorises selling a jewellery line below its minimum
+ * sale price. When pos_hr is on, it matches the entry (via the POS Sha1.hash)
+ * against the loaded manager employees' PIN and badge hashes; otherwise it
+ * matches a single master override PIN hash. All hashes are compared offline —
+ * the register needs no network.
+ */
+export class ManagerOverridePopup extends Component {
+  static template = "jewellery_evaluator.ManagerOverridePopup";
+  static components = { Dialog };
+  static props = {
+    productName: { type: String, optional: true },
+    floor: { type: Number, optional: true },
+    usesPosHr: { type: Boolean, optional: true },
+    managers: { type: Array, optional: true },
+    masterHash: { type: String, optional: true },
+    getPayload: { type: Function },
+    close: { type: Function },
+  };
+  static defaultProps = {
+    productName: "",
+    floor: 0,
+    usesPosHr: false,
+    managers: [],
+    masterHash: "",
+  };
+
+  setup() {
+    this.state = useState({ pin: "", error: "" });
+  }
+
+  get title() {
+    return _t("Manager Approval");
+  }
+
+  get floorLabel() {
+    return Number(this.props.floor || 0).toFixed(2);
+  }
+
+  onKeydown(ev) {
+    if (ev.key === "Enter") {
+      this.confirm();
+    }
+  }
+
+  confirm() {
+    const entry = (this.state.pin || "").trim();
+    if (!entry) {
+      this.state.error = _t("Enter a PIN or scan a badge.");
+      return;
+    }
+    let hash;
+    try {
+      hash = Sha1.hash(entry);
+    } catch {
+      this.state.error = _t("Could not verify on this device.");
+      return;
+    }
+
+    if (this.props.usesPosHr) {
+      const managers = this.props.managers || [];
+      const byPin = managers.find((m) => m.pin && m.pin === hash);
+      const byBadge = managers.find((m) => m.barcode && m.barcode === hash);
+      // Short entry → PIN first; longer entry → badge first. Both are attempted.
+      const approver =
+        entry.length <= PIN_MAX_LEN ? byPin || byBadge : byBadge || byPin;
+      if (approver) {
+        this.props.getPayload({
+          approverId: approver.id,
+          approverName: approver.name,
+        });
+        this.props.close();
+      } else {
+        this.state.error = _t("PIN or badge not recognised, or not a manager.");
+        this.state.pin = "";
+      }
+      return;
+    }
+
+    // Fallback: pos_hr is off — a single master override PIN.
+    if (this.props.masterHash && hash === this.props.masterHash) {
+      this.props.getPayload({ approverId: 0, approverName: _t("Override PIN") });
+      this.props.close();
+    } else {
+      this.state.error = _t("Incorrect override PIN.");
+      this.state.pin = "";
+    }
+  }
+
+  cancel() {
+    this.props.close();
+  }
+}
+
+/**
+ * Override POS discount/price to enforce jewellery evaluator minimum sale prices.
+ *
+ * A cashier attempting a sub-floor price/discount is clamped to the floor by
+ * default; a manager PIN or badge (verified offline) approves that one line and
+ * lifts the floor for it. The approval is carried to the backend on the line for
+ * audit and re-verification (see models/pos_order.py).
  */
 patch(PosOrderline.prototype, {
+  /** Minimum sale price for this line, with the legacy 20% fallback. */
+  _jewelleryPriceFloor(fallbackPrice) {
+    const product = this.getProduct();
+    if (!product) {
+      return 0;
+    }
+    const minSalePrice = product.is_gold_product
+      ? product.gold_min_sale_price || 0
+      : product.silver_min_sale_price || 0;
+    const listPrice = product.list_price || fallbackPrice;
+    return minSalePrice > 0 ? minSalePrice : listPrice * 0.8;
+  },
+
   /**
-   * Override set_discount to enforce gold product pricing rules.
-   * Discounts are clamped so the price never drops below the minimum sale
-   * price (cost + minimum making fee × weight).
+   * Pop the manager PIN/badge dialog. On approval, set the audit fields on the
+   * line and resolve true; on cancel/invalid, resolve false. Re-entrancy guarded
+   * so a single below-floor edit cannot open two dialogs.
+   */
+  async _promptMinPriceOverride(effectiveMin) {
+    if (this._overridePromptOpen) {
+      return false;
+    }
+    this._overridePromptOpen = true;
+    try {
+      const usesPosHr = !!this.pos.config.jewellery_override_uses_pos_hr;
+      let managers = [];
+      if (usesPosHr && this.pos.models["hr.employee"]) {
+        managers = this.pos.models["hr.employee"]
+          .filter((e) => e._role === "manager")
+          .map((e) => ({
+            id: e.id,
+            name: e.name,
+            pin: e._pin,
+            barcode: e._barcode,
+          }));
+      }
+      const masterHash = this.pos.config.jewellery_override_master_hash || "";
+      const product = this.getProduct();
+      const payload = await askManagerOverride(this.pos.dialog, {
+        productName: product ? product.display_name : "",
+        floor: effectiveMin,
+        usesPosHr,
+        managers,
+        masterHash,
+      });
+      if (payload && payload.approverId !== undefined) {
+        this.min_price_override = true;
+        this.override_approver_uid = payload.approverId;
+        this.override_approver_name = payload.approverName;
+        this.override_original_min = effectiveMin;
+        this.pos.notification.add(
+          _t("Below-minimum price approved by %s.", payload.approverName),
+          { type: "success" },
+        );
+        return true;
+      }
+      return false;
+    } finally {
+      this._overridePromptOpen = false;
+    }
+  },
+
+  /**
+   * Override set_discount to enforce gold/silver minimum sale prices. A discount
+   * that would drop the line below its floor is clamped, then a manager PIN/badge
+   * can approve the requested discount for that line.
    */
   setDiscount(discount) {
-    // A refund/return line (negative qty) is not a sale — never clamp it to the
-    // minimum sale price (its original price may be below today's higher min).
+    // A refund/return line (negative qty) is not a sale — never clamp it.
     if (this.qty < 0) {
       return super.setDiscount(...arguments);
     }
@@ -36,13 +217,15 @@ patch(PosOrderline.prototype, {
     if (!product || (!isGold && !isSilver)) {
       return super.setDiscount(...arguments);
     }
+    // Manager-approved line: the floor is lifted, apply as requested.
+    if (this.min_price_override) {
+      return super.setDiscount(discount);
+    }
 
     const currentPrice = this.price_unit;
     const minSalePrice = isGold
       ? product.gold_min_sale_price || 0
       : product.silver_min_sale_price || 0;
-    // The minimum sale price (cost + minimum making fee × weight) is the single
-    // floor. When none is set, fall back to a 20% max discount.
     const effectiveMin = minSalePrice > 0 ? minSalePrice : currentPrice * 0.8;
 
     const maxDiscountForMin =
@@ -52,23 +235,26 @@ patch(PosOrderline.prototype, {
     const finalDiscount = Math.max(0, Math.min(discount, maxDiscountForMin));
 
     if (finalDiscount < discount) {
-      this.pos.notification.add(
-        _t(
-          `Discount for ${
-            product.display_name
-          } cannot exceed ${finalDiscount.toFixed(
-            2,
-          )}% to maintain the minimum sale price of ${effectiveMin.toFixed(2)}.`,
-        ),
-        { type: "warning" },
-      );
+      // Clamp now (safe default), then offer manager override for the requested
+      // discount.
+      const desired = discount;
+      const clamped = super.setDiscount(finalDiscount);
+      this._promptMinPriceOverride(effectiveMin).then((approved) => {
+        if (approved) {
+          // Re-enter: min_price_override is now set, so this applies as requested.
+          this.setDiscount(desired);
+        }
+      });
+      return clamped;
     }
 
     return super.setDiscount(finalDiscount);
   },
 
   /**
-   * Override set_unit_price to prevent setting price below minimum.
+   * Override set_unit_price to enforce the minimum sale price. A sub-floor price
+   * is clamped to the floor, then a manager PIN/badge can approve the requested
+   * price.
    */
   setUnitPrice(price) {
     // Refund/return lines (negative qty) bypass the minimum-price floor.
@@ -76,25 +262,27 @@ patch(PosOrderline.prototype, {
       return super.setUnitPrice(price);
     }
     const product = this.getProduct();
+    if (!product || (!product.is_gold_product && !product.is_silver_product)) {
+      return super.setUnitPrice(price);
+    }
+    // Manager-approved line: the floor is lifted, apply as requested.
+    if (this.min_price_override) {
+      return super.setUnitPrice(price);
+    }
 
-    if (product && (product.is_gold_product || product.is_silver_product)) {
-      const minSalePrice = product.is_gold_product
-        ? product.gold_min_sale_price || 0
-        : product.silver_min_sale_price || 0;
-      const listPrice = product.list_price || price;
-      const effectiveMin = minSalePrice > 0 ? minSalePrice : listPrice * 0.8;
-
-      if (effectiveMin > 0 && price < effectiveMin) {
-        this.pos.notification.add(
-          _t(
-            `Price for ${
-              product.display_name
-            } cannot be below minimum sale price of ${effectiveMin.toFixed(2)}.`,
-          ),
-          { type: "danger" },
-        );
-        price = effectiveMin;
-      }
+    const effectiveMin = this._jewelleryPriceFloor(price);
+    if (effectiveMin > 0 && price < effectiveMin) {
+      // Clamp now (safe default), then offer manager override for the requested
+      // price.
+      const desired = price;
+      const clamped = super.setUnitPrice(effectiveMin);
+      this._promptMinPriceOverride(effectiveMin).then((approved) => {
+        if (approved) {
+          // Re-enter: min_price_override is now set, so this applies as requested.
+          this.setUnitPrice(desired);
+        }
+      });
+      return clamped;
     }
 
     return super.setUnitPrice(price);
@@ -140,7 +328,7 @@ patch(PosStore.prototype, {
 
 /**
  * Override ProductScreen: require customer before order when
- * pos.config.require_customer === "order", and add discount validation for gold.
+ * pos.config.require_customer === "order".
  */
 patch(ProductScreen.prototype, {
   setup() {
@@ -156,43 +344,5 @@ patch(ProductScreen.prototype, {
         await this.pos.selectPartner(currentOrder);
       }
     });
-  },
-
-  /**
-   * Override clickDiscount to add validation for gold products.
-   */
-  async clickDiscount() {
-    const order = this.pos.getOrder();
-    const selectedLine = order.getSelectedOrderline();
-
-    if (
-      selectedLine &&
-      selectedLine.getProduct() &&
-      (selectedLine.getProduct().is_gold_product ||
-        selectedLine.getProduct().is_silver_product)
-    ) {
-      const product = selectedLine.getProduct();
-      const minSalePrice = product.is_gold_product
-        ? product.gold_min_sale_price || 0
-        : product.silver_min_sale_price || 0;
-      const currentPrice = selectedLine.price_unit;
-      const effectiveMin = minSalePrice > 0 ? minSalePrice : currentPrice * 0.8;
-
-      if (effectiveMin > 0 && currentPrice > 0) {
-        const maxDiscountForMinPrice =
-          ((currentPrice - effectiveMin) / currentPrice) * 100;
-        if (maxDiscountForMinPrice <= 0) {
-          this.pos.notification.add(
-            _t(
-              `Cannot apply discount to ${product.display_name}. Price is already at minimum.`,
-            ),
-            { type: "warning" },
-          );
-          return;
-        }
-      }
-    }
-
-    return super.clickDiscount(...arguments);
   },
 });

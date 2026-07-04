@@ -309,6 +309,15 @@ class ResConfigSettings(models.TransientModel):
         help="Default behaviour for new orders: to invoice.",
     )
 
+    override_master_pin = fields.Char(
+        string="Below-Min Master Override PIN",
+        config_parameter="jewellery_evaluator.override_master_pin",
+        help="Fallback PIN (recommended 16 digits) to approve selling below the "
+             "minimum price at the POS ONLY when pos_hr is not installed. When "
+             "pos_hr is on, managers approve with their own employee PIN or badge "
+             "instead and this is ignored. Shipped to the register as a hash only.",
+    )
+
     @api.onchange("pos_config_id")
     def _onchange_pos_config_id(self):
         if self.pos_config_id:
