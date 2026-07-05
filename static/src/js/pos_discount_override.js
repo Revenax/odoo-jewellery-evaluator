@@ -6,7 +6,6 @@
  * Website: https://www.revenax.com
  */
 
-import { PosOrderline } from "@point_of_sale/app/models/pos_order_line";
 import { ProductScreen } from "@point_of_sale/app/screens/product_screen/product_screen";
 import { PosStore } from "@point_of_sale/app/services/pos_store";
 import OrderPaymentValidation from "@point_of_sale/app/utils/order_payment_validation";
@@ -17,14 +16,12 @@ import { patch } from "@web/core/utils/patch";
 import { _t } from "@web/core/l10n/translation";
 
 // Entries this length or shorter are tried as an employee PIN first; longer
-// entries are treated as a scanned badge first. Either way both are attempted,
-// so a mis-sized value still authorises.
+// entries are treated as a scanned badge first. Either way both are attempted.
 const PIN_MAX_LEN = 8;
 
 /**
  * Show the manager PIN/badge dialog and resolve with {approverId, approverName}
- * when a valid PIN or badge is entered, or undefined if cancelled. Implemented
- * directly on the dialog service so it does not depend on makeAwaitable's export.
+ * when a valid PIN or badge is entered, or undefined if cancelled.
  */
 function askManagerOverride(dialog, props) {
   return new Promise((resolve) => {
@@ -37,11 +34,47 @@ function askManagerOverride(dialog, props) {
 }
 
 /**
- * PIN/badge popup that authorises selling a jewellery line below its minimum
- * sale price. When pos_hr is on, it matches the entry (via the POS Sha1.hash)
- * against the loaded manager employees' PIN and badge hashes; otherwise it
- * matches a single master override PIN hash. All hashes are compared offline —
- * the register needs no network.
+ * Gather the authorised approvers for this POS and prompt for a PIN/badge.
+ * Returns {approverId, approverName} on success, or null on cancel/invalid.
+ * With pos_hr: matches loaded manager employees' PIN/badge hashes; otherwise a
+ * single master override PIN hash. All matching is offline (POS Sha1.hash).
+ */
+async function promptManagerOverride(pos, props) {
+  const usesPosHr = !!pos.config.jewellery_override_uses_pos_hr;
+  let managers = [];
+  if (usesPosHr && pos.models["hr.employee"]) {
+    managers = pos.models["hr.employee"]
+      .filter((e) => e._role === "manager")
+      .map((e) => ({ id: e.id, name: e.name, pin: e._pin, barcode: e._barcode }));
+  }
+  const masterHash = pos.config.jewellery_override_master_hash || "";
+  const payload = await askManagerOverride(pos.dialog, {
+    productName: props.productName,
+    floor: props.floor,
+    usesPosHr,
+    managers,
+    masterHash,
+  });
+  return payload && payload.approverId !== undefined ? payload : null;
+}
+
+/**
+ * The minimum sale price (floor) for a line, with the legacy 20% fallback.
+ * Returns 0 for non-jewellery lines (no floor).
+ */
+function jewelleryFloor(product, priceUnit) {
+  if (!product || (!product.is_gold_product && !product.is_silver_product)) {
+    return 0;
+  }
+  const minSalePrice = product.is_gold_product
+    ? product.gold_min_sale_price || 0
+    : product.silver_min_sale_price || 0;
+  const listPrice = product.list_price || priceUnit || 0;
+  return minSalePrice > 0 ? minSalePrice : listPrice * 0.8;
+}
+
+/**
+ * PIN/badge popup that authorises selling below the minimum sale price.
  */
 export class ManagerOverridePopup extends Component {
   static template = "jewellery_evaluator.ManagerOverridePopup";
@@ -99,7 +132,6 @@ export class ManagerOverridePopup extends Component {
       const managers = this.props.managers || [];
       const byPin = managers.find((m) => m.pin && m.pin === hash);
       const byBadge = managers.find((m) => m.barcode && m.barcode === hash);
-      // Short entry → PIN first; longer entry → badge first. Both are attempted.
       const approver =
         entry.length <= PIN_MAX_LEN ? byPin || byBadge : byBadge || byPin;
       if (approver) {
@@ -131,169 +163,84 @@ export class ManagerOverridePopup extends Component {
 }
 
 /**
- * Override POS discount/price to enforce jewellery evaluator minimum sale prices.
- *
- * A cashier attempting a sub-floor price/discount is clamped to the floor by
- * default; a manager PIN or badge (verified offline) approves that one line and
- * lifts the floor for it. The approval is carried to the backend on the line for
- * audit and re-verification (see models/pos_order.py).
- */
-patch(PosOrderline.prototype, {
-  /** Minimum sale price for this line, with the legacy 20% fallback. */
-  _jewelleryPriceFloor(fallbackPrice) {
-    const product = this.getProduct();
-    if (!product) {
-      return 0;
-    }
-    const minSalePrice = product.is_gold_product
-      ? product.gold_min_sale_price || 0
-      : product.silver_min_sale_price || 0;
-    const listPrice = product.list_price || fallbackPrice;
-    return minSalePrice > 0 ? minSalePrice : listPrice * 0.8;
-  },
-
-  /**
-   * Pop the manager PIN/badge dialog. On approval, set the audit fields on the
-   * line and resolve true; on cancel/invalid, resolve false. Re-entrancy guarded
-   * so a single below-floor edit cannot open two dialogs.
-   */
-  async _promptMinPriceOverride(effectiveMin) {
-    if (this._overridePromptOpen) {
-      return false;
-    }
-    this._overridePromptOpen = true;
-    try {
-      const usesPosHr = !!this.pos.config.jewellery_override_uses_pos_hr;
-      let managers = [];
-      if (usesPosHr && this.pos.models["hr.employee"]) {
-        managers = this.pos.models["hr.employee"]
-          .filter((e) => e._role === "manager")
-          .map((e) => ({
-            id: e.id,
-            name: e.name,
-            pin: e._pin,
-            barcode: e._barcode,
-          }));
-      }
-      const masterHash = this.pos.config.jewellery_override_master_hash || "";
-      const product = this.getProduct();
-      const payload = await askManagerOverride(this.pos.dialog, {
-        productName: product ? product.display_name : "",
-        floor: effectiveMin,
-        usesPosHr,
-        managers,
-        masterHash,
-      });
-      if (payload && payload.approverId !== undefined) {
-        this.min_price_override = true;
-        this.override_approver_uid = payload.approverId;
-        this.override_approver_name = payload.approverName;
-        this.override_original_min = effectiveMin;
-        this.pos.notification.add(
-          _t("Below-minimum price approved by %s.", payload.approverName),
-          { type: "success" },
-        );
-        return true;
-      }
-      return false;
-    } finally {
-      this._overridePromptOpen = false;
-    }
-  },
-
-  /**
-   * Override set_discount to enforce gold/silver minimum sale prices. A discount
-   * that would drop the line below its floor is clamped, then a manager PIN/badge
-   * can approve the requested discount for that line.
-   */
-  setDiscount(discount) {
-    // A refund/return line (negative qty) is not a sale — never clamp it.
-    if (this.qty < 0) {
-      return super.setDiscount(...arguments);
-    }
-    const product = this.getProduct();
-    const isGold = product && product.is_gold_product;
-    const isSilver = product && product.is_silver_product;
-    if (!product || (!isGold && !isSilver)) {
-      return super.setDiscount(...arguments);
-    }
-    // Manager-approved line: the floor is lifted, apply as requested.
-    if (this.min_price_override) {
-      return super.setDiscount(discount);
-    }
-
-    const currentPrice = this.price_unit;
-    const minSalePrice = isGold
-      ? product.gold_min_sale_price || 0
-      : product.silver_min_sale_price || 0;
-    const effectiveMin = minSalePrice > 0 ? minSalePrice : currentPrice * 0.8;
-
-    const maxDiscountForMin =
-      currentPrice > 0
-        ? ((currentPrice - effectiveMin) / currentPrice) * 100
-        : 0;
-    const finalDiscount = Math.max(0, Math.min(discount, maxDiscountForMin));
-
-    if (finalDiscount < discount) {
-      // Clamp now (safe default), then offer manager override for the requested
-      // discount.
-      const desired = discount;
-      const clamped = super.setDiscount(finalDiscount);
-      this._promptMinPriceOverride(effectiveMin).then((approved) => {
-        if (approved) {
-          // Re-enter: min_price_override is now set, so this applies as requested.
-          this.setDiscount(desired);
-        }
-      });
-      return clamped;
-    }
-
-    return super.setDiscount(finalDiscount);
-  },
-
-  /**
-   * Override set_unit_price to enforce the minimum sale price. A sub-floor price
-   * is clamped to the floor, then a manager PIN/badge can approve the requested
-   * price.
-   */
-  setUnitPrice(price) {
-    // Refund/return lines (negative qty) bypass the minimum-price floor.
-    if (this.qty < 0) {
-      return super.setUnitPrice(price);
-    }
-    const product = this.getProduct();
-    if (!product || (!product.is_gold_product && !product.is_silver_product)) {
-      return super.setUnitPrice(price);
-    }
-    // Manager-approved line: the floor is lifted, apply as requested.
-    if (this.min_price_override) {
-      return super.setUnitPrice(price);
-    }
-
-    const effectiveMin = this._jewelleryPriceFloor(price);
-    if (effectiveMin > 0 && price < effectiveMin) {
-      // Clamp now (safe default), then offer manager override for the requested
-      // price.
-      const desired = price;
-      const clamped = super.setUnitPrice(effectiveMin);
-      this._promptMinPriceOverride(effectiveMin).then((approved) => {
-        if (approved) {
-          // Re-enter: min_price_override is now set, so this applies as requested.
-          this.setUnitPrice(desired);
-        }
-      });
-      return clamped;
-    }
-
-    return super.setUnitPrice(price);
-  },
-});
-
-/**
- * Require customer before payment when pos.config.require_customer === "payment".
- * The current POS validation flow goes through OrderPaymentValidation, not the screen.
+ * Minimum-price enforcement + customer requirement, both gated at payment
+ * (NOT on price edits — editing a price never prompts or validates). When the
+ * cashier validates the order, any gold/silver line priced below its minimum
+ * requires a single manager PIN/badge approval; the approval is stamped on the
+ * below-min lines and travels to the backend, which re-verifies and audits it.
  */
 patch(OrderPaymentValidation.prototype, {
+  async isOrderValid(isForceValidate) {
+    const ok = await super.isOrderValid(...arguments);
+    if (!ok) {
+      return false;
+    }
+    return await this._ensureMinPriceApproval();
+  },
+
+  /**
+   * Prompt once for manager approval if any line is below its floor. Returns
+   * true when nothing is below-min or approval is granted (flags stamped on the
+   * lines); false (blocking payment) when approval is refused/cancelled.
+   */
+  async _ensureMinPriceApproval() {
+    const order = this.order;
+    const lines =
+      (order.getOrderlines ? order.getOrderlines() : order.lines) || [];
+    const belowMin = [];
+    let firstName = "";
+    let firstFloor = 0;
+    for (const line of lines) {
+      if (line.min_price_override) {
+        continue; // already approved
+      }
+      const qty = line.getQuantity ? line.getQuantity() : line.qty;
+      if (qty < 0) {
+        continue; // refund/return line — the floor is for sales only
+      }
+      const product = line.getProduct && line.getProduct();
+      const floor = jewelleryFloor(product, line.price_unit);
+      if (floor <= 0) {
+        continue;
+      }
+      const finalPrice = (line.price_unit || 0) * (1 - (line.discount || 0) / 100);
+      if (finalPrice < floor) {
+        belowMin.push({ line, floor });
+        if (!firstName) {
+          firstName = product.display_name;
+          firstFloor = floor;
+        }
+      }
+    }
+
+    if (belowMin.length === 0) {
+      return true;
+    }
+
+    const label =
+      belowMin.length > 1
+        ? `${firstName} (+${belowMin.length - 1} more)`
+        : firstName;
+    const approved = await promptManagerOverride(this.pos, {
+      productName: label,
+      floor: firstFloor,
+    });
+    if (!approved) {
+      this.pos.notification.add(
+        _t("Manager approval is required to sell below the minimum price."),
+        { type: "warning" },
+      );
+      return false;
+    }
+    for (const { line, floor } of belowMin) {
+      line.min_price_override = true;
+      line.override_approver_uid = approved.approverId;
+      line.override_approver_name = approved.approverName;
+      line.override_original_min = floor;
+    }
+    return true;
+  },
+
   async _askForCustomerIfRequired() {
     if (
       this.pos.config.require_customer === "payment" &&
@@ -327,8 +274,7 @@ patch(PosStore.prototype, {
 });
 
 /**
- * Override ProductScreen: require customer before order when
- * pos.config.require_customer === "order".
+ * Require customer before order when pos.config.require_customer === "order".
  */
 patch(ProductScreen.prototype, {
   setup() {
