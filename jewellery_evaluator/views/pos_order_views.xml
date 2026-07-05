@@ -16,6 +16,11 @@
                 <attribute name="required">require_customer != 'no'</attribute>
                 <attribute name="readonly">state == 'invoiced'</attribute>
             </xpath>
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="has_min_price_override" invisible="1"/>
+                <field name="override_approver_names" readonly="1"
+                       invisible="not has_min_price_override"/>
+            </xpath>
         </field>
     </record>
 </odoo>

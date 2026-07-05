@@ -111,6 +111,29 @@ class PosOrder(models.Model):
         related="session_id.config_id.require_customer",
     )
 
+    # Audit summary of below-minimum manager overrides on this order's lines.
+    # The cashier who made the sale is pos_hr's own ``employee_id`` ("Cashier").
+    has_min_price_override = fields.Boolean(
+        string="Below-Min Override",
+        compute="_compute_min_price_override_summary",
+        help="At least one line on this order was sold below its minimum sale "
+             "price with manager approval.",
+    )
+    override_approver_names = fields.Char(
+        string="Below-Min Approved By",
+        compute="_compute_min_price_override_summary",
+        help="Manager(s) who approved selling a line below its minimum sale "
+             "price on this order.",
+    )
+
+    @api.depends('lines.min_price_override', 'lines.override_approver_name')
+    def _compute_min_price_override_summary(self):
+        for order in self:
+            overridden = order.lines.filtered('min_price_override')
+            order.has_min_price_override = bool(overridden)
+            names = {n for n in overridden.mapped('override_approver_name') if n}
+            order.override_approver_names = ', '.join(sorted(names))
+
     @api.constrains("partner_id", "session_id")
     def _check_partner(self):
         for rec in self:
