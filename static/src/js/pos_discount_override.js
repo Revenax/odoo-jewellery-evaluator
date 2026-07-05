@@ -7,6 +7,7 @@
  */
 
 import { ProductScreen } from "@point_of_sale/app/screens/product_screen/product_screen";
+import { Orderline } from "@point_of_sale/app/components/orderline/orderline";
 import { PosStore } from "@point_of_sale/app/services/pos_store";
 import OrderPaymentValidation from "@point_of_sale/app/utils/order_payment_validation";
 import { ask } from "@point_of_sale/app/utils/make_awaitable_dialog";
@@ -265,6 +266,34 @@ patch(OrderPaymentValidation.prototype, {
     }
 
     return super._askForCustomerIfRequired(...arguments);
+  },
+});
+
+/**
+ * Highlight an order line's price in yellow while it is below its minimum sale
+ * price (and not yet manager-approved), so the cashier sees before paying that
+ * the Pay step will ask for a manager. Cleared once approved.
+ */
+patch(Orderline.prototype, {
+  get isBelowMinimum() {
+    if (this.props.mode !== "display") {
+      return false;
+    }
+    const line = this.line;
+    if (!line || line.min_price_override) {
+      return false;
+    }
+    const qty = line.getQuantity ? line.getQuantity() : line.qty;
+    if (qty < 0) {
+      return false;
+    }
+    const product = line.getProduct && line.getProduct();
+    const floor = jewelleryFloor(product, line.price_unit);
+    if (floor <= 0) {
+      return false;
+    }
+    const finalPrice = (line.price_unit || 0) * (1 - (line.discount || 0) / 100);
+    return finalPrice < floor;
   },
 });
 

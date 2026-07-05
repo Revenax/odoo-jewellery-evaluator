@@ -1,0 +1,12 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+
+// Below-minimum (not yet manager-approved) line price: flag it yellow so the
+// cashier knows the Pay step will require a manager approval.
+.o_jewellery_below_min {
+    color: #b58900 !important; // golden yellow, readable on the light POS panel
+    background-color: rgba(255, 205, 0, 0.18);
+    border-radius: 0.25rem;
+    padding: 0 0.25rem;
+}
