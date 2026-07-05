@@ -74,6 +74,66 @@ function jewelleryFloor(product, priceUnit) {
 }
 
 /**
+ * Gate an order's below-minimum lines behind a single manager approval.
+ * Returns true when nothing is below-min or approval is granted (flags stamped
+ * on the below-min lines); false (caller should abort) when refused/cancelled.
+ * Editing a price never triggers this — it runs once, when the cashier pays.
+ */
+async function ensureMinPriceApproval(pos, order) {
+  const lines = (order.getOrderlines ? order.getOrderlines() : order.lines) || [];
+  const belowMin = [];
+  let firstName = "";
+  let firstFloor = 0;
+  for (const line of lines) {
+    if (line.min_price_override) {
+      continue; // already approved
+    }
+    const qty = line.getQuantity ? line.getQuantity() : line.qty;
+    if (qty < 0) {
+      continue; // refund/return line — the floor is for sales only
+    }
+    const product = line.getProduct && line.getProduct();
+    const floor = jewelleryFloor(product, line.price_unit);
+    if (floor <= 0) {
+      continue;
+    }
+    const finalPrice = (line.price_unit || 0) * (1 - (line.discount || 0) / 100);
+    if (finalPrice < floor) {
+      belowMin.push({ line, floor });
+      if (!firstName) {
+        firstName = product.display_name;
+        firstFloor = floor;
+      }
+    }
+  }
+
+  if (belowMin.length === 0) {
+    return true;
+  }
+
+  const label =
+    belowMin.length > 1 ? `${firstName} (+${belowMin.length - 1} more)` : firstName;
+  const approved = await promptManagerOverride(pos, {
+    productName: label,
+    floor: firstFloor,
+  });
+  if (!approved) {
+    pos.notification.add(
+      _t("Manager approval is required to sell below the minimum price."),
+      { type: "warning" },
+    );
+    return false;
+  }
+  for (const { line, floor } of belowMin) {
+    line.min_price_override = true;
+    line.override_approver_uid = approved.approverId;
+    line.override_approver_name = approved.approverName;
+    line.override_original_min = floor;
+  }
+  return true;
+}
+
+/**
  * PIN/badge popup that authorises selling below the minimum sale price.
  */
 export class ManagerOverridePopup extends Component {
@@ -163,84 +223,32 @@ export class ManagerOverridePopup extends Component {
 }
 
 /**
- * Minimum-price enforcement + customer requirement, both gated at payment
- * (NOT on price edits — editing a price never prompts or validates). When the
- * cashier validates the order, any gold/silver line priced below its minimum
- * requires a single manager PIN/badge approval; the approval is stamped on the
- * below-min lines and travels to the backend, which re-verifies and audits it.
+ * Gate below-minimum sales at the "Pay" button (entering the payment screen),
+ * and apply the configured invoicing default to new orders. Editing a price
+ * never prompts or validates; the manager PIN/badge is asked once, on Pay.
+ */
+patch(PosStore.prototype, {
+  async pay() {
+    const order = this.getOrder();
+    if (order && !(await ensureMinPriceApproval(this, order))) {
+      return; // below-min approval refused — stay on the product screen
+    }
+    return super.pay(...arguments);
+  },
+
+  createNewOrder(data = {}) {
+    const order = super.createNewOrder(...arguments);
+    if (!("to_invoice" in data) && this.config.default_to_invoice) {
+      order.setToInvoice(true);
+    }
+    return order;
+  },
+});
+
+/**
+ * Require customer before payment when pos.config.require_customer === "payment".
  */
 patch(OrderPaymentValidation.prototype, {
-  async isOrderValid(isForceValidate) {
-    const ok = await super.isOrderValid(...arguments);
-    if (!ok) {
-      return false;
-    }
-    return await this._ensureMinPriceApproval();
-  },
-
-  /**
-   * Prompt once for manager approval if any line is below its floor. Returns
-   * true when nothing is below-min or approval is granted (flags stamped on the
-   * lines); false (blocking payment) when approval is refused/cancelled.
-   */
-  async _ensureMinPriceApproval() {
-    const order = this.order;
-    const lines =
-      (order.getOrderlines ? order.getOrderlines() : order.lines) || [];
-    const belowMin = [];
-    let firstName = "";
-    let firstFloor = 0;
-    for (const line of lines) {
-      if (line.min_price_override) {
-        continue; // already approved
-      }
-      const qty = line.getQuantity ? line.getQuantity() : line.qty;
-      if (qty < 0) {
-        continue; // refund/return line — the floor is for sales only
-      }
-      const product = line.getProduct && line.getProduct();
-      const floor = jewelleryFloor(product, line.price_unit);
-      if (floor <= 0) {
-        continue;
-      }
-      const finalPrice = (line.price_unit || 0) * (1 - (line.discount || 0) / 100);
-      if (finalPrice < floor) {
-        belowMin.push({ line, floor });
-        if (!firstName) {
-          firstName = product.display_name;
-          firstFloor = floor;
-        }
-      }
-    }
-
-    if (belowMin.length === 0) {
-      return true;
-    }
-
-    const label =
-      belowMin.length > 1
-        ? `${firstName} (+${belowMin.length - 1} more)`
-        : firstName;
-    const approved = await promptManagerOverride(this.pos, {
-      productName: label,
-      floor: firstFloor,
-    });
-    if (!approved) {
-      this.pos.notification.add(
-        _t("Manager approval is required to sell below the minimum price."),
-        { type: "warning" },
-      );
-      return false;
-    }
-    for (const { line, floor } of belowMin) {
-      line.min_price_override = true;
-      line.override_approver_uid = approved.approverId;
-      line.override_approver_name = approved.approverName;
-      line.override_original_min = floor;
-    }
-    return true;
-  },
-
   async _askForCustomerIfRequired() {
     if (
       this.pos.config.require_customer === "payment" &&
@@ -257,19 +265,6 @@ patch(OrderPaymentValidation.prototype, {
     }
 
     return super._askForCustomerIfRequired(...arguments);
-  },
-});
-
-/**
- * Apply the configured invoicing default to every new POS order.
- */
-patch(PosStore.prototype, {
-  createNewOrder(data = {}) {
-    const order = super.createNewOrder(...arguments);
-    if (!("to_invoice" in data) && this.config.default_to_invoice) {
-      order.setToInvoice(true);
-    }
-    return order;
   },
 });
 
