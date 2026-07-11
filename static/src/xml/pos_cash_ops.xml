@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- HELD — not in __manifest__.py assets yet. See pos_cash_ops.js header. -->
+<templates id="template" xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.CurrencyConvertPopup">
+        <Dialog title="'Currency Conversion'" size="'sm'">
+            <div class="p-2">
+                <label class="fw-bold">Buy currency (out of Vault)</label>
+                <select class="form-select mb-2" t-model="state.journalId">
+                    <t t-foreach="props.journals" t-as="j" t-key="j.id">
+                        <option t-att-value="j.id" t-esc="j.name"/>
+                    </t>
+                </select>
+                <label>Amount out (EGP)</label>
+                <input type="number" class="form-control mb-2" t-model="state.amountEgp"/>
+                <label>Amount in (foreign)</label>
+                <input type="number" class="form-control" t-model="state.toAmount"/>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-on-click="() => this.confirm()">Convert</button>
+                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+    <t t-name="jewellery_evaluator.OwnerTransferPopup">
+        <Dialog title="'Transfer to Owner'" size="'sm'">
+            <div class="p-2">
+                <label class="fw-bold">Owner</label>
+                <select class="form-select mb-2" t-model="state.journalId">
+                    <t t-foreach="props.journals" t-as="j" t-key="j.id">
+                        <option t-att-value="j.id" t-esc="j.name"/>
+                    </t>
+                </select>
+                <label>Amount (EGP, out of Vault)</label>
+                <input type="number" class="form-control" t-model="state.amount"/>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-on-click="() => this.confirm()">Transfer</button>
+                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+    <t t-inherit="point_of_sale.ControlButtons" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('control-buttons')]" position="inside">
+            <button class="btn btn-light control-button" t-on-click="() => this.onClickCurrency()">
+                <i class="fa fa-money me-1"/> Currency
+            </button>
+            <button class="btn btn-light control-button" t-on-click="() => this.onClickOwnerTransfer()">
+                <i class="fa fa-user me-1"/> To Owner
+            </button>
+        </xpath>
+    </t>
+
+</templates>
