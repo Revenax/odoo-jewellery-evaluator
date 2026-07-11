@@ -10,6 +10,7 @@ from . import (
     jewellery_evaluator_config,  # noqa: F401
     jewellery_purchase,  # noqa: F401
     jewellery_stone,  # noqa: F401
+    pos_cash_ops,  # noqa: F401
     pos_config,  # noqa: F401
     pos_make_payment,  # noqa: F401
     pos_order,  # noqa: F401
