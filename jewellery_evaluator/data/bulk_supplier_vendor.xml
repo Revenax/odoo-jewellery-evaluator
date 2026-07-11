@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Generic supplier for bulk / bars-coins / scrap purchases made from the ops
+    app. One fixed data partner (not runtime find-or-create) so every purchase
+    PO is attributed consistently, no duplicates under concurrency. Like the
+    buy-back vendor, `property_stock_supplier` is required or purchase_stock
+    `_prepare_picking` raises "You must set a Vendor Location for this partner".
+-->
+<odoo>
+    <record id="partner_bulk_supplier" model="res.partner">
+        <field name="name">Bulk Supplier (Purchases)</field>
+        <field name="company_type">company</field>
+        <field name="supplier_rank">1</field>
+        <field name="property_stock_supplier" ref="stock.stock_location_suppliers"/>
+    </record>
+</odoo>

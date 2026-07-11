@@ -44,6 +44,7 @@
         'jewellery_evaluator/report/report_invoice_gold.xml',
         'jewellery_evaluator/data/jewellery_evaluator_cron.xml',
         'jewellery_evaluator/data/bought_from_customer_vendor.xml',
+        'jewellery_evaluator/data/bulk_supplier_vendor.xml',
     ],
     'assets': {
         'point_of_sale._assets_pos': [

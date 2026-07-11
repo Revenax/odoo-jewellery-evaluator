@@ -8,6 +8,7 @@ from . import (
     account_move_line,  # noqa: F401
     gold_price_service,  # noqa: F401
     jewellery_evaluator_config,  # noqa: F401
+    jewellery_purchase,  # noqa: F401
     jewellery_stone,  # noqa: F401
     pos_config,  # noqa: F401
     pos_make_payment,  # noqa: F401
