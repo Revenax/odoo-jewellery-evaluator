@@ -20,6 +20,24 @@ class AccountMove(models.Model):
              "storable pieces out of on-hand stock, so a re-post never "
              "double-counts.")
 
+    jewellery_cash_ops_key = fields.Char(
+        string='POS cash-op idempotency key', index=True, copy=False,
+        help="Client token for a POS Currency/Owner-transfer entry. Lets the "
+             "backend reuse an already-posted move on a retry instead of "
+             "double-posting cash out of the Vault. See models/pos_cash_ops.py.")
+
+    # Belt-and-suspenders against concurrent double-submit: Postgres treats NULLs
+    # as distinct, so the (vast majority) keyless moves are unaffected; only two
+    # cash-ops entries sharing a token collide — the second insert fails instead
+    # of double-posting.
+    _sql_constraints = [
+        (
+            'jewellery_cash_ops_key_uniq',
+            'unique(jewellery_cash_ops_key)',
+            'A POS cash operation with this idempotency key already exists.',
+        ),
+    ]
+
     def _post(self, soft=True):
         """A manual customer invoice (created in Invoicing, not the POS) must take
         the sold piece out of stock — otherwise a unique qty-1 jewellery piece

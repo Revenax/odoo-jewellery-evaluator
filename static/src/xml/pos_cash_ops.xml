@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- HELD — not in __manifest__.py assets yet. See pos_cash_ops.js header. -->
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+-->
 <templates id="template" xml:space="preserve">
 
     <t t-name="jewellery_evaluator.CurrencyConvertPopup">
@@ -12,13 +16,17 @@
                     </t>
                 </select>
                 <label>Amount out (EGP)</label>
-                <input type="number" class="form-control mb-2" t-model="state.amountEgp"/>
+                <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.amountEgp"/>
                 <label>Amount in (foreign)</label>
-                <input type="number" class="form-control" t-model="state.toAmount"/>
+                <input type="number" step="0.01" min="0" class="form-control" t-model="state.toAmount"/>
+                <p t-if="state.error" class="text-danger mt-2 mb-0" t-esc="state.error"/>
             </div>
             <t t-set-slot="footer">
-                <button class="btn btn-primary" t-on-click="() => this.confirm()">Convert</button>
-                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+                <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
+                    <t t-if="state.busy">Working…</t>
+                    <t t-else="">Convert</t>
+                </button>
+                <button class="btn btn-secondary" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
             </t>
         </Dialog>
     </t>
@@ -33,11 +41,15 @@
                     </t>
                 </select>
                 <label>Amount (EGP, out of Vault)</label>
-                <input type="number" class="form-control" t-model="state.amount"/>
+                <input type="number" step="0.01" min="0" class="form-control" t-model="state.amount"/>
+                <p t-if="state.error" class="text-danger mt-2 mb-0" t-esc="state.error"/>
             </div>
             <t t-set-slot="footer">
-                <button class="btn btn-primary" t-on-click="() => this.confirm()">Transfer</button>
-                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+                <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
+                    <t t-if="state.busy">Working…</t>
+                    <t t-else="">Transfer</t>
+                </button>
+                <button class="btn btn-secondary" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
             </t>
         </Dialog>
     </t>

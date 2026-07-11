@@ -3,9 +3,12 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
+import json
+
 from odoo import fields, models
 
 from ..utils import sha1_hex
+from .pos_cash_ops import owner_journal_domain, vault_foreign_journal_domain
 
 
 class PosConfig(models.Model):
@@ -46,6 +49,33 @@ class PosConfig(models.Model):
             config.jewellery_override_uses_pos_hr = uses_pos_hr
             config.jewellery_override_master_hash = master_hash
 
+    # Cash-ops popups (Currency / Transfer to Owner) need the branch's foreign
+    # Vault Foreign journals and the owner journals, shipped to the register as
+    # JSON [{"id","name"}] strings (same injected-Char pattern as the override
+    # hash above — no relational model to load on the frontend). Detection is
+    # convention-based and company-scoped:
+    #   * Vault Foreign = cash journals in a NON-company currency (USD/SAR/AED);
+    #   * Owner        = cash journals named "Owner …" (Owner - Anas Abbassi, …).
+    jewellery_vault_foreign_journals = fields.Char(
+        compute="_compute_jewellery_cash_ops_journals",
+    )
+    jewellery_owner_journals = fields.Char(
+        compute="_compute_jewellery_cash_ops_journals",
+    )
+
+    def _compute_jewellery_cash_ops_journals(self):
+        Journal = self.env["account.journal"].sudo()
+        for config in self:
+            company = config.company_id or self.env.company
+            vault_foreign = Journal.search(vault_foreign_journal_domain(company))
+            owners = Journal.search(owner_journal_domain(company))
+            config.jewellery_vault_foreign_journals = json.dumps(
+                [{"id": j.id, "name": j.name} for j in vault_foreign]
+            )
+            config.jewellery_owner_journals = json.dumps(
+                [{"id": j.id, "name": j.name} for j in owners]
+            )
+
     require_customer = fields.Selection(
         [
             ("no", "Optional"),
@@ -71,5 +101,11 @@ class PosConfig(models.Model):
             )
             record["jewellery_override_master_hash"] = (
                 pos_config.jewellery_override_master_hash
+            )
+            record["jewellery_vault_foreign_journals"] = (
+                pos_config.jewellery_vault_foreign_journals
+            )
+            record["jewellery_owner_journals"] = (
+                pos_config.jewellery_owner_journals
             )
         return read_records

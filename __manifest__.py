@@ -50,8 +50,10 @@
         'point_of_sale._assets_pos': [
             'jewellery_evaluator/static/src/scss/orderline_below_min.scss',
             'jewellery_evaluator/static/src/js/pos_discount_override.js',
+            'jewellery_evaluator/static/src/js/pos_cash_ops.js',
             'jewellery_evaluator/static/src/xml/manager_override_popup.xml',
             'jewellery_evaluator/static/src/xml/orderline_below_min.xml',
+            'jewellery_evaluator/static/src/xml/pos_cash_ops.xml',
         ],
     },
     'installable': True,
