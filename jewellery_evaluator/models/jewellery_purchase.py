@@ -65,7 +65,7 @@ class ProductTemplatePurchase(models.Model):
             partner = partner.with_company(self.env.company)
             partner.property_stock_supplier = self.env.ref('stock.stock_location_suppliers')
 
-        origin = origin or ('BULK-%s' % fields.Datetime.to_string(fields.Datetime.now()))
+        origin = origin or f'BULK-{fields.Datetime.to_string(fields.Datetime.now())}'
 
         # Resolve every SKU up front (fail the whole batch if any is unknown —
         # atomic, no half-receipt).
