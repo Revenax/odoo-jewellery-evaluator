@@ -1,5 +1,6 @@
 /** @odoo-module **/
-// POS "Currency" + "Transfer to Owner" control buttons.
+// POS "Currency" + "Transfer to Owner" menu items — live in the Navbar burger
+// menu right next to "Cash In/Out" (all Vault cash operations together).
 //   * Journals arrive on pos.config as JSON strings from _load_pos_data_read
 //     (pos_config.py): jewellery_vault_foreign_journals / jewellery_owner_journals,
 //     each a list of {id, name} — same injected-Char pattern as the override hash.
@@ -7,15 +8,15 @@
 //     post_owner_transfer (models/pos_cash_ops.py). Those Cr the Vault, so the
 //     pos.session Vault override folds them into the shift automatically.
 //   * The backend WHITELISTS the journal, requires an open session, and dedupes
-//     by an idempotency key. The key is generated once per button click and
+//     by an idempotency key. The key is generated once per menu click and
 //     REUSED across in-popup retries, and the popup stays open (busy-guarded) on
 //     failure — so a lost-response retry reuses the move instead of posting a
 //     second real cash movement out of the Vault.
-// Verified against Odoo 19 core: ControlButtons component + template
-// "point_of_sale.ControlButtons" (div.control-buttons); this.pos.{dialog,data,
-// notification,session} all exist on the store.
+// Verified against Odoo 19 core: Navbar component + template
+// "point_of_sale.Navbar" (Cash In/Out DropdownItem); this.pos.{dialog,data,
+// notification,session,config} all exist on the store.
 
-import { ControlButtons } from "@point_of_sale/app/screens/product_screen/control_buttons/control_buttons";
+import { Navbar } from "@point_of_sale/app/components/navbar/navbar";
 import { Component, useState } from "@odoo/owl";
 import { Dialog } from "@web/core/dialog/dialog";
 import { patch } from "@web/core/utils/patch";
@@ -110,7 +111,7 @@ export class OwnerTransferPopup extends Component {
     }
 }
 
-patch(ControlButtons.prototype, {
+patch(Navbar.prototype, {
     // Journals loaded onto pos.config via _load_pos_data_read (pos_config.py) as
     // JSON strings: jewellery_vault_foreign_journals / jewellery_owner_journals.
     get _vaultForeignJournals() {

@@ -54,14 +54,14 @@
         </Dialog>
     </t>
 
-    <t t-inherit="point_of_sale.ControlButtons" t-inherit-mode="extension">
-        <xpath expr="//div[hasclass('control-buttons')]" position="inside">
-            <button class="btn btn-light control-button" t-on-click="() => this.onClickCurrency()">
-                <i class="fa fa-money me-1"/> Currency
-            </button>
-            <button class="btn btn-light control-button" t-on-click="() => this.onClickOwnerTransfer()">
-                <i class="fa fa-user me-1"/> To Owner
-            </button>
+    <t t-inherit="point_of_sale.Navbar" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[@onSelected=&quot;() =&gt; this.pos.cashMove()&quot;]" position="after">
+            <DropdownItem t-if="showCashMoveButton and this.pos.cashier._role != 'minimal'" onSelected="() => this.onClickCurrency()">
+                Currency
+            </DropdownItem>
+            <DropdownItem t-if="showCashMoveButton and this.pos.cashier._role != 'minimal'" onSelected="() => this.onClickOwnerTransfer()">
+                Transfer to Owner
+            </DropdownItem>
         </xpath>
     </t>
 
