@@ -379,6 +379,7 @@ def compute_diamond_jewellery_price(
     fee_per_gram_usd: float,
     ticket_multiplier: float,
     ticket_discount: float,
+    min_sale_pct: float = 0.0,
 ) -> dict:
     """
     Compute all pricing outputs for a diamond jewellery product.
@@ -442,12 +443,27 @@ def compute_diamond_jewellery_price(
     sale_price_egp = (sale_price_egp / round_to_50).quantize(
         Decimal('1'), rounding=ROUND_HALF_UP
     ) * round_to_50
+
+    # Minimum sale price (the POS floor) = a configurable share of the sale
+    # price. When pct is 0 this returns 0; the POS enforcement then applies its
+    # own 80%-of-price fallback (like gold/silver), so 0 does NOT remove the
+    # floor. Kept exact (0.01), not rounded to 50 — matching the gold/silver
+    # min-sale-price convention.
+    min_pct = Decimal(str(min_sale_pct))
+    if min_pct > 0:
+        min_sale_price_egp = (sale_price_egp * min_pct).quantize(
+            two_dp, rounding=ROUND_HALF_UP
+        )
+    else:
+        min_sale_price_egp = Decimal('0')
+
     return {
         'total_gold_cost_usd':   float(total_gold_cost_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
         'total_stones_cost_usd': float(total_stones_cost_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
         'ticket_price_usd':      float(ticket_price_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
         'sale_price_usd':        float(sale_price_usd.quantize(two_dp, rounding=ROUND_HALF_UP)),
         'sale_price_egp':        float(sale_price_egp),
+        'min_sale_price_egp':    float(min_sale_price_egp),
     }
 
 

@@ -98,6 +98,24 @@ class GoldPriceService(models.Model):
 
             text = response.text
             price = parse_gold_price_with_regex(text, regex_formula)
+
+            # Plausibility guard: a source-site layout change can make the regex
+            # match a WRONG-but-positive number, which would silently reprice the
+            # whole catalog (including the POS floor). Reject a fetched price that
+            # jumps more than the configured fraction off the last known-good
+            # value; keep the old price and fail the run loudly. The first-ever
+            # fetch (no prior value) bootstraps without a bound.
+            last_good = self._last_good_gold_price()
+            max_jump = self._gold_max_jump_pct()
+            if last_good > 0 and max_jump > 0:
+                jump = abs(price - last_good) / last_good
+                if jump > max_jump:
+                    raise ValueError(
+                        f'Rejected implausible gold price {price:.2f}: '
+                        f'{jump * 100:.0f}% jump from last good {last_good:.2f} '
+                        f'(max {max_jump * 100:.0f}%). Kept previous price.'
+                    )
+
             self.env['ir.config_parameter'].sudo().set_param(
                 'jewellery_evaluator.fallback_price',
                 str(price),
@@ -134,31 +152,59 @@ class GoldPriceService(models.Model):
 
     def _get_fallback_price(self):
         """
-        Get fallback gold price from system parameters.
-        Used when API is unavailable.
+        Get the cached gold price from system parameters.
 
-        :return: float - Fallback gold price per gram
-        :raises ValueError: If fallback price is invalid
+        Returns 0.0 (NOT a hardcoded guess) when the cache was never set or is
+        invalid, so a misconfigured branch prices gold at 0 — obviously broken —
+        instead of the old 75 EGP/g default (~1.5% of the real 21K price), which
+        looked plausible and silently sold gold near-free. compute_gold_product_price
+        rejects base <= 0, so the model computes 0 prices and logs, never crashes.
+
+        :return: float - Cached gold price per gram, or 0.0 if unavailable.
         """
         fallback_price_str = self.env['ir.config_parameter'].sudo().get_param(
             'jewellery_evaluator.fallback_price',
-            '75.0'  # Default fallback price
+            '0'
         )
         try:
             fallback_price = float(fallback_price_str)
             if fallback_price <= 0:
-                _logger.warning(
-                    'Invalid fallback price configured: %s. Using default 75.0',
+                _logger.error(
+                    'Gold price cache not configured (%s); gold pricing is '
+                    'disabled until the cron fetches a live price.',
                     fallback_price_str
                 )
-                return 75.0
+                return 0.0
             return fallback_price
         except (ValueError, TypeError):
-            _logger.warning(
-                'Invalid fallback price format: %s. Using default 75.0',
+            _logger.error(
+                'Invalid gold price cache format: %s; gold pricing disabled.',
                 fallback_price_str
             )
-            return 75.0
+            return 0.0
+
+    def _last_good_gold_price(self):
+        """Last known-good cached price (0.0 if never set), read WITHOUT the
+        error logging of _get_fallback_price — used by the plausibility guard."""
+        raw = self.env['ir.config_parameter'].sudo().get_param(
+            'jewellery_evaluator.fallback_price', '0')
+        try:
+            value = float(raw)
+        except (ValueError, TypeError):
+            return 0.0
+        return value if value > 0 else 0.0
+
+    def _gold_max_jump_pct(self):
+        """Max allowed fractional jump between consecutive fetched gold prices
+        (system parameter jewellery_evaluator.gold_price_max_jump_pct, default
+        0.35 = 35%). 0 disables the guard."""
+        raw = self.env['ir.config_parameter'].sudo().get_param(
+            'jewellery_evaluator.gold_price_max_jump_pct', '0.35')
+        try:
+            value = float(raw)
+        except (ValueError, TypeError):
+            return 0.35
+        return value if value > 0 else 0.0
 
     def _cron_log(self, message, level='INFO'):
         """Write a UI-visible run entry to Settings > Technical > Logging so the

@@ -166,6 +166,29 @@ class TestComputeDiamondJewelleryPrice:
         assert abs(r['sale_price_egp'] - 35850.0) < 0.01
         # Verify it's a multiple of 50 (rounded correctly)
         assert r['sale_price_egp'] % 50 == 0
+        # No min_sale_pct passed -> floor disabled (0).
+        assert r['min_sale_price_egp'] == 0.0
+
+    def test_min_sale_price_pct_of_sale(self):
+        # Same inputs as test_21k_no_stones (sale_price_egp = 35850), with a 90%
+        # floor -> min = 0.9 * 35850 = 32265.0 (exact, not rounded to 50).
+        r = compute_diamond_jewellery_price(
+            base_gold_price_21k_egp=self.BASE_21K_EGP,
+            gold_purity='21K',
+            weight_g=10.0,
+            stone_prices_usd=[],
+            exchange_rate_usd=self.RATE,
+            fee_per_gram_usd=self.FEE,
+            ticket_multiplier=self.MULTIPLIER,
+            ticket_discount=self.DISCOUNT,
+            min_sale_pct=0.9,
+        )
+        assert abs(r['sale_price_egp'] - 35850.0) < 0.01
+        assert abs(r['min_sale_price_egp'] - 32265.0) < 0.01
+
+    def test_min_sale_pct_zero_disables_floor(self):
+        r = self._call('21K', 10.0, [])
+        assert r['min_sale_price_egp'] == 0.0
 
     def test_18k_purity_factor(self):
         r = self._call('18K', 10.0, [])

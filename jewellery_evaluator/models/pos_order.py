@@ -225,6 +225,8 @@ class PosOrder(models.Model):
                 effective_min = product.gold_min_sale_price or (price_unit * 0.8)
             elif getattr(product, 'is_silver_product', False):
                 effective_min = product.silver_min_sale_price or (price_unit * 0.8)
+            elif getattr(product, 'is_diamond_jewellery_product', False):
+                effective_min = product.diamond_min_sale_price or (price_unit * 0.8)
             else:
                 continue
             if effective_min <= 0:
@@ -546,6 +548,10 @@ class PosOrderLine(models.Model):
             elif line.product_id.is_silver_product:
                 effective_min = (
                     line.product_id.silver_min_sale_price or (line.price_unit * 0.8)
+                )
+            elif line.product_id.is_diamond_jewellery_product:
+                effective_min = (
+                    line.product_id.diamond_min_sale_price or (line.price_unit * 0.8)
                 )
             else:
                 continue

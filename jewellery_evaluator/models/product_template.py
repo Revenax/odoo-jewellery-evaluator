@@ -273,6 +273,19 @@ class ProductTemplate(models.Model):
         readonly=True,
     )
 
+    diamond_min_sale_price = fields.Float(
+        string='Diamond Minimum Sale Price',
+        digits=(16, 2),
+        compute='_compute_diamond_jewellery_prices',
+        store=True,
+        readonly=True,
+        help='Minimum allowed sale price (POS floor) for diamond jewellery: a '
+             'configurable share of the sale price (Diamond Min Sale %, system '
+             'parameter jewellery_evaluator.diamond_min_sale_pct, default 0.9). '
+             'When 0, the POS falls back to an 80%-of-price floor (like '
+             'gold/silver), so the floor is never fully removed.',
+    )
+
     # ── Weight breakdown (per piece) ───────────────────────────────────────────
 
     diamond_weight_g = fields.Float(
@@ -436,7 +449,7 @@ class ProductTemplate(models.Model):
         except Exception:
             base_gold_21k_egp = 0.0
 
-        exchange_rate, fee_per_gram, multiplier, discount = self._diamond_pricing_config()
+        exchange_rate, fee_per_gram, multiplier, discount, min_pct = self._diamond_pricing_config()
 
         zero = {
             'diamond_total_gold_cost_usd': 0.0,
@@ -444,6 +457,7 @@ class ProductTemplate(models.Model):
             'diamond_ticket_price_usd': 0.0,
             'diamond_sale_price_usd': 0.0,
             'diamond_sale_price_egp': 0.0,
+            'diamond_min_sale_price': 0.0,
         }
 
         for record in self:
@@ -478,6 +492,7 @@ class ProductTemplate(models.Model):
                     fee_per_gram_usd=fee_per_gram,
                     ticket_multiplier=multiplier,
                     ticket_discount=discount,
+                    min_sale_pct=min_pct,
                 )
             except (ValueError, Exception) as e:
                 _logger.warning(
@@ -493,6 +508,7 @@ class ProductTemplate(models.Model):
             record.diamond_ticket_price_usd = result['ticket_price_usd']
             record.diamond_sale_price_usd = result['sale_price_usd']
             record.diamond_sale_price_egp = result['sale_price_egp']
+            record.diamond_min_sale_price = result['min_sale_price_egp']
 
     def _map_jewellery_type_to_gold_type(self, jewellery_type):
         return self.JEWELLERY_TYPE_TO_GOLD_TYPE.get(jewellery_type)
@@ -663,13 +679,14 @@ class ProductTemplate(models.Model):
             return {}
 
     def _diamond_pricing_config(self):
-        """Return (exchange_rate, fee_per_gram, multiplier, discount) from ICP."""
+        """Return (exchange_rate, fee_per_gram, multiplier, discount, min_pct) from ICP."""
         env = self.env
         return (
             _get_diamond_config_float(env, 'diamond_exchange_rate_usd', 50.0),
             _get_diamond_config_float(env, 'diamond_fee_per_gram_usd', 17.0),
             _get_diamond_config_float(env, 'diamond_ticket_multiplier', 2.8),
             _get_diamond_config_float(env, 'diamond_ticket_discount', 0.20),
+            _get_diamond_config_float(env, 'diamond_min_sale_pct', 0.9),
         )
 
     def _get_diamond_price_update_vals(self, base_gold_21k_egp):
@@ -687,7 +704,7 @@ class ProductTemplate(models.Model):
         if base_gold_21k_egp <= 0:
             return {}
 
-        exchange_rate, fee_per_gram, multiplier, discount = self._diamond_pricing_config()
+        exchange_rate, fee_per_gram, multiplier, discount, min_pct = self._diamond_pricing_config()
         if exchange_rate <= 0:
             return {}
 
@@ -704,6 +721,7 @@ class ProductTemplate(models.Model):
                 fee_per_gram_usd=fee_per_gram,
                 ticket_multiplier=multiplier,
                 ticket_discount=discount,
+                min_sale_pct=min_pct,
             )
         except (ValueError, Exception) as e:
             _logger.warning(
@@ -712,7 +730,10 @@ class ProductTemplate(models.Model):
             )
             return {}
 
-        return {'list_price': result['sale_price_egp']}
+        return {
+            'list_price': result['sale_price_egp'],
+            'diamond_min_sale_price': result['min_sale_price_egp'],
+        }
 
     @api.onchange('jewellery_type', 'jewellery_weight_g')
     def _onchange_sync_gold_legacy_fields(self):
@@ -1296,7 +1317,7 @@ class ProductTemplate(models.Model):
 
         updated = 0
         skipped = len(self) - len(diamond_products)
-        exchange_rate, fee_per_gram, multiplier, discount = self._diamond_pricing_config()
+        exchange_rate, fee_per_gram, multiplier, discount, min_pct = self._diamond_pricing_config()
 
         for product in diamond_products:
             valid_stone_prices = [
@@ -1314,6 +1335,7 @@ class ProductTemplate(models.Model):
                     fee_per_gram_usd=fee_per_gram,
                     ticket_multiplier=multiplier,
                     ticket_discount=discount,
+                    min_sale_pct=min_pct,
                 )
             except (ValueError, Exception) as e:
                 _logger.warning(
@@ -1339,6 +1361,7 @@ class ProductTemplate(models.Model):
                 'diamond_ticket_price_usd':       result['ticket_price_usd'],
                 'diamond_sale_price_usd':         result['sale_price_usd'],
                 'diamond_sale_price_egp':         result['sale_price_egp'],
+                'diamond_min_sale_price':         result['min_sale_price_egp'],
             })
             updated += 1
 

@@ -21,6 +21,7 @@ class ProductProduct(models.Model):
             "gold_cost_price",
             "silver_min_sale_price",
             "silver_cost_price",
+            "diamond_min_sale_price",
             "gold_weight_g",
             "gold_purity",
             "gold_type",

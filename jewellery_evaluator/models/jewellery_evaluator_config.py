@@ -240,6 +240,19 @@ class ResConfigSettings(models.TransientModel):
         default=0.20,
         help='Fraction to discount off the ticket price. E.g. 0.20 = 20%% off. Sale = Ticket × (1 − discount).',
     )
+    diamond_min_sale_pct = fields.Float(
+        string='Diamond Min Sale % (0–1)',
+        config_parameter='jewellery_evaluator.diamond_min_sale_pct',
+        digits=(16, 4),
+        default=0.9,
+        help='POS floor for diamond jewellery as a share of the sale price. '
+             'E.g. 0.90 = the cashier may discount at most 10%% below the listed '
+             'sale price. If set to 0 the floor falls back to 80%% of the entered '
+             'price (same safety net as gold/silver) — it is NOT removed; to '
+             'allow near-unlimited discounting use a tiny value like 0.01. Takes '
+             'full effect on the next gold-price cron run (or when a diamond '
+             'product is edited).',
+    )
     diamond_stone_tier_1_usd = fields.Float(
         string='Stone Tier 1 Price — 0.001–0.089 ct (USD)',
         config_parameter='jewellery_evaluator.diamond_stone_tier_1_usd',

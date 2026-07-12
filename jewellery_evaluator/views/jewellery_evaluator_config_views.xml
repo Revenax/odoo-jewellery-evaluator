@@ -348,6 +348,16 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane"/>
+                            <div class="o_setting_right_pane">
+                                <label for="diamond_min_sale_pct"/>
+                                <div class="text-muted">POS floor as a share of sale price (0–1, e.g. 0.90 = max 10% discount; 0 falls back to an 80% floor — use 0.01 for near-unlimited)</div>
+                                <div class="content-group">
+                                    <field name="diamond_min_sale_pct"/>
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-12 o_setting_box">
                             <div class="o_setting_left_pane"/>
                             <div class="o_setting_right_pane">

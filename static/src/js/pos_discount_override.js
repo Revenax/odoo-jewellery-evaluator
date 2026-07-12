@@ -64,12 +64,22 @@ async function promptManagerOverride(pos, props) {
  * Returns 0 for non-jewellery lines (no floor).
  */
 function jewelleryFloor(product, priceUnit) {
-  if (!product || (!product.is_gold_product && !product.is_silver_product)) {
+  if (
+    !product ||
+    (!product.is_gold_product &&
+      !product.is_silver_product &&
+      !product.is_diamond_jewellery_product)
+  ) {
     return 0;
   }
-  const minSalePrice = product.is_gold_product
-    ? product.gold_min_sale_price || 0
-    : product.silver_min_sale_price || 0;
+  let minSalePrice = 0;
+  if (product.is_gold_product) {
+    minSalePrice = product.gold_min_sale_price || 0;
+  } else if (product.is_silver_product) {
+    minSalePrice = product.silver_min_sale_price || 0;
+  } else if (product.is_diamond_jewellery_product) {
+    minSalePrice = product.diamond_min_sale_price || 0;
+  }
   const listPrice = product.list_price || priceUnit || 0;
   return minSalePrice > 0 ? minSalePrice : listPrice * 0.8;
 }
