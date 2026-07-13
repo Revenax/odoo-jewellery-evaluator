@@ -123,8 +123,33 @@ def _ensure_chrome_address_space():
         _logger.warning('Could not raise RLIMIT_AS for Chrome: %s', e)
 
 
+def _reap_stale_chrome_profiles(max_age_s=3600):
+    """Backstop against the disk-fill outage: remove leftover chrome-silver-*
+    profile dirs older than *max_age_s*. Each scrape cleans up its own dir, but
+    a crash between mkdtemp and cleanup would otherwise leak one every 10 min —
+    which once filled the disk and took Postgres (and Odoo) down."""
+    import glob
+    import os
+    import shutil
+    import tempfile
+    import time
+
+    now = time.time()
+    pattern = os.path.join(tempfile.gettempdir(), "chrome-silver-*")
+    for path in glob.glob(pattern):
+        try:
+            if now - os.path.getmtime(path) > max_age_s:
+                shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            pass
+
+
 def _create_driver():
-    """Create a headless Chrome WebDriver (requires selenium + chromium)."""
+    """Create a headless Chrome WebDriver (requires selenium + chromium).
+
+    Returns a driver carrying its throwaway profile dir on ``_silver_profile_dir``
+    so the caller can delete it after ``quit()`` (Chrome does not)."""
+    import shutil
     import tempfile
 
     from selenium import webdriver
@@ -132,6 +157,8 @@ def _create_driver():
     from selenium.webdriver.chrome.service import Service
 
     _ensure_chrome_address_space()
+    _reap_stale_chrome_profiles()
+    profile_dir = tempfile.mkdtemp(prefix="chrome-silver-")
 
     opts = Options()
     # Force the locally installed system Chrome — without this Selenium Manager
@@ -146,8 +173,9 @@ def _create_driver():
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
     # Unique writable profile dir — avoids "DevToolsActivePort file doesn't exist"
-    # when Chrome runs as root or when several drivers share /tmp.
-    opts.add_argument(f"--user-data-dir={tempfile.mkdtemp(prefix='chrome-silver-')}")
+    # when Chrome runs as root or when several drivers share /tmp. Deleted by the
+    # caller after quit() (see _scrape_silver_price); Chrome never removes it.
+    opts.add_argument(f"--user-data-dir={profile_dir}")
     opts.add_argument("--remote-debugging-pipe")
     opts.add_experimental_option(
         "prefs",
@@ -173,7 +201,13 @@ def _create_driver():
         driver_path = _resolve_chromedriver(chrome_bin)
         if driver_path:
             service = Service(executable_path=driver_path)
-    driver = webdriver.Chrome(options=opts, service=service) if service else webdriver.Chrome(options=opts)
+    try:
+        driver = webdriver.Chrome(options=opts, service=service) if service else webdriver.Chrome(options=opts)
+    except Exception:
+        # Chrome failed to start — don't leak the profile dir it never used.
+        shutil.rmtree(profile_dir, ignore_errors=True)
+        raise
+    driver._silver_profile_dir = profile_dir
     driver.implicitly_wait(10)
     return driver
 
@@ -199,7 +233,14 @@ def _scrape_silver_price(page_url: str, xpath_selector: str) -> float:
         element = WebDriverWait(driver, _PAGE_LOAD_TIMEOUT).until(_text_ready)
         return parse_silver_price_text(element.text)
     finally:
+        import shutil
+
         driver.quit()
+        # Chrome leaves the profile dir behind; remove it so it can't accumulate
+        # and fill the disk (the outage root cause). Backstopped by the reaper.
+        profile_dir = getattr(driver, "_silver_profile_dir", None)
+        if profile_dir:
+            shutil.rmtree(profile_dir, ignore_errors=True)
 
 
 class SilverPriceService(models.Model):
