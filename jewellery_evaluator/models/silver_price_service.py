@@ -147,8 +147,8 @@ def _reap_stale_chrome_profiles(max_age_s=3600):
 def _create_driver():
     """Create a headless Chrome WebDriver (requires selenium + chromium).
 
-    Returns a driver carrying its throwaway profile dir on ``_silver_profile_dir``
-    so the caller can delete it after ``quit()`` (Chrome does not)."""
+    Returns ``(driver, profile_dir)`` — the caller must delete ``profile_dir``
+    after ``driver.quit()`` (Chrome does not remove it)."""
     import shutil
     import tempfile
 
@@ -207,9 +207,8 @@ def _create_driver():
         # Chrome failed to start — don't leak the profile dir it never used.
         shutil.rmtree(profile_dir, ignore_errors=True)
         raise
-    driver._silver_profile_dir = profile_dir
     driver.implicitly_wait(10)
-    return driver
+    return driver, profile_dir
 
 
 def _scrape_silver_price(page_url: str, xpath_selector: str) -> float:
@@ -221,7 +220,7 @@ def _scrape_silver_price(page_url: str, xpath_selector: str) -> float:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
 
-    driver = _create_driver()
+    driver, profile_dir = _create_driver()
     try:
         driver.get(page_url)
 
@@ -238,9 +237,7 @@ def _scrape_silver_price(page_url: str, xpath_selector: str) -> float:
         driver.quit()
         # Chrome leaves the profile dir behind; remove it so it can't accumulate
         # and fill the disk (the outage root cause). Backstopped by the reaper.
-        profile_dir = getattr(driver, "_silver_profile_dir", None)
-        if profile_dir:
-            shutil.rmtree(profile_dir, ignore_errors=True)
+        shutil.rmtree(profile_dir, ignore_errors=True)
 
 
 class SilverPriceService(models.Model):
