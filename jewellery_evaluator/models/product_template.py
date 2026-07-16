@@ -856,7 +856,7 @@ class ProductTemplate(models.Model):
         an empty recordset for non-jewellery / uncategorised products."""
         self.ensure_one()
         categ = self.categ_id
-        parent = categ.parent_id if categ else False
+        parent = categ.parent_id  # empty recordset (falsy) when there's no parent
         if not parent or parent.name not in self.POS_CATEGORY_MATERIALS:
             return self.env['pos.category']
         PC = self.env['pos.category'].sudo()
