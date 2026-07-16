@@ -102,7 +102,7 @@
                 <span t-elif="line.product_id.silver_purity" t-field="line.product_id.silver_purity"/>
             </td>
             <td name="td_weight" class="text-end">
-                <!-- Diamond pieces: "net gold + stones" (e.g. 2.7 + 0.2); gold/silver keep the plain weight. -->
+                <!-- Diamond pieces: total weight = gold + stones summed (e.g. 3.47); gold/silver keep the plain weight. -->
                 <span t-if="line.product_id.invoice_weight_display" t-esc="line.product_id.invoice_weight_display"/>
                 <t t-else="">
                     <span t-if="line.jewellery_weight_g" t-field="line.jewellery_weight_g"/>

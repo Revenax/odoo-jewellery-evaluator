@@ -335,11 +335,12 @@ class ProductTemplate(models.Model):
     # the line's product. Empty for non-diamond pieces (the report then prints
     # the plain weight and no note). See utils.format_weight_g / format_diamond_note.
     invoice_weight_display = fields.Char(
-        string='Invoice Weight (gold + stones)',
+        string='Invoice Weight (gross)',
         compute='_compute_invoice_display',
         store=True,
         readonly=True,
-        help="Diamond pieces: 'net gold + stones' (e.g. '2.7 + 0.2'). Empty otherwise.",
+        help="Diamond pieces: total piece weight = gold + stones summed "
+             "(e.g. '3.47'). Empty otherwise (report shows the plain weight).",
     )
     invoice_diamond_note = fields.Char(
         string='Invoice Diamond Note',
@@ -351,15 +352,15 @@ class ProductTemplate(models.Model):
     )
 
     @api.depends(
-        'jewellery_type', 'net_gold_weight_g', 'diamond_weight_g',
+        'jewellery_type', 'gross_jewellery_weight_g',
         'stone_ids.carat', 'stone_ids.quantity',
     )
     def _compute_invoice_display(self):
         for record in self:
             if record.jewellery_type == 'diamond_jewellery' and record.stone_ids:
-                record.invoice_weight_display = (
-                    f'{format_weight_g(record.net_gold_weight_g)}'
-                    f' + {format_weight_g(record.diamond_weight_g)}'
+                # Total piece weight = gold + stones, summed into one number.
+                record.invoice_weight_display = format_weight_g(
+                    record.gross_jewellery_weight_g
                 )
                 record.invoice_diamond_note = format_diamond_note(
                     [{'carat': s.carat, 'quantity': s.quantity} for s in record.stone_ids]
