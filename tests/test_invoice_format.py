@@ -7,7 +7,11 @@ import os
 import sys
 
 try:
-    from jewellery_evaluator_utils import format_diamond_note, format_weight_g
+    from jewellery_evaluator_utils import (
+        format_carat,
+        format_diamond_note,
+        format_weight_g,
+    )
 except ImportError:
     import importlib.util
 
@@ -18,6 +22,7 @@ except ImportError:
     spec = importlib.util.spec_from_file_location("utils", _utils_path)
     utils = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(utils)
+    format_carat = utils.format_carat
     format_diamond_note = utils.format_diamond_note
     format_weight_g = utils.format_weight_g
 
@@ -35,8 +40,17 @@ class TestFormatWeight:
         assert format_weight_g(0) == "0"
         assert format_weight_g(None) == "0"
 
+    def test_grams_round_to_two_decimals(self):
+        # diamond-weight grams are shown to 2 dp like the gold column
+        assert format_weight_g(0.202) == "0.2"
+        assert format_weight_g(0.076) == "0.08"
+
+
+class TestFormatCarat:
     def test_keeps_three_decimals(self):
-        assert format_weight_g(0.362) == "0.362"
+        assert format_carat(0.362) == "0.362"
+        assert format_carat(0.024) == "0.024"
+        assert format_carat(1.010) == "1.01"
 
 
 class TestDiamondNote:

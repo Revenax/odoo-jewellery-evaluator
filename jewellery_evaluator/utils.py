@@ -630,8 +630,17 @@ def sha1_hex(text: str | None) -> str:
 
 
 def format_weight_g(value: float) -> str:
-    """Weight/carat as a clean string with trailing zeros trimmed:
-    2.70 -> '2.7', 0.200 -> '0.2', 1.010 -> '1.01', 3.0 -> '3'."""
+    """Weight in grams — 2 decimals (like the invoice's gold column), trailing
+    zeros trimmed: 2.70 -> '2.7', 0.200 -> '0.2', 0.076 -> '0.08', 3.0 -> '3'."""
+    d = Decimal(str(value or 0)).quantize(Decimal("0.01")).normalize()
+    if d == 0:
+        return "0"
+    return f"{d:f}"
+
+
+def format_carat(value: float) -> str:
+    """Carat — 3 decimals, trailing zeros trimmed: 1.010 -> '1.01', 0.362 ->
+    '0.362', 0.024 -> '0.024'."""
     d = Decimal(str(value or 0)).quantize(Decimal("0.001")).normalize()
     if d == 0:
         return "0"
@@ -648,7 +657,7 @@ def format_diamond_note(stones: list[dict]) -> str:
     """
     parts: list[str] = []
     for stone in stones:
-        carat = format_weight_g(stone.get("carat", 0))
+        carat = format_carat(stone.get("carat", 0))
         qty = int(stone.get("quantity") or 1)
         parts.append(f"{qty} DR. {carat}" if qty > 1 else f"{carat} CR")
     return ("Diamond " + " + ".join(parts)) if parts else ""
