@@ -627,3 +627,28 @@ def sha1_hex(text: str | None) -> str:
     if not normalized:
         return ""
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+
+
+def format_weight_g(value: float) -> str:
+    """Weight/carat as a clean string with trailing zeros trimmed:
+    2.70 -> '2.7', 0.200 -> '0.2', 1.010 -> '1.01', 3.0 -> '3'."""
+    d = Decimal(str(value or 0)).quantize(Decimal("0.001")).normalize()
+    if d == 0:
+        return "0"
+    return f"{d:f}"
+
+
+def format_diamond_note(stones: list[dict]) -> str:
+    """Auto invoice note for a diamond piece, from its stone rows.
+
+    Each row is a dict with ``carat`` and ``quantity``. A single stone renders
+    ``'<carat> CR'``; a group of N identical stones renders ``'N DR. <carat>'``;
+    multiple groups are joined with ' + '. Returns e.g. ``'Diamond 1.01 CR'`` or
+    ``'Diamond 15 DR. 0.362'``; empty string when there are no stones.
+    """
+    parts: list[str] = []
+    for stone in stones:
+        carat = format_weight_g(stone.get("carat", 0))
+        qty = int(stone.get("quantity") or 1)
+        parts.append(f"{qty} DR. {carat}" if qty > 1 else f"{carat} CR")
+    return ("Diamond " + " + ".join(parts)) if parts else ""

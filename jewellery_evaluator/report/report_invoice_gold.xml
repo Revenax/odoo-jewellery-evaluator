@@ -102,14 +102,26 @@
                 <span t-elif="line.product_id.silver_purity" t-field="line.product_id.silver_purity"/>
             </td>
             <td name="td_weight" class="text-end">
-                <span t-if="line.jewellery_weight_g" t-field="line.jewellery_weight_g"/>
-                <span t-elif="line.gold_weight_g" t-field="line.gold_weight_g"/>
-                <span t-elif="line.product_id.jewellery_weight_g" t-field="line.product_id.jewellery_weight_g"/>
-                <span t-elif="line.product_id.gold_weight_g" t-field="line.product_id.gold_weight_g"/>
+                <!-- Diamond pieces: "net gold + stones" (e.g. 2.7 + 0.2); gold/silver keep the plain weight. -->
+                <span t-if="line.product_id.invoice_weight_display" t-esc="line.product_id.invoice_weight_display"/>
+                <t t-else="">
+                    <span t-if="line.jewellery_weight_g" t-field="line.jewellery_weight_g"/>
+                    <span t-elif="line.gold_weight_g" t-field="line.gold_weight_g"/>
+                    <span t-elif="line.product_id.jewellery_weight_g" t-field="line.product_id.jewellery_weight_g"/>
+                    <span t-elif="line.product_id.gold_weight_g" t-field="line.product_id.gold_weight_g"/>
+                </t>
             </td>
         </xpath>
 
-        
+        <!-- Auto diamond-detail note printed under the line description
+             (diamond pieces only; e.g. "Diamond 15 DR. 0.362"). Derived from the
+             product's stones — see product.template.invoice_diamond_note. -->
+        <xpath expr="//td[@name='account_invoice_line_name']" position="inside">
+            <div t-if="line.product_id.invoice_diamond_note" style="font-style: italic; font-size: 13px; margin-top: 2px;">
+                <span t-esc="line.product_id.invoice_diamond_note"/>
+            </div>
+        </xpath>
+
         <!-- Quantity column: show only if at least one product line (header and cell). -->
         <xpath expr="//th[@name='th_quantity']" position="replace">
             <t t-if="report_show_quantity"><th name="th_quantity" class="text-end"><span>Quantity</span></th></t>

@@ -16,6 +16,8 @@ from ..utils import (
     compute_silver_product_price,
     compute_sku_prefix,
     compute_weight_reading_g,
+    format_diamond_note,
+    format_weight_g,
     get_markup_per_gram,
     get_min_markup_per_gram,
     get_silver_markup_per_gram,
@@ -327,6 +329,44 @@ class ProductTemplate(models.Model):
         index=True,
         help='Internal reference up to the first "-". Groupable/filterable.',
     )
+
+    # ── Gold-invoice display (diamond pieces only) ─────────────────────────────
+    # The custom gold invoice (report/report_invoice_gold.xml) reads these off
+    # the line's product. Empty for non-diamond pieces (the report then prints
+    # the plain weight and no note). See utils.format_weight_g / format_diamond_note.
+    invoice_weight_display = fields.Char(
+        string='Invoice Weight (gold + stones)',
+        compute='_compute_invoice_display',
+        store=True,
+        readonly=True,
+        help="Diamond pieces: 'net gold + stones' (e.g. '2.7 + 0.2'). Empty otherwise.",
+    )
+    invoice_diamond_note = fields.Char(
+        string='Invoice Diamond Note',
+        compute='_compute_invoice_display',
+        store=True,
+        readonly=True,
+        help="Auto diamond-detail note for the invoice (e.g. 'Diamond 15 DR. 0.362'). "
+             "Empty for non-diamond pieces.",
+    )
+
+    @api.depends(
+        'jewellery_type', 'net_gold_weight_g', 'diamond_weight_g',
+        'stone_ids.carat', 'stone_ids.quantity',
+    )
+    def _compute_invoice_display(self):
+        for record in self:
+            if record.jewellery_type == 'diamond_jewellery' and record.stone_ids:
+                record.invoice_weight_display = (
+                    f'{format_weight_g(record.net_gold_weight_g)}'
+                    f' + {format_weight_g(record.diamond_weight_g)}'
+                )
+                record.invoice_diamond_note = format_diamond_note(
+                    [{'carat': s.carat, 'quantity': s.quantity} for s in record.stone_ids]
+                )
+            else:
+                record.invoice_weight_display = False
+                record.invoice_diamond_note = False
 
     @api.depends('jewellery_type')
     def _compute_is_gold_product(self):
