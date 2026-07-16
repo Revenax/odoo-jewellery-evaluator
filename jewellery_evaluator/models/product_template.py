@@ -846,11 +846,49 @@ class ProductTemplate(models.Model):
                 % str(e)
             ) from e
 
+    # Jewellery materials that get mirrored into the POS category tree.
+    POS_CATEGORY_MATERIALS = ('Gold', 'Diamond', 'Silver')
+
+    def _matching_pos_category(self):
+        """Find-or-create the pos.category mirroring this product's
+        product.category (Material / Shape), so the POS register groups products
+        the same way the catalog does. Returns the leaf (shape) pos.category, or
+        an empty recordset for non-jewellery / uncategorised products."""
+        self.ensure_one()
+        categ = self.categ_id
+        parent = categ.parent_id if categ else False
+        if not parent or parent.name not in self.POS_CATEGORY_MATERIALS:
+            return self.env['pos.category']
+        PC = self.env['pos.category'].sudo()
+        material = PC.search(
+            [('name', '=', parent.name), ('parent_id', '=', False)], limit=1
+        ) or PC.create({'name': parent.name})
+        shape = PC.search(
+            [('name', '=', categ.name), ('parent_id', '=', material.id)], limit=1
+        ) or PC.create({'name': categ.name, 'parent_id': material.id})
+        return shape
+
+    def _sync_pos_category(self):
+        """Set pos_categ_ids to the single POS category matching the product's
+        Material/Shape. Self-guarded — a POS-category hiccup must never block a
+        product create/edit/sync (POS grouping is cosmetic)."""
+        for record in self:
+            try:
+                pos_categ = record._matching_pos_category()
+                if pos_categ and record.pos_categ_ids.ids != pos_categ.ids:
+                    record.write({'pos_categ_ids': [(6, 0, pos_categ.ids)]})
+            except Exception:
+                _logger.warning(
+                    'POS category sync failed for %s', record.display_name,
+                    exc_info=True,
+                )
+
     @api.model_create_multi
     def create(self, vals_list):
         normalized_vals_list = [
             self._normalize_jewellery_vals(vals) for vals in vals_list]
         records = super().create(normalized_vals_list)
+        records._sync_pos_category()
         try:
             if not self.env.context.get('skip_gold_price_update'):
                 if any(
@@ -969,6 +1007,8 @@ class ProductTemplate(models.Model):
                 _('Product price update failed. Please check gold/silver/diamond '
                   'jewellery settings or try again. Details: %s') % str(e)
             ) from e
+        if 'categ_id' in normalized_vals:
+            self._sync_pos_category()
         return res
 
     @api.constrains('jewellery_type', 'jewellery_weight_g', 'gold_purity', 'silver_purity', 'gold_type')
