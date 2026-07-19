@@ -12,6 +12,11 @@
             td.o_stone_row { font-size: 12px; }
         ]]></style>
         <t t-set="display_discount" t-value="False"/>
+        <!-- Gift invoice: hide every price (Value column + Total). The flag rides
+             in on the report `data` set by the report_gift_invoice wrapper
+             template; `data` is always defined on the normal render too, so this
+             is a safe no-op there. -->
+        <t t-set="jew_gift" t-value="bool(data and data.get('gift'))"/>
     </xpath>
 
     <!-- Remove the partner address row that sits above the invoice body (Odoo 19) -->
@@ -68,9 +73,9 @@
             <th name="th_karat" class="text-end"><span>Karat</span></th>
             <th name="th_weight" class="text-end"><span>Weight</span></th>
         </xpath>
-        <!-- Amount header -> "Value" -->
+        <!-- Amount header -> "Value" (hidden on the gift invoice) -->
         <xpath expr="//th[@name='th_subtotal']" position="replace">
-            <th name="th_subtotal" class="text-end"><span>Value</span></th>
+            <th name="th_subtotal" class="text-end" t-if="not jew_gift"><span>Value</span></th>
         </xpath>
         <!-- Remove Quantity + Unit Price header columns -->
         <xpath expr="//th[@name='th_quantity']" position="replace"/>
@@ -106,9 +111,9 @@
                 <span t-esc="'%.2fg' % (wt or 0)"/>
             </td>
         </xpath>
-        <!-- Value cell -> "32,000 EGP" (thousands, no decimals, EGP suffix) -->
+        <!-- Value cell -> "32,000 EGP" (hidden on the gift invoice) -->
         <xpath expr="//td[@name='td_subtotal']" position="replace">
-            <td name="td_subtotal" class="text-end">
+            <td name="td_subtotal" class="text-end" t-if="not jew_gift">
                 <span t-out="line.price_subtotal" t-options="{'widget': 'float', 'precision': 0}"/> EGP
             </td>
         </xpath>
@@ -132,14 +137,14 @@
                         <t t-set="shp" t-value="(' ' + stone.shape) if stone.shape else ''"/>
                         <span t-esc="'%s &#215; %gct%s' % (stone.quantity, stone.carat, shp)"/>
                     </td>
-                    <td/>
+                    <td t-if="not jew_gift"/>
                 </tr>
             </t>
         </xpath>
 
-        <!-- Our custom payment block: single Total Amount line -->
+        <!-- Our custom payment block: single Total Amount line (hidden on gift) -->
         <xpath expr="//div[contains(@class, 'ms-auto')]" position="replace">
-            <div class="ms-auto">
+            <div class="ms-auto" t-if="not jew_gift">
                 <table class="table table-sm table-borderless avoid-page-break-inside">
                     <tr class="border-black fw-bold">
                         <td class="text-end">Total Amount</td>

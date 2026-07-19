@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Adds a "Print Gift Invoice" button right after "Print Full Receipt" on the
+    POS receipt screen. Verified against Odoo 19 core template
+    point_of_sale.ReceiptScreen (the Print Full Receipt button uses
+    t-on-click="() => doFullPrint.call()").
+-->
+<templates id="template" xml:space="preserve">
+    <t t-inherit="point_of_sale.ReceiptScreen" t-inherit-mode="extension">
+        <xpath expr="//button[@t-on-click=&quot;() =&gt; doFullPrint.call()&quot;]" position="after">
+            <button class="button print btn btn-lg btn-secondary w-100 py-3" t-on-click="() => this.printGiftInvoice()">
+                <i class="fa fa-gift me-1"/>Print Gift Invoice
+            </button>
+        </xpath>
+    </t>
+</templates>

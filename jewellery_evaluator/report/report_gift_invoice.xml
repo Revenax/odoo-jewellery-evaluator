@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Gift invoice: the exact gold invoice layout with every price removed
+    (Value column + Total). The wrapper below t-sets `data = {'gift': True}` and
+    t-calls the standard invoice report, which threads the flag through QWeb's
+    t-call context into the shared gold document (report_invoice_document_gold),
+    where `jew_gift` hides the price elements. Verified read-only on prod:
+    wrapper -> gift=True, normal account.account_invoices -> gift=False, `data`
+    defined on both paths. Reused by the backend Print binding and the POS
+    receipt-screen controller so there is a single code path.
+-->
+<odoo>
+    <template id="report_gift_invoice">
+        <t t-set="data" t-value="{'gift': True}"/>
+        <t t-call="account.report_invoice"/>
+    </template>
+
+    <record id="action_report_gift_invoice" model="ir.actions.report">
+        <field name="name">Gift Invoice</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">jewellery_evaluator.report_gift_invoice</field>
+        <field name="report_file">jewellery_evaluator.report_gift_invoice</field>
+        <field name="paperformat_id" ref="jewellery_evaluator.paperformat_gold_a5"/>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Gift Invoice - %s' % ((object.name or '').replace('/', '_'))</field>
+    </record>
+</odoo>
