@@ -34,18 +34,24 @@ def owner_journal_domain(company):
 
 
 class PosSessionCashOps(models.Model):
-    """POS cash operations that move money out of the branch Vault as real
-    accounting entries (so the pos.session Vault override folds them into the
-    shift automatically — they credit the Vault GL account and are not POS
+    """POS cash operations that move money between the branch Vault, the foreign
+    Vault Foreign boxes, and the owners, as real accounting entries (so the
+    pos.session Vault override folds the EGP-Vault leg into the shift
+    automatically — those legs credit/debit the Vault GL account and are not POS
     statement lines):
 
-    * currency conversion — Dr Vault-Foreign-<ccy> / Cr Vault (EGP), the foreign
-      leg carrying the foreign amount in its own currency;
-    * transfer to an owner — Dr Owner-journal account / Cr Vault.
+    * currency conversion — two-way. Buy foreign: Dr Vault-Foreign / Cr Vault
+      (EGP); sell foreign: Dr Vault / Cr Vault-Foreign. The foreign leg carries
+      the foreign amount in its own currency (amount_currency, signed to match
+      the debit/credit).
+    * transfer to an owner — two-way, any box. Owner takes out: Dr Owner / Cr
+      Box; owner deposits in: Dr Box / Cr Owner. The box is the EGP Vault or any
+      Vault Foreign; foreign boxes carry amount_currency.
 
     Both are backend methods called from the POS 'Currency' / 'Transfer to Owner'
     popups (frontend held separately). Posted via a general journal so the lines
-    land directly on the cash accounts.
+    land directly on the cash accounts. Amounts are entered as two figures (the
+    EGP value + the foreign amount) — no server-side rate maths.
     """
 
     _inherit = 'pos.session'
@@ -85,6 +91,22 @@ class PosSessionCashOps(models.Model):
             raise UserError(_("Journal %s has no account.") % journal.display_name)
         return journal
 
+    def _cash_ops_resolve_box(self, box_journal_id):
+        """Resolve + WHITELIST a 'vault box' for owner transfers: either the
+        session's EGP Vault (cash_journal_id) or one of the branch's Vault
+        Foreign journals. Anything else is rejected."""
+        self.ensure_one()
+        Journal = self.env["account.journal"].sudo()
+        allowed = self.cash_journal_id | Journal.search(
+            vault_foreign_journal_domain(self.company_id)
+        )
+        journal = Journal.browse(int(box_journal_id))
+        if journal not in allowed:
+            raise UserError(_("That box is not permitted for this operation."))
+        if not journal.default_account_id:
+            raise UserError(_("Journal %s has no account.") % journal.display_name)
+        return journal
+
     def _cash_ops_existing_move(self, key):
         """Idempotency: return an already-posted move for this client key, so a
         retry after a lost response (or a double-click) reuses it instead of
@@ -105,74 +127,131 @@ class PosSessionCashOps(models.Model):
             raise UserError(_("No general journal found to post the entry."))
         return misc
 
+    def _cash_ops_post(self, key, ref, lines):
+        """Create + post a balanced general-journal entry for the given line
+        dicts, tagging it with the idempotency key."""
+        self.ensure_one()
+        misc = self._cash_ops_misc_journal()
+        move = self.env['account.move'].sudo().create({
+            'journal_id': misc.id, 'move_type': 'entry',
+            'jewellery_cash_ops_key': key or False, 'ref': ref,
+            'line_ids': [(0, 0, ln) for ln in lines],
+        })
+        move.action_post()
+        return {'move': move.name}
+
+    @staticmethod
+    def _cash_ops_leg(account, egp, is_debit, name, ccy=None, foreign_amount=0.0):
+        """One move line. ``egp`` is the company-currency value on debit/credit;
+        for a foreign leg, amount_currency is +foreign on a debit, −foreign on a
+        credit (Odoo sign convention)."""
+        line = {
+            'account_id': account.id,
+            'debit': egp if is_debit else 0.0,
+            'credit': 0.0 if is_debit else egp,
+            'name': name,
+        }
+        if ccy:
+            line['currency_id'] = ccy.id
+            line['amount_currency'] = foreign_amount if is_debit else -foreign_amount
+        return line
+
     @api.model
-    def post_currency_conversion(self, session_id, amount_egp, to_journal_id, to_amount, key=None):
-        """Convert EGP out of the Vault into a foreign-currency Vault Foreign
-        journal. ``amount_egp`` leaves the Vault (Cr); ``to_amount`` (in the
-        target journal's currency) enters Vault Foreign (Dr). Rate is implicit
-        in the two amounts. ``key`` is a client idempotency token. Returns the
-        posted move name (and ``duplicate: True`` if it already existed).
-        """
+    def post_currency_conversion(self, session_id, direction, journal_id,
+                                 amount_egp, to_amount, key=None):
+        """Two-way currency conversion between the EGP Vault and a foreign Vault
+        Foreign box. ``direction`` is 'buy' (EGP → foreign) or 'sell' (foreign →
+        EGP). ``amount_egp`` is the EGP that moves through the drawer;
+        ``to_amount`` is the foreign amount that moves through the box. ``key`` is
+        a client idempotency token. Returns the posted move name (and
+        ``duplicate: True`` if it already existed)."""
         session = self.browse(session_id)
         session._cash_ops_check_session()
         existing = session._cash_ops_existing_move(key)
         if existing:
             return {"move": existing.name, "duplicate": True}
+        if direction not in ("buy", "sell"):
+            raise UserError(_("Invalid conversion direction."))
         amount_egp = float(amount_egp or 0.0)
         to_amount = float(to_amount or 0.0)
         if amount_egp <= 0 or to_amount <= 0:
             raise UserError(_("Enter positive amounts for the conversion."))
         vault_acct = session._cash_ops_vault_account()
-        to_journal = session._cash_ops_resolve_journal(to_journal_id, "foreign")
-        fx_acct = to_journal.default_account_id
-        ccy = to_journal.currency_id
-        misc = session._cash_ops_misc_journal()
-        fx_line = {'account_id': fx_acct.id, 'debit': amount_egp, 'credit': 0.0,
-                   'name': _('Currency buy %s') % ccy.name}
-        if ccy:
-            fx_line.update({'currency_id': ccy.id, 'amount_currency': to_amount})
-        move = self.env['account.move'].sudo().create({
-            'journal_id': misc.id, 'move_type': 'entry',
-            'jewellery_cash_ops_key': key or False,
-            'ref': _('POS FX: %(egp)s EGP -> %(amt)s %(ccy)s') % {
-                'egp': amount_egp, 'amt': to_amount, 'ccy': ccy.name or ''},
-            'line_ids': [
-                (0, 0, fx_line),
-                (0, 0, {'account_id': vault_acct.id, 'debit': 0.0, 'credit': amount_egp,
-                        'name': _('Vault cash out (FX)')}),
-            ],
-        })
-        move.action_post()
-        return {'move': move.name}
+        fx_journal = session._cash_ops_resolve_journal(journal_id, "foreign")
+        fx_acct = fx_journal.default_account_id
+        ccy = fx_journal.currency_id
+        leg = session._cash_ops_leg
+        if direction == "buy":
+            # EGP leaves the drawer (Cr Vault); foreign enters the box (Dr Foreign).
+            lines = [
+                leg(fx_acct, amount_egp, True, _('Currency buy %s') % ccy.name,
+                    ccy, to_amount),
+                leg(vault_acct, amount_egp, False, _('Vault cash out (FX buy)')),
+            ]
+            ref = _('POS FX buy: %(egp)s EGP -> %(amt)s %(ccy)s') % {
+                'egp': amount_egp, 'amt': to_amount, 'ccy': ccy.name}
+        else:
+            # Foreign leaves the box (Cr Foreign); EGP enters the drawer (Dr Vault).
+            lines = [
+                leg(vault_acct, amount_egp, True, _('Vault cash in (FX sell)')),
+                leg(fx_acct, amount_egp, False, _('Currency sell %s') % ccy.name,
+                    ccy, to_amount),
+            ]
+            ref = _('POS FX sell: %(amt)s %(ccy)s -> %(egp)s EGP') % {
+                'amt': to_amount, 'ccy': ccy.name, 'egp': amount_egp}
+        return session._cash_ops_post(key, ref, lines)
 
     @api.model
-    def post_owner_transfer(self, session_id, owner_journal_id, amount, key=None):
-        """Move ``amount`` EGP cash from the Vault to an owner journal
-        (Dr Owner / Cr Vault). ``key`` is a client idempotency token. Returns
-        the posted move name (and ``duplicate: True`` if it already existed).
-        """
+    def post_owner_transfer(self, session_id, direction, owner_journal_id,
+                            box_journal_id, amount, amount_egp, key=None):
+        """Two-way owner transfer between a vault box and an owner. ``direction``
+        is 'out' (box → owner) or 'in' (owner → box). ``box_journal_id`` is the
+        EGP Vault or a Vault Foreign box. ``amount`` is in the box currency;
+        ``amount_egp`` is its EGP value (== ``amount`` for the EGP box). ``key``
+        is a client idempotency token. Returns the posted move name (and
+        ``duplicate: True`` if it already existed)."""
         session = self.browse(session_id)
         session._cash_ops_check_session()
         existing = session._cash_ops_existing_move(key)
         if existing:
             return {"move": existing.name, "duplicate": True}
+        if direction not in ("out", "in"):
+            raise UserError(_("Invalid transfer direction."))
         amount = float(amount or 0.0)
-        if amount <= 0:
-            raise UserError(_("Enter a positive amount."))
-        vault_acct = session._cash_ops_vault_account()
+        amount_egp = float(amount_egp or 0.0)
+        if amount <= 0 or amount_egp <= 0:
+            raise UserError(_("Enter positive amounts."))
         owner_journal = session._cash_ops_resolve_journal(owner_journal_id, "owner")
         owner_acct = owner_journal.default_account_id
-        misc = session._cash_ops_misc_journal()
-        move = self.env['account.move'].sudo().create({
-            'journal_id': misc.id, 'move_type': 'entry',
-            'jewellery_cash_ops_key': key or False,
-            'ref': _('POS transfer to %s') % owner_journal.name,
-            'line_ids': [
-                (0, 0, {'account_id': owner_acct.id, 'debit': amount, 'credit': 0.0,
-                        'name': _('Transfer to %s') % owner_journal.name}),
-                (0, 0, {'account_id': vault_acct.id, 'debit': 0.0, 'credit': amount,
-                        'name': _('Vault cash out (owner)')}),
-            ],
-        })
-        move.action_post()
-        return {'move': move.name}
+        box = session._cash_ops_resolve_box(box_journal_id)
+        box_acct = box.default_account_id
+        company_ccy = session.company_id.currency_id
+        is_foreign = bool(box.currency_id) and box.currency_id != company_ccy
+        ccy = box.currency_id if is_foreign else None
+        if not is_foreign:
+            # EGP box is single-currency: the EGP value is the amount itself.
+            amount_egp = amount
+        leg = session._cash_ops_leg
+        if direction == "out":
+            # Dr Owner / Cr Box — cash leaves the box, to the owner.
+            lines = [
+                leg(owner_acct, amount_egp, True,
+                    _('Transfer to %s') % owner_journal.name, ccy, amount),
+                leg(box_acct, amount_egp, False,
+                    _('%s cash out (owner)') % box.name, ccy, amount),
+            ]
+            ref = _('POS owner out: %(name)s <- %(amt)s %(ccy)s') % {
+                'name': owner_journal.name, 'amt': amount,
+                'ccy': (ccy.name if ccy else company_ccy.name)}
+        else:
+            # Dr Box / Cr Owner — the owner deposits cash into the box.
+            lines = [
+                leg(box_acct, amount_egp, True,
+                    _('%s cash in (owner)') % box.name, ccy, amount),
+                leg(owner_acct, amount_egp, False,
+                    _('Deposit from %s') % owner_journal.name, ccy, amount),
+            ]
+            ref = _('POS owner in: %(name)s -> %(amt)s %(ccy)s') % {
+                'name': owner_journal.name, 'amt': amount,
+                'ccy': (ccy.name if ccy else company_ccy.name)}
+        return session._cash_ops_post(key, ref, lines)

@@ -9,22 +9,41 @@
     <t t-name="jewellery_evaluator.CurrencyConvertPopup">
         <Dialog title="'Currency Conversion'" size="'sm'">
             <div class="p-2">
-                <label class="fw-bold">Buy currency (out of Vault)</label>
+                <div class="btn-group w-100 mb-3" role="group">
+                    <button type="button" class="btn"
+                            t-att-class="state.direction === 'buy' ? 'btn-primary' : 'btn-outline-primary'"
+                            t-on-click="() => this.state.direction = 'buy'">Buy foreign</button>
+                    <button type="button" class="btn"
+                            t-att-class="state.direction === 'sell' ? 'btn-primary' : 'btn-outline-primary'"
+                            t-on-click="() => this.state.direction = 'sell'">Sell foreign</button>
+                </div>
+                <label class="fw-bold">Currency</label>
                 <select class="form-select mb-2" t-model="state.journalId">
                     <t t-foreach="props.journals" t-as="j" t-key="j.id">
                         <option t-att-value="j.id" t-esc="j.name"/>
                     </t>
                 </select>
-                <label>Amount out (EGP)</label>
+                <label>
+                    EGP amount
+                    <span class="text-muted" t-if="state.direction === 'buy'"> (out of drawer)</span>
+                    <span class="text-muted" t-else=""> (into drawer)</span>
+                </label>
                 <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.amountEgp"/>
-                <label>Amount in (foreign)</label>
-                <input type="number" step="0.01" min="0" class="form-control" t-model="state.toAmount"/>
+                <label>
+                    <t t-esc="selectedCcy"/> amount
+                    <span class="text-muted" t-if="state.direction === 'buy'"> (into box)</span>
+                    <span class="text-muted" t-else=""> (out of box)</span>
+                </label>
+                <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.toAmount"/>
+                <label>Rate</label>
+                <input type="text" class="form-control mb-2" readonly="readonly" t-att-value="rateText" placeholder="—"/>
+                <p t-if="summary" class="alert alert-info py-2 mb-0" t-esc="summary"/>
                 <p t-if="state.error" class="text-danger mt-2 mb-0" t-esc="state.error"/>
             </div>
             <t t-set-slot="footer">
                 <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
                     <t t-if="state.busy">Working…</t>
-                    <t t-else="">Convert</t>
+                    <t t-else="">Confirm</t>
                 </button>
                 <button class="btn btn-secondary" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
             </t>
@@ -34,20 +53,45 @@
     <t t-name="jewellery_evaluator.OwnerTransferPopup">
         <Dialog title="'Transfer to Owner'" size="'sm'">
             <div class="p-2">
+                <div class="btn-group w-100 mb-3" role="group">
+                    <button type="button" class="btn"
+                            t-att-class="state.direction === 'out' ? 'btn-primary' : 'btn-outline-primary'"
+                            t-on-click="() => this.state.direction = 'out'">Owner takes out</button>
+                    <button type="button" class="btn"
+                            t-att-class="state.direction === 'in' ? 'btn-primary' : 'btn-outline-primary'"
+                            t-on-click="() => this.state.direction = 'in'">Owner deposits in</button>
+                </div>
                 <label class="fw-bold">Owner</label>
-                <select class="form-select mb-2" t-model="state.journalId">
-                    <t t-foreach="props.journals" t-as="j" t-key="j.id">
-                        <option t-att-value="j.id" t-esc="j.name"/>
+                <select class="form-select mb-2" t-model="state.ownerId">
+                    <t t-foreach="props.owners" t-as="o" t-key="o.id">
+                        <option t-att-value="o.id" t-esc="o.name"/>
                     </t>
                 </select>
-                <label>Amount (EGP, out of Vault)</label>
-                <input type="number" step="0.01" min="0" class="form-control" t-model="state.amount"/>
+                <label class="fw-bold">Box</label>
+                <select class="form-select mb-2" t-model="state.boxId">
+                    <t t-foreach="props.boxes" t-as="b" t-key="b.id">
+                        <option t-att-value="b.id" t-esc="b.name"/>
+                    </t>
+                </select>
+                <label>
+                    Amount
+                    <t t-if="isForeign"> (<t t-esc="ccy"/>)</t>
+                    <t t-else=""> (EGP)</t>
+                </label>
+                <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.amount"/>
+                <t t-if="isForeign">
+                    <label>EGP value</label>
+                    <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.amountEgp"/>
+                    <label>Rate</label>
+                    <input type="text" class="form-control mb-2" readonly="readonly" t-att-value="rateText" placeholder="—"/>
+                </t>
+                <p t-if="summary" class="alert alert-info py-2 mb-0" t-esc="summary"/>
                 <p t-if="state.error" class="text-danger mt-2 mb-0" t-esc="state.error"/>
             </div>
             <t t-set-slot="footer">
                 <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
                     <t t-if="state.busy">Working…</t>
-                    <t t-else="">Transfer</t>
+                    <t t-else="">Confirm</t>
                 </button>
                 <button class="btn btn-secondary" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
             </t>
@@ -56,10 +100,10 @@
 
     <t t-inherit="point_of_sale.Navbar" t-inherit-mode="extension">
         <xpath expr="//DropdownItem[@onSelected=&quot;() =&gt; this.pos.cashMove()&quot;]" position="after">
-            <DropdownItem t-if="showCashMoveButton and this.pos.cashier._role != 'minimal'" onSelected="() => this.onClickCurrency()">
+            <DropdownItem t-if="showCashMoveButton" onSelected="() => this.onClickCurrency()">
                 Currency
             </DropdownItem>
-            <DropdownItem t-if="showCashMoveButton and this.pos.cashier._role != 'minimal'" onSelected="() => this.onClickOwnerTransfer()">
+            <DropdownItem t-if="showCashMoveButton" onSelected="() => this.onClickOwnerTransfer()">
                 Transfer to Owner
             </DropdownItem>
         </xpath>

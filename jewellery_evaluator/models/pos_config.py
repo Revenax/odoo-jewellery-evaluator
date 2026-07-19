@@ -56,10 +56,17 @@ class PosConfig(models.Model):
     # convention-based and company-scoped:
     #   * Vault Foreign = cash journals in a NON-company currency (USD/SAR/AED);
     #   * Owner        = cash journals named "Owner …" (Owner - Anas Abbassi, …).
+    # Currency popup uses the foreign list; the owner popup's Box select uses
+    # jewellery_vault_boxes = the EGP Vault (the config's cash journal, foreign
+    # False) plus every Vault Foreign box (foreign True). Each carries its
+    # currency code for the read-only rate label.
     jewellery_vault_foreign_journals = fields.Char(
         compute="_compute_jewellery_cash_ops_journals",
     )
     jewellery_owner_journals = fields.Char(
+        compute="_compute_jewellery_cash_ops_journals",
+    )
+    jewellery_vault_boxes = fields.Char(
         compute="_compute_jewellery_cash_ops_journals",
     )
 
@@ -69,12 +76,28 @@ class PosConfig(models.Model):
             company = config.company_id or self.env.company
             vault_foreign = Journal.search(vault_foreign_journal_domain(company))
             owners = Journal.search(owner_journal_domain(company))
-            config.jewellery_vault_foreign_journals = json.dumps(
-                [{"id": j.id, "name": j.name} for j in vault_foreign]
-            )
+            # EGP Vault = this config's cash payment-method journal (the same
+            # journal pos.session.cash_journal_id resolves to, which the backend
+            # whitelists as a valid box).
+            egp_vault = config.payment_method_ids.filtered(
+                lambda m: m.journal_id and m.journal_id.type == "cash"
+            ).journal_id[:1]
+            foreign_list = [
+                {"id": j.id, "name": j.name, "ccy": j.currency_id.name}
+                for j in vault_foreign
+            ]
+            boxes = []
+            if egp_vault:
+                boxes.append({
+                    "id": egp_vault.id, "name": egp_vault.name,
+                    "foreign": False, "ccy": company.currency_id.name,
+                })
+            boxes += [dict(f, foreign=True) for f in foreign_list]
+            config.jewellery_vault_foreign_journals = json.dumps(foreign_list)
             config.jewellery_owner_journals = json.dumps(
                 [{"id": j.id, "name": j.name} for j in owners]
             )
+            config.jewellery_vault_boxes = json.dumps(boxes)
 
     require_customer = fields.Selection(
         [
@@ -107,5 +130,8 @@ class PosConfig(models.Model):
             )
             record["jewellery_owner_journals"] = (
                 pos_config.jewellery_owner_journals
+            )
+            record["jewellery_vault_boxes"] = (
+                pos_config.jewellery_vault_boxes
             )
         return read_records
