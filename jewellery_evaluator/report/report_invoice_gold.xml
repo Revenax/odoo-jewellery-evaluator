@@ -2,20 +2,16 @@
 <odoo>
     <template id="report_invoice_document_gold" inherit_id="account.report_invoice_document">
 
-    <!-- Inject custom styles and column visibility flags before main content -->
+    <!-- Inject custom styles + hide the qty/price/discount/tax columns.
+         Jewellery invoice columns: SKU | Description | Karat | Weight | Value.
+         Quantity/Unit Price/Discount/Taxes are removed (every piece is qty 1). -->
     <xpath expr="//div[contains(@class, 'page') and contains(@class, 'mb-4')]" position="before">
         <style><![CDATA[
-            th {
-                font-weight: 900;
-                font-size: 14px;
-            }
-            td {
-                font-size: 14px;
-            }
+            th { font-weight: 900; font-size: 14px; }
+            td { font-size: 14px; }
+            td.o_stone_row { font-size: 12px; }
         ]]></style>
-        <t t-set="report_product_lines" t-value="o.invoice_line_ids.filtered(lambda l: l.display_type not in ('line_section', 'line_note', 'rounding'))"/>
-        <t t-set="report_show_quantity" t-value="any(l.quantity != 1 for l in report_product_lines)"/>
-        <t t-set="report_show_unit_price" t-value="report_show_quantity"/>
+        <t t-set="display_discount" t-value="False"/>
     </xpath>
 
     <!-- Remove the partner address row that sits above the invoice body (Odoo 19) -->
@@ -29,14 +25,8 @@
         <!-- Our custom doc title -->
         <xpath expr="//t[@t-set='layout_document_title']" position="replace">
             <t t-set="layout_document_title">
-                <!-- The blank letterhead "forehead" is reserved by the paper
-                     format's margin_top (mm) in paperformat_gold.xml — tune it
-                     there. This title just sits at the top of the body. -->
                 <span style="margin-bottom: 10px;">
                 <center>
-                    <!-- No "Invoice" word: show just the document number in a
-                         smaller font. Non-invoice document types keep a short
-                         qualifier so they stay distinguishable. -->
                     <span style="font-size: 18px; font-weight: 600;">
                         <span t-if="proforma">PROFORMA </span>
                         <span t-elif="o.move_type == 'out_refund'">Credit Note </span>
@@ -68,32 +58,41 @@
             </div>
         </xpath>
 
-        <!-- Jewellery invoice: single Karat and Weight columns (always shown). -->
+        <!-- ── Header row: SKU | Description | Karat | Weight | Value ── -->
+        <!-- SKU column before Description -->
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th name="th_sku" class="text-start"><span>SKU</span></th>
+        </xpath>
+        <!-- Karat + Weight after Description -->
         <xpath expr="//th[@name='th_description']" position="after">
             <th name="th_karat" class="text-end"><span>Karat</span></th>
-            <th name="th_weight" class="text-end"><span>Weight (g)</span></th>
+            <th name="th_weight" class="text-end"><span>Weight</span></th>
         </xpath>
-
-        <!-- Our custom payment block -->
-        <xpath expr="//div[contains(@class, 'ms-auto')]" position="replace">
-            <div class="ms-auto">
-                <table class="table table-sm table-borderless avoid-page-break-inside">
-                    <!-- Custom Total Amount -->
-                    <tr class="border-black fw-bold">
-                        <td>Total Amount</td>
-                        <td class="text-end">
-                            <span t-field="o.amount_total"
-                                t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+        <!-- Amount header -> "Value" -->
+        <xpath expr="//th[@name='th_subtotal']" position="replace">
+            <th name="th_subtotal" class="text-end"><span>Value</span></th>
         </xpath>
+        <!-- Remove Quantity + Unit Price header columns -->
+        <xpath expr="//th[@name='th_quantity']" position="replace"/>
+        <xpath expr="//th[@name='th_priceunit']" position="replace"/>
 
-        <!-- Add unified Karat and Weight cells to each product line.
-             Reads the line's own value first; falls back to the linked product
-             so that POS/auto-generated invoices (which don't currently propagate
-             gold/diamond/silver fields onto move lines) still show data. -->
+        <!-- ── Product line cells ── -->
+        <!-- SKU cell before the description cell -->
+        <xpath expr="//td[@name='account_invoice_line_name']" position="before">
+            <td name="td_sku" class="text-start">
+                <span t-esc="line.product_id.default_code or line.name"/>
+            </td>
+        </xpath>
+        <!-- Description cell -> "Material Shape" (Title Case) from the product category -->
+        <xpath expr="//td[@name='account_invoice_line_name']" position="replace">
+            <td name="account_invoice_line_name" class="text-start">
+                <t t-set="categ" t-value="line.product_id.categ_id"/>
+                <span t-if="categ and categ.parent_id and categ.parent_id.name in ('Gold','Diamond','Silver')"
+                      t-esc="categ.parent_id.name + ' ' + categ.name"/>
+                <span t-else="" t-field="line.name"/>
+            </td>
+        </xpath>
+        <!-- Karat + Weight cells after the description cell -->
         <xpath expr="//td[@name='account_invoice_line_name']" position="after">
             <td name="td_karat" class="text-end">
                 <span t-if="line.gold_purity" t-field="line.gold_purity"/>
@@ -102,65 +101,65 @@
                 <span t-elif="line.product_id.silver_purity" t-field="line.product_id.silver_purity"/>
             </td>
             <td name="td_weight" class="text-end">
-                <!-- Diamond pieces: total weight = gold + stones summed (e.g. 3.47); gold/silver keep the plain weight. -->
-                <span t-if="line.product_id.invoice_weight_display" t-esc="line.product_id.invoice_weight_display"/>
-                <t t-else="">
-                    <span t-if="line.jewellery_weight_g" t-field="line.jewellery_weight_g"/>
-                    <span t-elif="line.gold_weight_g" t-field="line.gold_weight_g"/>
-                    <span t-elif="line.product_id.jewellery_weight_g" t-field="line.product_id.jewellery_weight_g"/>
-                    <span t-elif="line.product_id.gold_weight_g" t-field="line.product_id.gold_weight_g"/>
-                </t>
+                <t t-set="p" t-value="line.product_id"/>
+                <t t-set="wt" t-value="p.gross_jewellery_weight_g if p.jewellery_type == 'diamond_jewellery' else (line.jewellery_weight_g or p.jewellery_weight_g or line.gold_weight_g or p.gold_weight_g or 0)"/>
+                <span t-esc="'%.2fg' % (wt or 0)"/>
             </td>
         </xpath>
+        <!-- Value cell -> "32,000 EGP" (thousands, no decimals, EGP suffix) -->
+        <xpath expr="//td[@name='td_subtotal']" position="replace">
+            <td name="td_subtotal" class="text-end">
+                <span t-out="line.price_subtotal" t-options="{'widget': 'float', 'precision': 0}"/> EGP
+            </td>
+        </xpath>
+        <!-- Remove Quantity + Unit Price cells -->
+        <xpath expr="//td[@name='td_quantity']" position="replace"/>
+        <xpath expr="//td[@name='td_price_unit']" position="replace"/>
 
-        <!-- Auto diamond-detail note printed under the line description
-             (diamond pieces only; e.g. "Diamond 15 DR. 0.362"). Derived from the
-             product's stones — see product.template.invoice_diamond_note. -->
-        <xpath expr="//td[@name='account_invoice_line_name']" position="inside">
-            <div t-if="line.product_id.invoice_diamond_note" style="font-style: italic; font-size: 13px; margin-top: 2px;">
-                <span t-esc="line.product_id.invoice_diamond_note"/>
+        <!-- ── Stone rows: one per stone under a diamond line, detail in the
+             Weight column; SKU/Desc/Karat/Value cells blank. ── -->
+        <xpath expr="//tr[td[@name='account_invoice_line_name']]" position="after">
+            <t t-set="sp" t-value="line.product_id"/>
+            <t t-if="sp.jewellery_type == 'diamond_jewellery' and sp.stone_ids">
+                <tr t-foreach="sp.stone_ids" t-as="stone" t-key="stone.id">
+                    <td/><td/><td/>
+                    <td class="text-end o_stone_row fst-italic" style="color:#555;">
+                        <t t-set="shp" t-value="(' ' + stone.shape) if stone.shape else ''"/>
+                        <span t-esc="'%s &#215; %gct%s' % (stone.quantity, stone.carat, shp)"/>
+                    </td>
+                    <td/>
+                </tr>
+            </t>
+        </xpath>
+
+        <!-- Our custom payment block: single Total Amount line -->
+        <xpath expr="//div[contains(@class, 'ms-auto')]" position="replace">
+            <div class="ms-auto">
+                <table class="table table-sm table-borderless avoid-page-break-inside">
+                    <tr class="border-black fw-bold">
+                        <td>Total Amount</td>
+                        <td class="text-end">
+                            <span t-out="o.amount_total" t-options="{'widget': 'float', 'precision': 0}"/> EGP
+                        </td>
+                    </tr>
+                </table>
             </div>
         </xpath>
 
-        <!-- Quantity column: show only if at least one product line (header and cell). -->
-        <xpath expr="//th[@name='th_quantity']" position="replace">
-            <t t-if="report_show_quantity"><th name="th_quantity" class="text-end"><span>Quantity</span></th></t>
-        </xpath>
-        <xpath expr="//td[@name='td_quantity']" position="replace">
-            <t t-if="report_show_quantity"><td name="td_quantity" class="text-end"><span t-field="line.quantity" t-options="{'widget': 'float', 'precision': 0}"/></td></t>
-        </xpath>
-        <!-- Unit price column: show only when quantity column is shown. Base uses th_priceunit (no underscore). -->
-        <xpath expr="//th[@name='th_priceunit']" position="replace">
-            <t t-if="report_show_unit_price"><th name="th_priceunit" class="text-end"><span>Unit Price</span></th></t>
-        </xpath>
-        <xpath expr="//td[@name='td_price_unit']" position="replace">
-            <t t-if="report_show_unit_price"><td name="td_price_unit" class="text-end"><span t-field="line.price_unit" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/></td></t>
-        </xpath>
-
-        <!-- Remove Taxes column from header -->
+        <!-- Remove the Taxes column (header + cell + its t-set) -->
         <xpath expr="//th[@name='th_taxes']" position="replace"/>
-
-        <!-- Remove Taxes cell and the t-set for taxes from product line -->
         <xpath expr="//td[@name='td_taxes']" position="replace"/>
         <xpath expr="//t[@t-set='taxes'][@t-value]" position="replace"/>
 
-        <!-- Suppress "Payment Communication: ..." paragraph.
-             We use t-if="False" instead of position="replace" so that other
-             inheriting views (e.g. account.report_invoice_document_preview)
-             can still locate the inner <t t-if="o.partner_bank_id"/> element. -->
+        <!-- Suppress "Payment Communication: ..." paragraph -->
         <xpath expr="//p[@name='payment_communication']" position="attributes">
             <attribute name="t-if">False</attribute>
         </xpath>
 
-        <!-- Pull the totals block up. With the tax/subtotal rows removed it is a
-             single "Total Amount" line that otherwise floats far below the
-             product table, leaving a large gap. -->
+        <!-- Pull the single-line totals block up to close the gap -->
         <xpath expr="//div[@id='total']" position="attributes">
             <attribute name="style">margin-top: -2rem;</attribute>
         </xpath>
 
-        <!-- The custom 3-column footer is rendered as a real PDF page footer
-             via external_layout_gold (see report/external_layout_gold.xml), so no
-             in-body footer block here. -->
     </template>
 </odoo>

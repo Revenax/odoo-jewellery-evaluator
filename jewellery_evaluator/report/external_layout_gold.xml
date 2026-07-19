@@ -1,144 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Custom per-page PDF footer for the Marjaan Jewellery invoice.
-
-    We inherit every Odoo 19 external_layout variant and replace the inner
-    o_footer_content div with our 3-column branding strip. The outer wrapper
-    keeps t-attf-class="footer ..." so wkhtmltopdf still recognizes the block
-    as the page footer and renders it on every page automatically — no matter
-    which Document Layout the company has chosen in
-    Settings -> Companies -> Configure Document Layout.
+    Custom per-page PDF footer for the Marjaan Jewellery invoice: a 3-column
+    strip (Contact | pre-baked QR to marjaanjewellery.com | Terms). The footer
+    body is a shared template t-called by every external_layout variant, so
+    wkhtmltopdf renders it on every page regardless of the chosen Document
+    Layout. The QR is a static base64 PNG (Odoo's live QR renderer needs
+    rlPyCairo, which is not installed on the box).
 -->
 <odoo>
-    <!-- Reusable footer body. We can't use <template> for a plain fragment,
-         so each layout override below repeats the same markup. If this ever
-         needs to be DRY, promote to a named template and t-call it. -->
+    <template id="marjaan_invoice_footer_body">
+        <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+            <div class="col-5 text-start">
+                <strong style="color: #000;">Contact Us</strong><br/>
+                Tel: (+2)01000 226 992
+            </div>
+            <div class="col-2 text-center">
+                <img alt="marjaanjewellery.com" style="width:52px;height:52px;"
+                     t-att-src="'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeAQMAAABoqSz0AAAABlBMVEUPETj///88kEN0AAABjElEQVR42u1YQW4DIRAblQfsk/g6T+IBSNOxDaiX5pJK9SEoWSVwsbyD7ZnI39eKz+F7hzNqtcw2e+Zo2OvYir6+4sX6j8NCWyCzAfqoL7Ye/p2maIvGlmOFeO5AO6NZo930FlT8NUc7QS/efsTyRsu6HbhWz9iV4Fu31ITZf358NUELIPdvShnlzRLtvlkQ23GpNkV7WZ2q2FHVC+S2mqDLFRAEUPokbcL0lgmkWIUUAHzYVkIBhoI9QCtHK3qXa05YxJnk9l6xZqoJyF11v1QGuHF8mqJlklm0MDlvI9u+3FK7CrASIwEjN7qmGulYHpxH0Cy9TC6m0BhgmLnRlFu8+qsJ23ORx1ydV+0YxBbEaseWW0VcukPSLLqv8+66TWaboVgOETNFO47MRjsdZU7fnKCgeDIDjAyq+6R178AmXc6bvml8NwvqH6UMzbgSbrhVew4dm76TJU0/lBD2cCmcc4KmHzs36tnSGS3JvKExfdHeYKO6PZJrPKthq6vh0jpZ11dvP/P4vz/8BsTbkySM87RsAAAAAElFTkSuQmCC'"/>
+                <div style="font-size:8px;color:#888;margin-top:2px;">Scan to visit</div>
+            </div>
+            <div class="col-5 text-end">
+                <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
+                Info@Marjaanjewellery.com<br/>
+                www.marjaanjewellery.com
+            </div>
+        </div>
+    </template>
 
     <template id="external_layout_gold_standard" inherit_id="web.external_layout_standard">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
-            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-                <div class="col-6 text-start">
-                    <strong style="color: #000;">Contact Us</strong><br/>
-                    Tel: (+2)01000 226 992
-                </div>
-                <div class="col-6 text-end">
-                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                    Info@Marjaanjewellery.com<br/>
-                    www.marjaanjewellery.com
-                </div>
-            </div>
+            <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
         </xpath>
     </template>
 
     <template id="external_layout_gold_striped" inherit_id="web.external_layout_striped">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
-            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-                <div class="col-6 text-start">
-                    <strong style="color: #000;">Contact Us</strong><br/>
-                    Tel: (+2)01000 226 992
-                </div>
-                <div class="col-6 text-end">
-                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                    Info@Marjaanjewellery.com<br/>
-                    www.marjaanjewellery.com
-                </div>
-            </div>
+            <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
         </xpath>
     </template>
 
     <template id="external_layout_gold_bold" inherit_id="web.external_layout_bold">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
-            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-                <div class="col-6 text-start">
-                    <strong style="color: #000;">Contact Us</strong><br/>
-                    Tel: (+2)01000 226 992
-                </div>
-                <div class="col-6 text-end">
-                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                    Info@Marjaanjewellery.com<br/>
-                    www.marjaanjewellery.com
-                </div>
-            </div>
+            <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
         </xpath>
     </template>
 
     <template id="external_layout_gold_boxed" inherit_id="web.external_layout_boxed">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
-            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-                <div class="col-6 text-start">
-                    <strong style="color: #000;">Contact Us</strong><br/>
-                    Tel: (+2)01000 226 992
-                </div>
-                <div class="col-6 text-end">
-                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                    Info@Marjaanjewellery.com<br/>
-                    www.marjaanjewellery.com
-                </div>
-            </div>
+            <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
         </xpath>
     </template>
 
     <template id="external_layout_gold_folder" inherit_id="web.external_layout_folder">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
-            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-                <div class="col-6 text-start">
-                    <strong style="color: #000;">Contact Us</strong><br/>
-                    Tel: (+2)01000 226 992
-                </div>
-                <div class="col-6 text-end">
-                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                    Info@Marjaanjewellery.com<br/>
-                    www.marjaanjewellery.com
-                </div>
-            </div>
+            <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
         </xpath>
     </template>
 
     <template id="external_layout_gold_wave" inherit_id="web.external_layout_wave">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
-            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-                <div class="col-6 text-start">
-                    <strong style="color: #000;">Contact Us</strong><br/>
-                    Tel: (+2)01000 226 992
-                </div>
-                <div class="col-6 text-end">
-                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                    Info@Marjaanjewellery.com<br/>
-                    www.marjaanjewellery.com
-                </div>
-            </div>
+            <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
         </xpath>
     </template>
 
     <template id="external_layout_gold_bubble" inherit_id="web.external_layout_bubble">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
-            <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-                <div class="col-6 text-start">
-                    <strong style="color: #000;">Contact Us</strong><br/>
-                    Tel: (+2)01000 226 992
-                </div>
-                <div class="col-6 text-end">
-                    <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                    Info@Marjaanjewellery.com<br/>
-                    www.marjaanjewellery.com
-                </div>
-            </div>
+            <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
         </xpath>
     </template>
 
-    <!-- Blank the auto-header on the active (standard) layout.
-         Marjaan prints invoices on pre-printed letterhead, so the top of the
-         page must stay clear for the physical logo. The patched wkhtmltopdf
-         (now installed) renders page headers, which would otherwise drop the
-         company logo/address into that reserved space. We replace the header
-         div with an empty one — the `header` class is kept so wkhtmltopdf still
-         treats it as the page header (and reserves the top margin) but it
-         renders nothing. If the company's Document Layout is ever switched away
-         from "Standard", add the matching blank-header override here too. -->
+    <!-- Blank the auto-header on the active (standard) layout: Marjaan prints
+         on pre-printed letterhead, so the top must stay clear for the physical
+         logo. Keep the `header` class so wkhtmltopdf still reserves the top
+         margin but renders nothing. -->
     <template id="external_layout_gold_standard_blank_header" inherit_id="web.external_layout_standard">
         <xpath expr="//div[contains(@t-attf-class, 'header o_company')]" position="replace">
             <div t-attf-class="header o_company_#{company.id}_layout"/>
         </xpath>
     </template>
-
 </odoo>
