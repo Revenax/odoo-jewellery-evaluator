@@ -117,8 +117,13 @@
         <xpath expr="//td[@name='td_price_unit']" position="replace"/>
 
         <!-- ── Stone rows: one per stone under a diamond line, detail in the
-             Weight column; SKU/Desc/Karat/Value cells blank. ── -->
-        <xpath expr="//tr[td[@name='account_invoice_line_name']]" position="after">
+             Weight column; SKU/Desc/Karat/Value cells blank.
+             The line's `td` sits inside a <t t-if="is_product"> within the row,
+             so target the row itself via ancestor:: (a bare //tr[td[...]] can't
+             see the nested td). position=after keeps the injected rows inside
+             the <t t-foreach="lines_to_report" t-as="line"> loop → one block per
+             line, with `line` in scope. ── -->
+        <xpath expr="//td[@name='account_invoice_line_name']/ancestor::tr[1]" position="after">
             <t t-set="sp" t-value="line.product_id"/>
             <t t-if="sp.jewellery_type == 'diamond_jewellery' and sp.stone_ids">
                 <tr t-foreach="sp.stone_ids" t-as="stone" t-key="stone.id">
