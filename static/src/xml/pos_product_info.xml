@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    POS jewellery details:
+    * a "Jewellery Details" section in the core ProductInfoPopup (weight, purity,
+      SKU, category, per-stone table) — data from get_product_info_pos()['jewellery']
+      (models/pos_product_info.py), reached at props.info.productInfo.jewellery;
+    * a dedicated "Details" control button that opens the same popup for the
+      selected line via the store's onProductInfoClick.
+    Verified against Odoo 19 core: ProductInfoPopup has a section-public-description
+    div; the Info button's t-on-click is the exact string matched below.
+-->
+<templates id="template" xml:space="preserve">
+
+    <t t-inherit="point_of_sale.ProductInfoPopup" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('section-public-description')]" position="before">
+            <div class="section-jewellery mt-3 mb-4 pb-4 border-bottom text-start"
+                 t-if="props.info.productInfo.jewellery and props.info.productInfo.jewellery.is_jewellery">
+                <t t-set="jew" t-value="props.info.productInfo.jewellery"/>
+                <h3 class="section-title">Jewellery Details</h3>
+                <div class="d-flex flex-column gap-1">
+                    <div t-if="jew.sku"><strong>SKU:</strong> <t t-esc="jew.sku"/></div>
+                    <div t-if="jew.category"><strong>Category:</strong> <t t-esc="jew.category"/></div>
+                    <div t-if="jew.type"><strong>Type:</strong> <t t-esc="jew.type"/></div>
+                    <div t-if="jew.purity"><strong>Karat / Purity:</strong> <t t-esc="jew.purity"/></div>
+                    <div t-foreach="jew.weights" t-as="w" t-key="w.label">
+                        <strong><t t-esc="w.label"/>:</strong> <t t-esc="w.value"/>
+                    </div>
+                </div>
+                <div t-if="jew.stones.length" class="mt-2">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Carat</th><th>Qty</th><th>Shape</th><th>Colour</th><th>Clarity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="jew.stones" t-as="s" t-key="s_index">
+                                <td t-esc="s.carat"/>
+                                <td t-esc="s.quantity"/>
+                                <td t-esc="s.shape"/>
+                                <td t-esc="s.color"/>
+                                <td t-esc="s.clarity"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </xpath>
+    </t>
+
+    <t t-inherit="point_of_sale.ControlButtons" t-inherit-mode="extension">
+        <xpath expr="//button[@t-on-click=&quot;() =&gt; this.pos.onProductInfoClick(currentOrder.getSelectedOrderline().product_id.product_tmpl_id, currentOrder.getSelectedOrderline().product_id)&quot;]" position="after">
+            <button t-if="currentOrder?.getSelectedOrderline()" t-att-class="buttonClass"
+                    t-on-click="() => this.pos.onProductInfoClick(currentOrder.getSelectedOrderline().product_id.product_tmpl_id, currentOrder.getSelectedOrderline().product_id)">
+                <i class="fa fa-gem me-1" role="img" aria-label="Jewellery details" title="Jewellery details"/> Details
+            </button>
+        </xpath>
+    </t>
+
+</templates>

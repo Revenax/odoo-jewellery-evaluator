@@ -57,6 +57,7 @@
             'jewellery_evaluator/static/src/xml/orderline_below_min.xml',
             'jewellery_evaluator/static/src/xml/pos_cash_ops.xml',
             'jewellery_evaluator/static/src/xml/pos_gift_invoice.xml',
+            'jewellery_evaluator/static/src/xml/pos_product_info.xml',
         ],
     },
     'installable': True,
