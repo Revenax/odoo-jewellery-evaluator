@@ -37,7 +37,7 @@ class ProductTemplate(models.Model):
         is_silver = jtype == "silver"
 
         def g(value):
-            return "%s g" % format_weight_g(value)
+            return f"{format_weight_g(value)} g"
 
         if is_diamond:
             weights = [
