@@ -43,7 +43,7 @@
         <xpath expr="//div[@id='informations']" position="replace">
             <div class="row mb-4" name="invoice_to_block" style="margin-bottom: 10px;">
                 <div class="col-6 o_invoice_to_block">
-                    <div class="o_invoice_to_label">Invoice to:</div>
+                    <div class="o_invoice_to_label"><strong>Invoice to:</strong></div>
                     <div class="o_invoice_to_name"><span t-field="o.partner_id.name"/></div>
                     <div class="o_invoice_to_contact">
                         <t t-if="o.partner_id.phone">
@@ -142,7 +142,7 @@
             <div class="ms-auto">
                 <table class="table table-sm table-borderless avoid-page-break-inside">
                     <tr class="border-black fw-bold">
-                        <td>Total Amount</td>
+                        <td class="text-end">Total Amount</td>
                         <td class="text-end">
                             <span t-out="o.amount_total" t-options="{'widget': 'float', 'precision': 0}"/> EGP
                         </td>

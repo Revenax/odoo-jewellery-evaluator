@@ -9,19 +9,16 @@
 -->
 <odoo>
     <template id="marjaan_invoice_footer_body">
-        <div class="o_footer_content row" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
+        <div class="o_footer_content row align-items-center" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
             <div class="col-5 text-start">
-                <strong style="color: #000;">Contact Us</strong><br/>
                 Tel: (+2)01000 226 992
             </div>
             <div class="col-2 text-center">
                 <img alt="marjaanjewellery.com" style="width:52px;height:52px;"
                      t-att-src="'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAADeAQMAAABoqSz0AAAABlBMVEUPETj///88kEN0AAABjElEQVR42u1YQW4DIRAblQfsk/g6T+IBSNOxDaiX5pJK9SEoWSVwsbyD7ZnI39eKz+F7hzNqtcw2e+Zo2OvYir6+4sX6j8NCWyCzAfqoL7Ye/p2maIvGlmOFeO5AO6NZo930FlT8NUc7QS/efsTyRsu6HbhWz9iV4Fu31ITZf358NUELIPdvShnlzRLtvlkQ23GpNkV7WZ2q2FHVC+S2mqDLFRAEUPokbcL0lgmkWIUUAHzYVkIBhoI9QCtHK3qXa05YxJnk9l6xZqoJyF11v1QGuHF8mqJlklm0MDlvI9u+3FK7CrASIwEjN7qmGulYHpxH0Cy9TC6m0BhgmLnRlFu8+qsJ23ORx1ydV+0YxBbEaseWW0VcukPSLLqv8+66TWaboVgOETNFO47MRjsdZU7fnKCgeDIDjAyq+6R178AmXc6bvml8NwvqH6UMzbgSbrhVew4dm76TJU0/lBD2cCmcc4KmHzs36tnSGS3JvKExfdHeYKO6PZJrPKthq6vh0jpZ11dvP/P4vz/8BsTbkySM87RsAAAAAElFTkSuQmCC'"/>
-                <div style="font-size:8px;color:#888;margin-top:2px;">Scan to visit</div>
             </div>
             <div class="col-5 text-end">
-                <strong style="color: #000;">Terms &amp; Conditions</strong><br/>
-                Info@Marjaanjewellery.com<br/>
+                info@marjaanjewellery.com<br/>
                 www.marjaanjewellery.com
             </div>
         </div>
