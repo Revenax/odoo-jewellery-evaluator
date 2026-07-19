@@ -3,6 +3,8 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
-from . import controllers  # noqa: F401
-from . import models  # noqa: F401
+from . import (
+    controllers,
+    models,
+)
 
