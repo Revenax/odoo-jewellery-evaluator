@@ -6,7 +6,7 @@
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
-from ..utils import get_stone_tier_price
+from ..utils import get_stone_price_usd
 
 # GIA colour scale (D = best, N = lower commercial grade)
 STONE_COLOR_SELECTION = [
@@ -111,9 +111,16 @@ class JewelleryStone(models.Model):
                     f'Quantity must be at least 1 (got {stone.quantity}).'
                 )
 
-    @api.depends('carat', 'quantity')
+    @api.depends('carat', 'quantity', 'shape', 'color', 'clarity')
     def _compute_unit_price_usd(self):
+        # < 0.25 ct -> 5 carat tiers; >= 0.25 ct -> Rapaport grid (Round/Pear),
+        # falling back to the tier price when the grid has no matching cell.
+        # NB: the compute cannot @api.depends on the Rap config grid, so a grid
+        # edit is propagated by the editor's save (which recomputes stones) and,
+        # for prices, by the diamond cron.
         for stone in self:
-            price = get_stone_tier_price(self.env, stone.carat)
+            price = get_stone_price_usd(
+                self.env, stone.shape, stone.carat, stone.color, stone.clarity
+            )
             stone.unit_price_usd = price
             stone.total_price_usd = price * stone.quantity

@@ -39,6 +39,7 @@
         'jewellery_evaluator/views/pos_order_views.xml',
         'jewellery_evaluator/views/product_template_views.xml',
         'jewellery_evaluator/views/account_move_views.xml',
+        'jewellery_evaluator/views/diamond_rap_views.xml',
         'jewellery_evaluator/report/paperformat_gold.xml',
         'jewellery_evaluator/report/external_layout_gold.xml',
         'jewellery_evaluator/report/report_invoice_gold.xml',
@@ -58,6 +59,10 @@
             'jewellery_evaluator/static/src/xml/pos_cash_ops.xml',
             'jewellery_evaluator/static/src/xml/pos_gift_invoice.xml',
             'jewellery_evaluator/static/src/xml/pos_product_info.xml',
+        ],
+        'web.assets_backend': [
+            'jewellery_evaluator/static/src/js/diamond_rap_editor.js',
+            'jewellery_evaluator/static/src/xml/diamond_rap_editor.xml',
         ],
     },
     'installable': True,

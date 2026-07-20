@@ -4,6 +4,7 @@
 # Website: https://www.revenax.com
 
 import hashlib
+import json
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -368,6 +369,118 @@ def get_stone_tier_price(env, carat: float) -> float:
             return float(adjusted_price)
     # Should never reach here with valid carat (constraints ensure 0.001–7.0)
     return 0.0
+
+
+# ── Rapaport grid pricing (stones >= 0.25 ct) ────────────────────────────────
+# The Rap price list is stored as two JSON grids (config params
+# jewellery_evaluator.diamond_rap_round / _pear), each { bucket: { rowKey: {
+# colKey: cell } } } where cell is the PDF number in *hundreds of USD per carat*
+# (e.g. 54 -> $5,400/ct). Stones < 0.25 ct keep the 5-tier pricing above.
+RAP_MIN_CARAT = 0.25
+
+# (lo_inclusive, hi_inclusive, bucket_key, grouped_format)
+_RAP_BUCKETS = [
+    (0.230, 0.299, '0.23-0.29', True),
+    (0.300, 0.399, '0.30-0.39', False),
+    (0.400, 0.499, '0.40-0.49', False),
+    (0.500, 0.699, '0.50-0.69', False),
+    (0.700, 0.899, '0.70-0.89', False),
+    (0.900, 0.999, '0.90-0.99', False),
+    (1.000, 1.499, '1.00-1.49', False),
+    (1.500, 1.999, '1.50-1.99', False),
+    (2.000, 2.999, '2.00-2.99', False),
+    (3.000, 3.999, '3.00-3.99', False),
+    (4.000, 4.999, '4.00-4.99', False),
+    (5.000, 9.999, '5.00-5.99', False),   # 6.00-9.99 ct fall into the 5-5.99 sheet
+    (10.000, 99.0, '10.00-10.99', False),
+]
+
+# Stone clarity (LC/P1-P3) -> Rap column. Full (>= 0.30) vs grouped (0.23-0.29).
+_RAP_CLARITY_FULL = {
+    'LC': 'IF', 'VVS1': 'VVS1', 'VVS2': 'VVS2', 'VS1': 'VS1', 'VS2': 'VS2',
+    'SI1': 'SI1', 'SI2': 'SI2', 'SI3': 'SI3',
+    'P1': 'I1', 'P2': 'I2', 'P3': 'I3', 'I1': 'I1', 'I2': 'I2', 'I3': 'I3',
+}
+_RAP_CLARITY_GROUP = {
+    'LC': 'IF-VVS', 'VVS1': 'IF-VVS', 'VVS2': 'IF-VVS', 'VS1': 'VS', 'VS2': 'VS',
+    'SI1': 'SI1', 'SI2': 'SI2', 'SI3': 'SI3',
+    'P1': 'I1', 'P2': 'I2', 'P3': 'I3', 'I1': 'I1', 'I2': 'I2', 'I3': 'I3',
+}
+# Stone colour -> grouped row (full uses the colour letter itself, N -> M).
+_RAP_COLOUR_GROUP = {
+    'D': 'DF', 'E': 'DF', 'F': 'DF', 'G': 'GH', 'H': 'GH',
+    'I': 'IJ', 'J': 'IJ', 'K': 'KL', 'L': 'KL', 'M': 'MN', 'N': 'MN',
+}
+_RAP_FULL_COLOURS = 'DEFGHIJKLM'
+
+
+def rap_bucket_for_carat(carat: float):
+    """(bucket_key, grouped) for a carat, or (None, False) if below the grid."""
+    for lo, hi, key, grouped in _RAP_BUCKETS:
+        if lo <= carat <= hi:
+            return key, grouped
+    return None, False
+
+
+def rap_keys(colour: str, clarity: str, grouped: bool):
+    """Map a stone's colour + clarity to the (rowKey, colKey) for a bucket."""
+    colour = (colour or '').upper()
+    clarity = (clarity or '').upper()
+    if grouped:
+        return (
+            _RAP_COLOUR_GROUP.get(colour, 'MN'),
+            _RAP_CLARITY_GROUP.get(clarity, 'I3'),
+        )
+    row = colour if colour in _RAP_FULL_COLOURS else 'M'  # colour N -> M row
+    return row, _RAP_CLARITY_FULL.get(clarity, 'I3')
+
+
+def _rap_grid(env, sheet: str) -> dict:
+    raw = env['ir.config_parameter'].sudo().get_param(
+        f'jewellery_evaluator.diamond_rap_{sheet}'
+    )
+    try:
+        grid = json.loads(raw or '{}')
+        return grid if isinstance(grid, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str):
+    """Per-stone (one unit) USD from the Rap grid, or None if no usable cell.
+
+    price = cell(hundreds USD/ct) x 100 x carat x (1 - rap_discount_pct).
+    Round shape -> round grid; Pear -> pear grid; all other shapes -> round grid.
+    """
+    sheet = 'pear' if shape == 'Pear' else 'round'
+    bucket, grouped = rap_bucket_for_carat(carat)
+    if not bucket:
+        return None
+    row, col = rap_keys(colour, clarity, grouped)
+    cell = (_rap_grid(env, sheet).get(bucket) or {}).get(row, {}).get(col)
+    try:
+        cell = float(cell)
+    except (TypeError, ValueError):
+        return None
+    if cell <= 0:
+        return None
+    disc = _get_diamond_config_float(env, 'diamond_rap_discount_pct', 0.0)
+    price = (
+        Decimal(str(cell)) * Decimal('100') * Decimal(str(carat))
+        * (Decimal('1') - Decimal(str(disc)))
+    )
+    return float(price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+
+def get_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str) -> float:
+    """Per-stone (one unit) USD. Routes: < 0.25 ct -> 5 tiers; >= 0.25 ct -> Rap
+    grid, falling back to the tier price when the grid has no cell (never zero)."""
+    if carat < RAP_MIN_CARAT:
+        return get_stone_tier_price(env, carat)
+    rap = rap_stone_price_usd(env, shape, carat, colour, clarity)
+    if rap is not None:
+        return rap
+    return get_stone_tier_price(env, carat)
 
 
 def compute_diamond_jewellery_price(

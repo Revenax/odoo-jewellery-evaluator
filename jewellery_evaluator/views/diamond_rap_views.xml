@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- "Diamond Rap Prices" — a backend client-action page (PDF-style editable
+         Rapaport grid). Gated to jewellery managers; lives under the POS app. -->
+    <record id="action_diamond_rap_editor" model="ir.actions.client">
+        <field name="name">Diamond Rap Prices</field>
+        <field name="tag">jewellery_evaluator.diamond_rap_editor</field>
+    </record>
+
+    <menuitem id="menu_diamond_rap_editor"
+              name="Diamond Rap Prices"
+              parent="point_of_sale.menu_point_root"
+              action="action_diamond_rap_editor"
+              groups="jewellery_evaluator.group_jewellery_evaluator_manager"
+              sequence="90"/>
+</odoo>

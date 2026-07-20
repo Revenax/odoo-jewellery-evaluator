@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    "Diamond Rap Prices" editor — one editable table per carat bucket, in the
+    PDF's native layout (colour rows × clarity columns). Values are the printed
+    Rap number in hundreds of USD per carat.
+-->
+<templates xml:space="preserve">
+    <t t-name="jewellery_evaluator.DiamondRapEditor">
+        <div class="o_diamond_rap p-3">
+            <div t-if="state.loading" class="text-muted">Loading…</div>
+            <div t-else="">
+                <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+                    <h2 class="m-0 me-auto">
+                        Diamond Rap Prices
+                        <small class="text-muted">(hundreds USD / carat, stones ≥ 0.25 ct)</small>
+                    </h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="m-0">Rap discount</label>
+                        <input type="number" step="0.01" min="0" max="1"
+                               class="form-control form-control-sm" style="width:6rem"
+                               t-att-value="state.discount"
+                               t-on-change="(ev) => state.discount = parseFloat(ev.target.value) || 0"/>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm"
+                                t-att-class="state.sheet === 'round' ? 'btn-primary' : 'btn-outline-primary'"
+                                t-on-click="() => state.sheet = 'round'">Round</button>
+                        <button class="btn btn-sm"
+                                t-att-class="state.sheet === 'pear' ? 'btn-primary' : 'btn-outline-primary'"
+                                t-on-click="() => state.sheet = 'pear'">Pear</button>
+                    </div>
+                    <button class="btn btn-sm btn-success" t-att-disabled="state.saving"
+                            t-on-click="() => this.save()">
+                        <t t-if="state.saving">Saving…</t>
+                        <t t-else="">Save <t t-esc="state.sheet"/></t>
+                    </button>
+                </div>
+
+                <div t-foreach="state.structure" t-as="b" t-key="b.bucket" class="mb-4">
+                    <h5 class="mb-1"><t t-esc="b.bucket"/> ct</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm text-center align-middle mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th></th>
+                                    <th t-foreach="b.cols" t-as="c" t-key="c" t-esc="c"/>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="b.rows" t-as="r" t-key="r">
+                                    <th class="table-dark" t-esc="r"/>
+                                    <td t-foreach="b.cols" t-as="c" t-key="c" class="p-0">
+                                        <input type="number" step="0.1" min="0"
+                                               class="form-control form-control-sm border-0 text-center bg-transparent"
+                                               t-att-value="cell(b.bucket, r, c)"
+                                               t-on-change="(ev) => this.onCell(b.bucket, r, c, ev)"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

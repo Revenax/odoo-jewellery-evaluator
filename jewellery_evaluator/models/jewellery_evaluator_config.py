@@ -283,6 +283,17 @@ class ResConfigSettings(models.TransientModel):
         digits=(16, 2),
         default=1350.0,
     )
+    # Stones >= 0.25 ct are priced from the Rapaport grid (edited on its own
+    # "Diamond Rap Prices" page). The grid holds Rap LIST; this fraction is the
+    # "Rap minus X%" discount applied at lookup (0.25 = Rap minus 25%).
+    diamond_rap_discount_pct = fields.Float(
+        string='Rap Discount % (stones ≥ 0.25 ct)',
+        config_parameter='jewellery_evaluator.diamond_rap_discount_pct',
+        digits=(5, 4),
+        default=0.0,
+        help='Fraction discounted off the Rapaport LIST price for stones '
+             '≥ 0.25 ct. Price = grid_cell × 100 × carat × (1 − this).',
+    )
 
     ticket_weight_g = fields.Float(
         string='Ticket Weight per Piece (g)',
