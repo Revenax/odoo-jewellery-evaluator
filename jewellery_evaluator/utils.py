@@ -446,7 +446,7 @@ def _rap_grid(env, sheet: str) -> dict:
         return {}
 
 
-def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str):
+def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str) -> float | None:
     """Per-stone (one unit) USD from the Rap grid, or None if no usable cell.
 
     price = cell(hundreds USD/ct) x 100 x carat x (1 - rap_discount_pct).
