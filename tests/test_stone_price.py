@@ -82,6 +82,10 @@ class TestBuckets:
         assert rap_keys("N", "P3", False) == ("M", "I3")           # N->M, P3->I3
         assert rap_keys("D", "LC", False) == ("D", "IF")           # LC->IF
         assert rap_keys("G", "VS1", True) == ("GH", "VS")          # grouped collapse
+        # ungraded stone: '' colour must NOT match the 'DEFGHIJKLM' string (a
+        # substring bug) — falls to the M row; '' clarity -> I3.
+        assert rap_keys("", "VS1", False) == ("M", "VS1")
+        assert rap_keys("G", "", False) == ("G", "I3")
 
 
 class TestRouter:

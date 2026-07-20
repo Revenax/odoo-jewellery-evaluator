@@ -411,7 +411,9 @@ _RAP_COLOUR_GROUP = {
     'D': 'DF', 'E': 'DF', 'F': 'DF', 'G': 'GH', 'H': 'GH',
     'I': 'IJ', 'J': 'IJ', 'K': 'KL', 'L': 'KL', 'M': 'MN', 'N': 'MN',
 }
-_RAP_FULL_COLOURS = 'DEFGHIJKLM'
+# A tuple (not a string) so membership is exact: '' / 'N' are NOT in it and fall
+# to the 'M' row, whereas '' in 'DEFGHIJKLM' (substring) is wrongly True.
+_RAP_FULL_COLOURS = ('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M')
 
 
 def rap_bucket_for_carat(carat: float):
