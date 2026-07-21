@@ -1,0 +1,149 @@
+// "Diamond Rap Prices" editor — modern, sleek grid. The client-action root must
+// scroll internally (height:100% + overflow) or the parent clips it and only the
+// first buckets show. Row labels get white text (were dark-on-dark = invisible).
+.o_diamond_rap {
+    height: 100%;
+    overflow-y: auto;
+    background: #f6f7fb;
+    padding-bottom: 3rem;
+    color: #0f172a;
+    font-size: 13px;
+
+    .o_rap_toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: 1rem 1.5rem;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid #e6e8f0;
+
+        h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            small { font-weight: 400; color: #9aa4b2; font-size: 0.78rem; margin-left: 0.4rem; }
+        }
+        .o_rap_spacer { margin-left: auto; }
+    }
+
+    .o_rap_discount {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #475569;
+        input { width: 5rem; }
+    }
+
+    .o_rap_tabs {
+        display: inline-flex;
+        background: #e8eaf1;
+        border-radius: 999px;
+        padding: 3px;
+        button {
+            border: 0;
+            background: transparent;
+            border-radius: 999px;
+            padding: 0.35rem 1.15rem;
+            font-weight: 600;
+            color: #55617a;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            &.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14); }
+        }
+    }
+
+    .o_rap_save {
+        border: 0;
+        border-radius: 9px;
+        padding: 0.45rem 1.25rem;
+        font-weight: 600;
+        background: #4f46e5;
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.12s ease;
+        &:hover { background: #4338ca; }
+        &:disabled { opacity: 0.55; cursor: default; }
+    }
+
+    .o_rap_bucket { margin: 1.4rem 1.5rem 0; }
+    .o_rap_bucket_title {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 0.45rem;
+        .unit { font-weight: 400; color: #9aa4b2; margin-left: 0.35rem; font-size: 0.8rem; }
+    }
+
+    .o_rap_card {
+        background: #fff;
+        border: 1px solid #e6e8f0;
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    table.o_rap_table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+        overflow: hidden;
+        border-radius: 12px;
+
+        th, td {
+            border-right: 1px solid #eef1f6;
+            border-bottom: 1px solid #eef1f6;
+        }
+        th:last-child, td:last-child { border-right: 0; }
+        tr:last-child th, tr:last-child td { border-bottom: 0; }
+
+        thead th {
+            background: #0f172a;
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            text-align: center;
+            padding: 0.5rem 0.25rem;
+        }
+
+        // Row (colour) labels — WHITE text so they're visible (were dark-on-dark).
+        tbody th {
+            background: #1e293b;
+            color: #fff;
+            font-weight: 700;
+            text-align: center;
+            width: 3.5rem;
+            position: sticky;
+            left: 0;
+            z-index: 1;
+        }
+
+        tbody tr:nth-child(even) td { background: #fafbfd; }
+        tbody tr:hover td { background: #eef2ff; }
+        td { padding: 0; }
+
+        .o_rap_input {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            text-align: center;
+            padding: 0.42rem 0.25rem;
+            color: #0f172a;
+            font-variant-numeric: tabular-nums;
+            -moz-appearance: textfield;
+            &:focus {
+                outline: 0;
+                background: #e0e7ff;
+                box-shadow: inset 0 0 0 2px #a5b4fc;
+            }
+            &::-webkit-outer-spin-button,
+            &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        }
+    }
+}

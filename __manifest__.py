@@ -61,6 +61,7 @@
             'jewellery_evaluator/static/src/xml/pos_product_info.xml',
         ],
         'web.assets_backend': [
+            'jewellery_evaluator/static/src/scss/diamond_rap_editor.scss',
             'jewellery_evaluator/static/src/js/diamond_rap_editor.js',
             'jewellery_evaluator/static/src/xml/diamond_rap_editor.xml',
         ],
