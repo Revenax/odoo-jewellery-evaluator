@@ -18,8 +18,17 @@ _GROUPED_ROWS = ["DF", "GH", "IJ", "KL", "MN"]
 _FULL_COLS = ["IF", "VVS1", "VVS2", "VS1", "VS2", "SI1", "SI2", "SI3", "I1", "I2", "I3"]
 _FULL_ROWS = ["D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]
 
-# Ordered buckets shown in the editor (>= 0.25 ct only; below that uses tiers).
+# Ordered buckets shown in the editor. The first five are the legacy 5 carat
+# TIERS (< 0.25 ct) surfaced as grid tables so they can be filled/experimented
+# with — FRONT-END ONLY: pricing for < 0.25 ct still uses the flat tiers
+# (utils._RAP_BUCKETS / get_stone_tier_price is unchanged), so anything typed
+# into these five tables is stored but not yet used in pricing.
 RAP_STRUCTURE = [
+    {"bucket": "0.001-0.089", "grouped": True},
+    {"bucket": "0.090-0.109", "grouped": True},
+    {"bucket": "0.110-0.149", "grouped": True},
+    {"bucket": "0.150-0.199", "grouped": True},
+    {"bucket": "0.200-0.249", "grouped": True},
     {"bucket": "0.23-0.29", "grouped": True},
     {"bucket": "0.30-0.39", "grouped": False},
     {"bucket": "0.40-0.49", "grouped": False},
