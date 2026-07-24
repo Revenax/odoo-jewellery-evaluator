@@ -8,3 +8,4 @@
 # may load this file without a parent package; then "from . import ..." would fail.
 if __package__:
     from . import jewellery_evaluator  # noqa: F401
+    from .jewellery_evaluator.hooks import post_init_hook  # noqa: F401

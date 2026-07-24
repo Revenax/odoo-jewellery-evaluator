@@ -66,6 +66,7 @@
             'jewellery_evaluator/static/src/xml/diamond_rap_editor.xml',
         ],
     },
+    'post_init_hook': 'post_init_hook',
     'installable': True,
     'application': False,
     'auto_install': False,
