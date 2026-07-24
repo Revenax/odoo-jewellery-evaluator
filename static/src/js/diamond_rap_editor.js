@@ -21,25 +21,26 @@ export class DiamondRapEditor extends Component {
             loading: true,
             saving: false,
             sheet: "round",
-            grids: { round: {}, exotic: {} },
+            grids: { round: {}, exotic: {} },   // Rapaport LIST (hundreds USD/ct)
+            discs: { round: {}, exotic: {} },   // per-cell discount % (0..100)
             structure: [],
         });
         onWillStart(async () => {
             const d = await this.orm.call("diamond.rap.price", "rap_get", []);
             this.state.grids = { round: d.round || {}, exotic: d.exotic || {} };
+            this.state.discs = { round: d.round_disc || {}, exotic: d.exotic_disc || {} };
             this.state.structure = d.structure || [];
             this.state.loading = false;
         });
     }
 
-    cell(bucket, row, col) {
-        const g = this.state.grids[this.state.sheet];
-        const v = g?.[bucket]?.[row]?.[col];
+    // Generic read/write over the active sheet of either map (list or discount).
+    _val(map, bucket, row, col) {
+        const v = map[this.state.sheet]?.[bucket]?.[row]?.[col];
         return v == null ? "" : v;
     }
-
-    onCell(bucket, row, col, ev) {
-        const g = this.state.grids[this.state.sheet];
+    _set(map, bucket, row, col, ev, max) {
+        const g = map[this.state.sheet];
         if (!g[bucket]) {
             g[bucket] = {};
         }
@@ -47,16 +48,28 @@ export class DiamondRapEditor extends Component {
             g[bucket][row] = {};
         }
         const raw = (ev.target.value || "").trim();
-        if (raw === "") {
-            delete g[bucket][row][col];
-        } else {
-            const n = parseFloat(raw);
-            if (n > 0) {
-                g[bucket][row][col] = n;
-            } else {
-                delete g[bucket][row][col];
-            }
+        let n = raw === "" ? NaN : parseFloat(raw);
+        if (max != null && n > max) {
+            n = max;
         }
+        if (n > 0) {
+            g[bucket][row][col] = n;
+        } else {
+            delete g[bucket][row][col];
+        }
+    }
+
+    cell(bucket, row, col) {
+        return this._val(this.state.grids, bucket, row, col);
+    }
+    onCell(bucket, row, col, ev) {
+        this._set(this.state.grids, bucket, row, col, ev);
+    }
+    disc(bucket, row, col) {
+        return this._val(this.state.discs, bucket, row, col);
+    }
+    onDisc(bucket, row, col, ev) {
+        this._set(this.state.discs, bucket, row, col, ev, 100);
     }
 
     async save() {
@@ -68,6 +81,7 @@ export class DiamondRapEditor extends Component {
             await this.orm.call("diamond.rap.price", "rap_set", [
                 this.state.sheet,
                 this.state.grids[this.state.sheet],
+                this.state.discs[this.state.sheet],
             ]);
             this.notification.add(_t("Rap prices saved."), { type: "success" });
         } catch (e) {

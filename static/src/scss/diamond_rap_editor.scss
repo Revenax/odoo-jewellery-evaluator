@@ -120,22 +120,31 @@
         tbody tr:hover td { background: #eef2ff; }
         td { padding: 0; }
 
+        // Two stacked inputs per cell: LIST (black, top) + DISCOUNT % (red, bottom).
         .o_rap_input {
+            display: block;
             width: 100%;
             border: 0;
             background: transparent;
             text-align: center;
-            padding: 0.42rem 0.25rem;
-            color: #0f172a;
             font-variant-numeric: tabular-nums;
             -moz-appearance: textfield;
-            &:focus {
-                outline: 0;
-                background: #e0e7ff;
-                box-shadow: inset 0 0 0 2px #a5b4fc;
-            }
+            &:focus { outline: 0; background: #e0e7ff; box-shadow: inset 0 0 0 2px #a5b4fc; }
             &::-webkit-outer-spin-button,
             &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        }
+        .o_rap_list {
+            padding: 0.32rem 0.2rem 0.14rem;
+            color: #0f172a;
+            font-weight: 500;
+        }
+        .o_rap_disc {
+            padding: 0.12rem 0.2rem 0.3rem;
+            color: #dc2626;
+            font-size: 0.82em;
+            border-top: 0.5px dashed #edf0f5;
+            &:focus { background: #fdecec; box-shadow: inset 0 0 0 2px #f6b8b8; }
+            &::placeholder { color: #eaa9a9; }
         }
     }
 }

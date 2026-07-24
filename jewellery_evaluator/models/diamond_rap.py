@@ -59,8 +59,8 @@ class DiamondRapPrice(models.AbstractModel):
     def _icp(self):
         return self.env["ir.config_parameter"].sudo()
 
-    def _load(self, sheet):
-        raw = self._icp().get_param(f"jewellery_evaluator.diamond_rap_{sheet}")
+    def _load(self, sheet, suffix=""):
+        raw = self._icp().get_param(f"jewellery_evaluator.diamond_rap_{sheet}{suffix}")
         try:
             data = json.loads(raw or "{}")
             return data if isinstance(data, dict) else {}
@@ -72,19 +72,19 @@ class DiamondRapPrice(models.AbstractModel):
         return {
             "round": self._load("round"),
             "exotic": self._load("exotic"),
+            "round_disc": self._load("round", "_disc"),
+            "exotic_disc": self._load("exotic", "_disc"),
             "structure": _structure_payload(),
         }
 
-    @api.model
-    def rap_set(self, sheet, grid):
-        if sheet not in ("round", "exotic"):
-            raise UserError(_("Unknown Rap sheet %s.") % sheet)
-        valid_buckets = {s["bucket"]: s for s in _structure_payload()}
+    def _clean_grid(self, grid, clamp_max=None):
+        """Whitelist buckets/rows/cols against the structure; keep numeric cells
+        only (blank/zero dropped). For the discount grid, ``clamp_max=100`` bounds
+        each percent to 0..100."""
+        valid = {s["bucket"]: s for s in _structure_payload()}
         clean = {}
-        # Whitelist buckets/rows/cols against the structure; keep numeric cells
-        # only (blank/zero cells are dropped so lookup falls back to the tier).
         for bucket, rows in (grid or {}).items():
-            spec = valid_buckets.get(bucket)
+            spec = valid.get(bucket)
             if not spec or not isinstance(rows, dict):
                 continue
             row_keys, col_keys = set(spec["rows"]), set(spec["cols"])
@@ -100,18 +100,31 @@ class DiamondRapPrice(models.AbstractModel):
                         num = float(val)
                     except (TypeError, ValueError):
                         continue
+                    if clamp_max is not None:
+                        num = max(0.0, min(clamp_max, num))
                     if num > 0:
                         cc[c] = num
                 if cc:
                     cb[r] = cc
             if cb:
                 clean[bucket] = cb
+        return clean
+
+    @api.model
+    def rap_set(self, sheet, grid, disc=None):
+        if sheet not in ("round", "exotic"):
+            raise UserError(_("Unknown Rap sheet %s.") % sheet)
         self._icp().set_param(
-            f"jewellery_evaluator.diamond_rap_{sheet}", json.dumps(clean)
+            f"jewellery_evaluator.diamond_rap_{sheet}", json.dumps(self._clean_grid(grid))
         )
-        # Recompute stones so prices reflect the new grid immediately (the stored
-        # compute cannot @api.depends on a config param). Diamond product prices
-        # depend on stone totals, so they cascade.
+        if disc is not None:
+            self._icp().set_param(
+                f"jewellery_evaluator.diamond_rap_{sheet}_disc",
+                json.dumps(self._clean_grid(disc, clamp_max=100.0)),
+            )
+        # Recompute stones so prices reflect the new grid/discount immediately (the
+        # stored compute cannot @api.depends on a config param). Diamond product
+        # prices depend on stone totals, so they cascade.
         stones = self.env["jewellery.stone"].sudo().search([])
         if stones:
             stones._compute_unit_price_usd()

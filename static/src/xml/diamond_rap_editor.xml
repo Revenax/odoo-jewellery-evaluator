@@ -43,9 +43,14 @@
                                 <tr t-foreach="b.rows" t-as="r" t-key="r">
                                     <th t-esc="r"/>
                                     <td t-foreach="b.cols" t-as="c" t-key="c">
-                                        <input type="number" step="0.1" min="0" class="o_rap_input"
+                                        <input type="number" step="0.1" min="0"
+                                               class="o_rap_input o_rap_list"
                                                t-att-value="cell(b.bucket, r, c)"
                                                t-on-change="(ev) => this.onCell(b.bucket, r, c, ev)"/>
+                                        <input type="number" step="1" min="0" max="100"
+                                               class="o_rap_input o_rap_disc" placeholder="%"
+                                               t-att-value="disc(b.bucket, r, c)"
+                                               t-on-change="(ev) => this.onDisc(b.bucket, r, c, ev)"/>
                                     </td>
                                 </tr>
                             </tbody>

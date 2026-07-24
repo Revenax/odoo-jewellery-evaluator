@@ -438,9 +438,16 @@ def rap_keys(colour: str, clarity: str, grouped: bool):
 
 
 def _rap_grid(env, sheet: str) -> dict:
-    raw = env['ir.config_parameter'].sudo().get_param(
-        f'jewellery_evaluator.diamond_rap_{sheet}'
-    )
+    return _rap_json(env, f'jewellery_evaluator.diamond_rap_{sheet}')
+
+
+def _rap_disc_grid(env, sheet: str) -> dict:
+    """Per-cell discount grid (percent 0..100), parallel to the list grid."""
+    return _rap_json(env, f'jewellery_evaluator.diamond_rap_{sheet}_disc')
+
+
+def _rap_json(env, param: str) -> dict:
+    raw = env['ir.config_parameter'].sudo().get_param(param)
     try:
         grid = json.loads(raw or '{}')
         return grid if isinstance(grid, dict) else {}
@@ -449,12 +456,12 @@ def _rap_grid(env, sheet: str) -> dict:
 
 
 def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str) -> float | None:
-    """Per-stone (one unit) USD from the Rap grid (LIST), or None if no usable cell.
+    """Per-stone (one unit) NET USD from the Rap grid, or None if no usable cell.
 
-    price = cell(hundreds USD/ct) x 100 x carat. This is the raw Rapaport LIST
-    price — no discount is applied here (the old flat diamond_rap_discount_pct was
-    removed; a new Rap-discount system will layer on top of this list price).
-    Round shape -> round grid; every other (exotic/fancy) shape -> exotic grid.
+    net = list(hundreds USD/ct) x 100 x carat x (1 - disc%/100), where `list` is the
+    Rapaport LIST cell and `disc` is the per-cell discount percent (0..100, default
+    0 = full list). Round shape -> round grid; every other (exotic/fancy) shape ->
+    exotic grid.
     """
     sheet = 'round' if shape == 'Round' else 'exotic'
     bucket, grouped = rap_bucket_for_carat(carat)
@@ -468,7 +475,15 @@ def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str
         return None
     if cell <= 0:
         return None
-    price = Decimal(str(cell)) * Decimal('100') * Decimal(str(carat))
+    disc_cell = (_rap_disc_grid(env, sheet).get(bucket) or {}).get(row, {}).get(col)
+    try:
+        disc = max(0.0, min(100.0, float(disc_cell)))
+    except (TypeError, ValueError):
+        disc = 0.0
+    price = (
+        Decimal(str(cell)) * Decimal('100') * Decimal(str(carat))
+        * (Decimal('1') - Decimal(str(disc)) / Decimal('100'))
+    )
     return float(price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
 

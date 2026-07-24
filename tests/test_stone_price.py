@@ -52,17 +52,21 @@ class _FakeEnv(dict):
 
 
 _ROUND = {
-    "1.00-1.49": {"G": {"VS1": 54}, "D": {"IF": 150}},
+    "1.00-1.49": {"G": {"VS1": 54}, "D": {"IF": 150}, "F": {"VS1": 63}, "E": {"VS1": 50}},
     "0.23-0.29": {"GH": {"VS": 10.8}},
     "2.00-2.99": {"M": {"I3": 15}},
 }
 _EXOTIC = {"1.00-1.49": {"G": {"VS1": 40}}}
+# Per-cell discount % — only F/VS1 (25%) and E/VS1 (150 -> clamped 100) carry one;
+# every other cell has no discount = full list.
+_ROUND_DISC = {"1.00-1.49": {"F": {"VS1": 25}, "E": {"VS1": 150}}}
 
 
 def env_with():
     return _FakeEnv({
         "jewellery_evaluator.diamond_rap_round": json.dumps(_ROUND),
         "jewellery_evaluator.diamond_rap_exotic": json.dumps(_EXOTIC),
+        "jewellery_evaluator.diamond_rap_round_disc": json.dumps(_ROUND_DISC),
     })
 
 
@@ -93,8 +97,20 @@ class TestRouter:
             get_stone_tier_price(_env, 0.20)
 
     def test_full_bucket_lookup(self):
-        # 1.20 ct G VS1 = cell 54 -> $5,400/ct -> x1.20 = 6480
+        # 1.20 ct G VS1 = cell 54, no discount on this cell -> x100 x1.20 = 6480
         assert get_stone_price_usd(_env, "Round", 1.20, "G", "VS1") == 6480.0
+
+    def test_per_cell_discount_net(self):
+        # F/VS1 list 63, disc 25% -> 63 x100 x1.20 x0.75 = 5670
+        assert get_stone_price_usd(_env, "Round", 1.20, "F", "VS1") == 5670.0
+
+    def test_discount_clamped_to_100(self):
+        # E/VS1 disc stored 150 -> clamped to 100% -> net 0
+        assert get_stone_price_usd(_env, "Round", 1.20, "E", "VS1") == 0.0
+
+    def test_no_discount_is_full_list(self):
+        # D/IF has no discount cell -> full list 150 x100 x1.20 = 18000
+        assert get_stone_price_usd(_env, "Round", 1.20, "D", "LC") == 18000.0
 
     def test_boundary_025_uses_rap(self):
         # 0.25 ct -> 0.23-0.29 grouped, G->GH, VS1->VS, cell 10.8 -> x100 x0.25
