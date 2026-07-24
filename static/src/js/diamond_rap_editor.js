@@ -66,7 +66,9 @@ export class DiamondRapEditor extends Component {
         this._set(this.state.grids, bucket, row, col, ev);
     }
     disc(bucket, row, col) {
-        return this._val(this.state.discs, bucket, row, col);
+        // Empty/absent discount shows (and prices) as 0 — see rap_stone_price_usd.
+        const v = this.state.discs[this.state.sheet]?.[bucket]?.[row]?.[col];
+        return v == null ? 0 : v;
     }
     onDisc(bucket, row, col, ev) {
         this._set(this.state.discs, bucket, row, col, ev, 100);
