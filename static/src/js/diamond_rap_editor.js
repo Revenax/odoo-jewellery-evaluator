@@ -21,14 +21,12 @@ export class DiamondRapEditor extends Component {
             loading: true,
             saving: false,
             sheet: "round",
-            discount: 0,
             grids: { round: {}, exotic: {} },
             structure: [],
         });
         onWillStart(async () => {
             const d = await this.orm.call("diamond.rap.price", "rap_get", []);
             this.state.grids = { round: d.round || {}, exotic: d.exotic || {} };
-            this.state.discount = d.discount || 0;
             this.state.structure = d.structure || [];
             this.state.loading = false;
         });
@@ -70,7 +68,6 @@ export class DiamondRapEditor extends Component {
             await this.orm.call("diamond.rap.price", "rap_set", [
                 this.state.sheet,
                 this.state.grids[this.state.sheet],
-                this.state.discount,
             ]);
             this.notification.add(_t("Rap prices saved."), { type: "success" });
         } catch (e) {

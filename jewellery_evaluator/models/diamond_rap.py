@@ -69,16 +69,14 @@ class DiamondRapPrice(models.AbstractModel):
 
     @api.model
     def rap_get(self):
-        icp = self._icp()
         return {
             "round": self._load("round"),
             "exotic": self._load("exotic"),
-            "discount": float(icp.get_param("jewellery_evaluator.diamond_rap_discount_pct") or 0.0),
             "structure": _structure_payload(),
         }
 
     @api.model
-    def rap_set(self, sheet, grid, discount=None):
+    def rap_set(self, sheet, grid):
         if sheet not in ("round", "exotic"):
             raise UserError(_("Unknown Rap sheet %s.") % sheet)
         valid_buckets = {s["bucket"]: s for s in _structure_payload()}
@@ -111,12 +109,6 @@ class DiamondRapPrice(models.AbstractModel):
         self._icp().set_param(
             f"jewellery_evaluator.diamond_rap_{sheet}", json.dumps(clean)
         )
-        if discount is not None:
-            try:
-                d = max(0.0, min(1.0, float(discount)))
-            except (TypeError, ValueError):
-                d = 0.0
-            self._icp().set_param("jewellery_evaluator.diamond_rap_discount_pct", str(d))
         # Recompute stones so prices reflect the new grid immediately (the stored
         # compute cannot @api.depends on a config param). Diamond product prices
         # depend on stone totals, so they cascade.

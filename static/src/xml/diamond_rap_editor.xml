@@ -16,13 +16,6 @@
                 <div class="o_rap_toolbar">
                     <h2>Diamond Rap Prices <small>hundreds USD / carat · stones ≥ 0.25 ct</small></h2>
                     <div class="o_rap_spacer"/>
-                    <div class="o_rap_discount">
-                        <span>Rap discount</span>
-                        <input type="number" step="0.01" min="0" max="1"
-                               class="form-control form-control-sm"
-                               t-att-value="state.discount"
-                               t-on-change="(ev) => state.discount = parseFloat(ev.target.value) || 0"/>
-                    </div>
                     <div class="o_rap_tabs">
                         <button t-att-class="state.sheet === 'round' ? 'active' : ''"
                                 t-on-click="() => state.sheet = 'round'">Round</button>

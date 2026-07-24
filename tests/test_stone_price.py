@@ -59,11 +59,10 @@ _ROUND = {
 _EXOTIC = {"1.00-1.49": {"G": {"VS1": 40}}}
 
 
-def env_with(discount="0"):
+def env_with():
     return _FakeEnv({
         "jewellery_evaluator.diamond_rap_round": json.dumps(_ROUND),
         "jewellery_evaluator.diamond_rap_exotic": json.dumps(_EXOTIC),
-        "jewellery_evaluator.diamond_rap_discount_pct": discount,
     })
 
 
@@ -121,7 +120,3 @@ class TestRouter:
         # K/SI2 not in the test grid -> tier price for 1.20 ct
         assert get_stone_price_usd(_env, "Round", 1.20, "K", "SI2") == \
             get_stone_tier_price(_env, 1.20)
-
-    def test_discount_applied(self):
-        env = env_with(discount="0.25")
-        assert get_stone_price_usd(env, "Round", 1.20, "G", "VS1") == 4860.0  # 6480 x 0.75

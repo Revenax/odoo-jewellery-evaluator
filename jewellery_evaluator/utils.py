@@ -449,9 +449,11 @@ def _rap_grid(env, sheet: str) -> dict:
 
 
 def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str) -> float | None:
-    """Per-stone (one unit) USD from the Rap grid, or None if no usable cell.
+    """Per-stone (one unit) USD from the Rap grid (LIST), or None if no usable cell.
 
-    price = cell(hundreds USD/ct) x 100 x carat x (1 - rap_discount_pct).
+    price = cell(hundreds USD/ct) x 100 x carat. This is the raw Rapaport LIST
+    price — no discount is applied here (the old flat diamond_rap_discount_pct was
+    removed; a new Rap-discount system will layer on top of this list price).
     Round shape -> round grid; every other (exotic/fancy) shape -> exotic grid.
     """
     sheet = 'round' if shape == 'Round' else 'exotic'
@@ -466,11 +468,7 @@ def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str
         return None
     if cell <= 0:
         return None
-    disc = _get_diamond_config_float(env, 'diamond_rap_discount_pct', 0.0)
-    price = (
-        Decimal(str(cell)) * Decimal('100') * Decimal(str(carat))
-        * (Decimal('1') - Decimal(str(disc)))
-    )
+    price = Decimal(str(cell)) * Decimal('100') * Decimal(str(carat))
     return float(price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
 
