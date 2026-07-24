@@ -14,7 +14,7 @@
                             <group col="2">
                                 <field name="jewellery_type"/>
                                 <field name="jewellery_weight_g"
-                                   invisible="not jewellery_type or jewellery_type == 'diamond_jewellery'"/>
+                                   invisible="not jewellery_type or jewellery_type in ('diamond_jewellery', 'center_stone')"/>
                             </group>
 
                         <!-- Gold (local / foreign / bars) -->
@@ -30,7 +30,7 @@
                         </group>
 
                         <!-- Diamond Jewellery: Gold body + read-only pricing -->
-                        <group invisible="jewellery_type != 'diamond_jewellery'">
+                        <group invisible="jewellery_type not in ('diamond_jewellery', 'center_stone')">
                             <group col="2" string="Gold Body">
                                 <field name="gold_purity" string="Karat"/>
                                 <field name="jewellery_weight_g" string="Gold Weight (g)"/>
@@ -56,9 +56,9 @@
                         </group>
                     </group>
                     <!-- Stones table: outside <group> so the editable list shows "Add a line" -->
-                    <separator string="Stones" invisible="jewellery_type != 'diamond_jewellery'"/>
+                    <separator string="Stones" invisible="jewellery_type not in ('diamond_jewellery', 'center_stone')"/>
                     <field name="stone_ids" nolabel="1" colspan="2"
-                           invisible="jewellery_type != 'diamond_jewellery'">
+                           invisible="jewellery_type not in ('diamond_jewellery', 'center_stone')">
                         <list editable="bottom">
                             <control>
                                 <create string="Add a stone"/>

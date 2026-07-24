@@ -42,6 +42,7 @@ class ProductTemplate(models.Model):
         ('gold_foreign', 'Gold - Foreign'),
         ('gold_bars', 'Gold Bars'),
         ('diamond_jewellery', 'Diamond Jewellery'),
+        ('center_stone', 'Center Stone'),
         ('silver', 'Silver'),
     ]
 
@@ -357,7 +358,7 @@ class ProductTemplate(models.Model):
     )
     def _compute_invoice_display(self):
         for record in self:
-            if record.jewellery_type == 'diamond_jewellery' and record.stone_ids:
+            if record.jewellery_type in ('diamond_jewellery', 'center_stone') and record.stone_ids:
                 # Total piece weight = gold + stones, summed into one number.
                 record.invoice_weight_display = format_weight_g(
                     record.gross_jewellery_weight_g
@@ -379,8 +380,13 @@ class ProductTemplate(models.Model):
 
     @api.depends('jewellery_type')
     def _compute_is_diamond_jewellery_product(self):
+        # Center Stone is a loose diamond (no gold): it reuses the whole diamond
+        # path — pricing, POS floor, POS data, gift/details — differing only in
+        # that its gold weight is 0 (see _compute_diamond_jewellery_prices).
         for record in self:
-            record.is_diamond_jewellery_product = record.jewellery_type == 'diamond_jewellery'
+            record.is_diamond_jewellery_product = record.jewellery_type in (
+                'diamond_jewellery', 'center_stone'
+            )
 
     @api.depends('jewellery_type')
     def _compute_is_silver_product(self):
@@ -507,12 +513,20 @@ class ProductTemplate(models.Model):
                     setattr(record, k, v)
                 continue
 
-            if not record.gold_purity or not record.jewellery_weight_g or record.jewellery_weight_g <= 0:
+            # Center Stone is a loose diamond: no gold weight/purity required, and
+            # the gold base price is irrelevant (its gold cost is 0). Everything
+            # else (stones -> ticket -> sale -> floor) is the same diamond math.
+            is_cs = record.jewellery_type == 'center_stone'
+            if not is_cs and (
+                not record.gold_purity
+                or not record.jewellery_weight_g
+                or record.jewellery_weight_g <= 0
+            ):
                 for k, v in zero.items():
                     setattr(record, k, v)
                 continue
 
-            if base_gold_21k_egp <= 0 or exchange_rate <= 0:
+            if exchange_rate <= 0 or (not is_cs and base_gold_21k_egp <= 0):
                 for k, v in zero.items():
                     setattr(record, k, v)
                 continue
@@ -526,8 +540,8 @@ class ProductTemplate(models.Model):
             try:
                 result = compute_diamond_jewellery_price(
                     base_gold_price_21k_egp=base_gold_21k_egp,
-                    gold_purity=record.gold_purity,
-                    weight_g=record.jewellery_weight_g,
+                    gold_purity=record.gold_purity or '21K',
+                    weight_g=0.0 if is_cs else record.jewellery_weight_g,
                     stone_prices_usd=valid_stone_prices,
                     exchange_rate_usd=exchange_rate,
                     fee_per_gram_usd=fee_per_gram,
@@ -740,9 +754,14 @@ class ProductTemplate(models.Model):
         self.ensure_one()
         if not self.is_diamond_jewellery_product:
             return {}
-        if not self.gold_purity or not self.jewellery_weight_g or self.jewellery_weight_g <= 0:
+        is_cs = self.jewellery_type == 'center_stone'
+        if not is_cs and (
+            not self.gold_purity
+            or not self.jewellery_weight_g
+            or self.jewellery_weight_g <= 0
+        ):
             return {}
-        if base_gold_21k_egp <= 0:
+        if not is_cs and base_gold_21k_egp <= 0:
             return {}
 
         exchange_rate, fee_per_gram, multiplier, discount, min_pct = self._diamond_pricing_config()
@@ -755,8 +774,8 @@ class ProductTemplate(models.Model):
         try:
             result = compute_diamond_jewellery_price(
                 base_gold_price_21k_egp=base_gold_21k_egp,
-                gold_purity=self.gold_purity,
-                weight_g=self.jewellery_weight_g,
+                gold_purity=self.gold_purity or '21K',
+                weight_g=0.0 if is_cs else self.jewellery_weight_g,
                 stone_prices_usd=valid_stone_prices,
                 exchange_rate_usd=exchange_rate,
                 fee_per_gram_usd=fee_per_gram,

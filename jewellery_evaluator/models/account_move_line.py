@@ -23,6 +23,7 @@ JEWELLERY_TYPE_SELECTION = [
     ('gold_foreign', 'Gold - Foreign'),
     ('gold_bars', 'Gold Bars'),
     ('diamond_jewellery', 'Diamond Jewellery'),
+    ('center_stone', 'Center Stone'),
     ('silver', 'Silver'),
 ]
 SILVER_PURITY_SELECTION = [

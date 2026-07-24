@@ -276,10 +276,15 @@ class GoldPriceService(models.Model):
                 ('jewellery_weight_g', '>', 0),
             ])
             # Diamonds share the same 21K base, so refresh them in the same run.
+            # Center Stones (no gold) are included too so exchange-rate/Rap drift
+            # keeps their list_price synced.
             diamond_products = self.env['product.template'].search([
+                '|',
+                '&', '&',
                 ('jewellery_type', '=', 'diamond_jewellery'),
                 ('gold_purity', '!=', False),
                 ('jewellery_weight_g', '>', 0),
+                ('jewellery_type', '=', 'center_stone'),
             ])
 
             updated = 0

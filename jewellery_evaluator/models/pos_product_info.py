@@ -33,7 +33,7 @@ class ProductTemplate(models.Model):
         jtype = self.jewellery_type
         if not jtype:
             return {"is_jewellery": False}
-        is_diamond = jtype == "diamond_jewellery"
+        is_diamond = jtype in ("diamond_jewellery", "center_stone")
         is_silver = jtype == "silver"
 
         def g(value):

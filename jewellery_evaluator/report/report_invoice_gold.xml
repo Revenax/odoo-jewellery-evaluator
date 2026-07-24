@@ -107,7 +107,7 @@
             </td>
             <td name="td_weight" class="text-end">
                 <t t-set="p" t-value="line.product_id"/>
-                <t t-set="wt" t-value="p.gross_jewellery_weight_g if p.jewellery_type == 'diamond_jewellery' else (line.jewellery_weight_g or p.jewellery_weight_g or line.gold_weight_g or p.gold_weight_g or 0)"/>
+                <t t-set="wt" t-value="p.gross_jewellery_weight_g if p.jewellery_type in ('diamond_jewellery', 'center_stone') else (line.jewellery_weight_g or p.jewellery_weight_g or line.gold_weight_g or p.gold_weight_g or 0)"/>
                 <span t-esc="'%.2fg' % (wt or 0)"/>
             </td>
         </xpath>
@@ -130,7 +130,7 @@
              line, with `line` in scope. ── -->
         <xpath expr="//td[@name='account_invoice_line_name']/ancestor::tr[1]" position="after">
             <t t-set="sp" t-value="line.product_id"/>
-            <t t-if="sp.jewellery_type == 'diamond_jewellery' and sp.stone_ids">
+            <t t-if="sp.jewellery_type in ('diamond_jewellery', 'center_stone') and sp.stone_ids">
                 <tr t-foreach="sp.stone_ids" t-as="stone" t-key="stone.id">
                     <td/><td/><td/>
                     <td class="text-end o_stone_row fst-italic" style="color:#555;">
