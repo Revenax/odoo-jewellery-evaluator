@@ -72,14 +72,14 @@ class DiamondRapPrice(models.AbstractModel):
         icp = self._icp()
         return {
             "round": self._load("round"),
-            "pear": self._load("pear"),
+            "exotic": self._load("exotic"),
             "discount": float(icp.get_param("jewellery_evaluator.diamond_rap_discount_pct") or 0.0),
             "structure": _structure_payload(),
         }
 
     @api.model
     def rap_set(self, sheet, grid, discount=None):
-        if sheet not in ("round", "pear"):
+        if sheet not in ("round", "exotic"):
             raise UserError(_("Unknown Rap sheet %s.") % sheet)
         valid_buckets = {s["bucket"]: s for s in _structure_payload()}
         clean = {}

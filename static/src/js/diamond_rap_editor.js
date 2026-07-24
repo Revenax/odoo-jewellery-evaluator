@@ -1,7 +1,7 @@
 /** @odoo-module **/
 // Backend client action: the "Diamond Rap Prices" page — a PDF-style editable
 // grid of the Rapaport price list (hundreds USD/carat) for stones >= 0.25 ct.
-// Round / Pear tabs; one table per carat bucket in its native format (grouped
+// Round / Exotic tabs; one table per carat bucket in its native format (grouped
 // small / full large). Reads + writes the two config-param JSON grids via
 // diamond.rap.price.rap_get / rap_set (models/diamond_rap.py).
 
@@ -22,12 +22,12 @@ export class DiamondRapEditor extends Component {
             saving: false,
             sheet: "round",
             discount: 0,
-            grids: { round: {}, pear: {} },
+            grids: { round: {}, exotic: {} },
             structure: [],
         });
         onWillStart(async () => {
             const d = await this.orm.call("diamond.rap.price", "rap_get", []);
-            this.state.grids = { round: d.round || {}, pear: d.pear || {} };
+            this.state.grids = { round: d.round || {}, exotic: d.exotic || {} };
             this.state.discount = d.discount || 0;
             this.state.structure = d.structure || [];
             this.state.loading = false;
