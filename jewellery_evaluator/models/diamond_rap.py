@@ -8,6 +8,8 @@ import json
 from odoo import _, api, models
 from odoo.exceptions import UserError
 
+from ..utils import _STONE_TIERS
+
 # The Rapaport grid layout, mirroring the printed sheet. Two table formats:
 #   * grouped  — the 0.23-0.29 bucket (colour groups DF..MN, clarity IF-VVS/VS/…)
 #   * full     — 0.30 ct and up (colours D..M, full clarity columns)
@@ -18,17 +20,26 @@ _GROUPED_ROWS = ["DF", "GH", "IJ", "KL", "MN"]
 _FULL_COLS = ["IF", "VVS1", "VVS2", "VS1", "VS2", "SI1", "SI2", "SI3", "I1", "I2", "I3"]
 _FULL_ROWS = ["D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]
 
+# Default per-carat USD for each < 0.25 ct tier, keyed by its config-param
+# suffix — the source of truth is utils._STONE_TIERS (kept DRY: one place).
+_TIER_DEFAULTS = {param: default for _lo, _hi, param, default in _STONE_TIERS}
+
 # Ordered buckets shown in the editor. The first five are the legacy 5 carat
-# TIERS (< 0.25 ct) surfaced as grid tables so they can be filled/experimented
-# with — FRONT-END ONLY: pricing for < 0.25 ct still uses the flat tiers
-# (utils._RAP_BUCKETS / get_stone_tier_price is unchanged), so anything typed
-# into these five tables is stored but not yet used in pricing.
-RAP_STRUCTURE = [
-    {"bucket": "0.001-0.089", "grouped": True},
-    {"bucket": "0.090-0.109", "grouped": True},
-    {"bucket": "0.110-0.149", "grouped": True},
-    {"bucket": "0.150-0.199", "grouped": True},
-    {"bucket": "0.200-0.249", "grouped": True},
+# TIERS (< 0.25 ct). A tier is a SINGLE flat per-carat price (colour/clarity do
+# not matter), so each is rendered as one READ-ONLY cell reflecting the live
+# tier config param — the real source of truth for sub-0.25 pricing
+# (utils._STONE_TIERS / get_stone_tier_price). The editor never writes them;
+# sub-0.25 prices are edited only in Settings, and this editor never changes
+# them. Buckets >= 0.25 ct are the editable Rap grid (grouped small / full big).
+# Annotated so the mixed-shape entries (tier vs grid) unify as one dict type —
+# mypy follows this module via the package graph even though it only targets
+# utils.py, and would otherwise widen each entry to bare ``object``.
+RAP_STRUCTURE: list[dict[str, object]] = [
+    {"bucket": "0.001-0.089", "tier": "diamond_stone_tier_1_usd"},
+    {"bucket": "0.090-0.109", "tier": "diamond_stone_tier_2_usd"},
+    {"bucket": "0.110-0.149", "tier": "diamond_stone_tier_3_usd"},
+    {"bucket": "0.150-0.199", "tier": "diamond_stone_tier_4_usd"},
+    {"bucket": "0.200-0.249", "tier": "diamond_stone_tier_5_usd"},
     {"bucket": "0.23-0.29", "grouped": True},
     {"bucket": "0.30-0.39", "grouped": False},
     {"bucket": "0.40-0.49", "grouped": False},
@@ -45,16 +56,42 @@ RAP_STRUCTURE = [
 ]
 
 
-def _structure_payload():
-    """Buckets with their row/col keys — drives the editor's table rendering."""
+def _structure_payload(env=None):
+    """Buckets with their row/col keys — drives the editor's table rendering.
+
+    ``env`` (optional) is used to read the live per-carat value of the five
+    < 0.25 ct tiers so each renders as one read-only ``single`` cell. Called
+    without ``env`` for whitelist cleaning (values not needed there).
+    """
+    icp = env["ir.config_parameter"].sudo() if env is not None else None
     out = []
     for s in RAP_STRUCTURE:
-        out.append({
-            "bucket": s["bucket"],
-            "grouped": s["grouped"],
-            "rows": _GROUPED_ROWS if s["grouped"] else _FULL_ROWS,
-            "cols": _GROUPED_COLS if s["grouped"] else _FULL_COLS,
-        })
+        tier = s.get("tier")
+        if tier:
+            tier = str(tier)
+            value = _TIER_DEFAULTS.get(tier, 0.0)
+            if icp is not None:
+                try:
+                    live = float(icp.get_param(f"jewellery_evaluator.{tier}"))
+                    if live > 0:
+                        value = live
+                except (TypeError, ValueError):
+                    pass
+            out.append({
+                "bucket": s["bucket"],
+                "single": True,
+                "rows": [],
+                "cols": [],
+                "value": value,
+            })
+        else:
+            out.append({
+                "bucket": s["bucket"],
+                "single": False,
+                "grouped": s["grouped"],
+                "rows": _GROUPED_ROWS if s["grouped"] else _FULL_ROWS,
+                "cols": _GROUPED_COLS if s["grouped"] else _FULL_COLS,
+            })
     return out
 
 
@@ -83,7 +120,7 @@ class DiamondRapPrice(models.AbstractModel):
             "exotic": self._load("exotic"),
             "round_disc": self._load("round", "_disc"),
             "exotic_disc": self._load("exotic", "_disc"),
-            "structure": _structure_payload(),
+            "structure": _structure_payload(self.env),
         }
 
     def _clean_grid(self, grid, clamp_max=None):
@@ -94,7 +131,9 @@ class DiamondRapPrice(models.AbstractModel):
         clean = {}
         for bucket, rows in (grid or {}).items():
             spec = valid.get(bucket)
-            if not spec or not isinstance(rows, dict):
+            # Tier buckets are read-only (single cell from the live tier param);
+            # never store grid data for them, and drop any orphaned old cells.
+            if not spec or spec.get("single") or not isinstance(rows, dict):
                 continue
             row_keys, col_keys = set(spec["rows"]), set(spec["cols"])
             cb = {}

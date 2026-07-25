@@ -147,4 +147,38 @@
             &::placeholder { color: #eaa9a9; }
         }
     }
+
+    // < 0.25 ct tier: one flat per-carat price, shown as a single read-only
+    // pill (no grid) — the live tier value, edited in Settings.
+    .o_rap_tier_card {
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        padding: 0.7rem 1rem;
+
+        .o_rap_tier_flag {
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            background: #eef2ff;
+            border-radius: 999px;
+            padding: 0.16rem 0.6rem;
+        }
+        .o_rap_tier_value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f172a;
+            font-variant-numeric: tabular-nums;
+        }
+        .o_rap_tier_unit { color: #64748b; font-size: 0.82rem; }
+        .o_rap_tier_lock {
+            margin-left: auto;
+            font-size: 0.72rem;
+            color: #9aa4b2;
+            font-style: italic;
+        }
+    }
 }

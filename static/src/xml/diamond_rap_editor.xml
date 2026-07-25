@@ -31,31 +31,47 @@
 
                 <div t-foreach="state.structure" t-as="b" t-key="b.bucket" class="o_rap_bucket">
                     <div class="o_rap_bucket_title"><t t-esc="b.bucket"/><span class="unit">ct</span></div>
-                    <div class="o_rap_card table-responsive">
-                        <table class="o_rap_table">
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th t-foreach="b.cols" t-as="c" t-key="c" t-esc="c"/>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr t-foreach="b.rows" t-as="r" t-key="r">
-                                    <th t-esc="r"/>
-                                    <td t-foreach="b.cols" t-as="c" t-key="c">
-                                        <input type="number" step="0.1" min="0"
-                                               class="o_rap_input o_rap_list"
-                                               t-att-value="cell(b.bucket, r, c)"
-                                               t-on-change="(ev) => this.onCell(b.bucket, r, c, ev)"/>
-                                        <input type="number" step="1" min="0" max="100"
-                                               class="o_rap_input o_rap_disc" placeholder="%"
-                                               t-att-value="disc(b.bucket, r, c)"
-                                               t-on-change="(ev) => this.onDisc(b.bucket, r, c, ev)"/>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+
+                    <!-- < 0.25 ct TIER: one flat per-carat price (colour/clarity
+                         irrelevant). Read-only — the live tier value; edited in
+                         Settings, never here. -->
+                    <t t-if="b.single">
+                        <div class="o_rap_card o_rap_tier_card">
+                            <span class="o_rap_tier_flag">Flat tier</span>
+                            <span class="o_rap_tier_value">$<t t-esc="b.value"/></span>
+                            <span class="o_rap_tier_unit">/ ct · all colours &amp; clarities</span>
+                            <span class="o_rap_tier_lock">read-only · set in Settings</span>
+                        </div>
+                    </t>
+
+                    <!-- >= 0.25 ct: editable Rap grid (list + per-cell discount %). -->
+                    <t t-else="">
+                        <div class="o_rap_card table-responsive">
+                            <table class="o_rap_table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th t-foreach="b.cols" t-as="c" t-key="c" t-esc="c"/>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="b.rows" t-as="r" t-key="r">
+                                        <th t-esc="r"/>
+                                        <td t-foreach="b.cols" t-as="c" t-key="c">
+                                            <input type="number" step="0.1" min="0"
+                                                   class="o_rap_input o_rap_list"
+                                                   t-att-value="cell(b.bucket, r, c)"
+                                                   t-on-change="(ev) => this.onCell(b.bucket, r, c, ev)"/>
+                                            <input type="number" step="1" min="0" max="100"
+                                                   class="o_rap_input o_rap_disc" placeholder="%"
+                                                   t-att-value="disc(b.bucket, r, c)"
+                                                   t-on-change="(ev) => this.onDisc(b.bucket, r, c, ev)"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
                 </div>
             </div>
         </div>
