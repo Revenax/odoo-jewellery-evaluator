@@ -11,7 +11,7 @@
 <templates xml:space="preserve">
 
     <t t-name="jewellery_evaluator.RapViewerPopup">
-        <Dialog title="'Diamond Rap Prices'" size="'xl'">
+        <Dialog title="'Diamond Rap Prices'" size="'fs'">
             <div class="o_pos_rap">
                 <div class="o_pos_rap_toolbar">
                     <div class="o_pos_rap_tabs">

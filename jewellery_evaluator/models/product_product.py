@@ -39,13 +39,15 @@ class ProductProduct(models.Model):
     @api.model
     def _load_pos_data_domain(self, data, config):
         domain = super()._load_pos_data_domain(data, config)
-        # Hide already-sold unique pieces (serial SKU, on-hand < 1) from the
-        # register: a unique piece with no stock has been sold, and showing it
-        # invites a double-sale. Non-unique/fungible products are unaffected
-        # (the OR short-circuits them to always-visible).
+        # Hide already-sold unique pieces (serial SKU, stock-tracked, on-hand < 1)
+        # from the register: a sold unique piece with no stock invites a
+        # double-sale. Show it when it is not a unique piece, or does not track
+        # stock at all (a non-storable consu can't be "sold out"), or still has
+        # on-hand — so only genuinely-sold stock-tracked pieces disappear.
         return list(domain) + [
-            "|",
+            "|", "|",
             ("is_unique_jewellery_piece", "=", False),
+            ("is_storable", "=", False),
             ("qty_available", ">", 0),
         ]
 
