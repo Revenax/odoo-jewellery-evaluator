@@ -20,6 +20,22 @@ BAR_TIER_DEFAULT_MARKUP = [200.0, 200.0, 125.0,
 # 1 (metric) carat = 0.2 grams.
 CARAT_TO_GRAM = Decimal('0.2')
 
+# A "unique jewellery piece" carries a serial SKU: PREFIX-NNNN with an optional
+# twin-pair letter (A/B), e.g. GRL1-0001, DS-0001, DRL8-0030A. Fungible weight
+# SKUs (GB-BTC-1G, GB-KANZI-10.35G) and scrap (SCRAP-GOLD-24K) never match — the
+# twin suffix is deliberately restricted to A/B so a 4-digit gram weight
+# (…-1000G) can't be mistaken for a serial. Used to scope the POS 0/1-inventory
+# rules (hide-when-sold, block re-sale, on-hand invariant) to unique pieces only.
+_SERIAL_SKU_RE = re.compile(r'-[0-9]{4}[AB]?$')
+
+
+def is_serial_sku(code) -> bool:
+    """True when ``code`` is a unique-piece SKU (PREFIX-NNNN, optional A/B twin
+    suffix). Empty/None/non-str/weight/scrap SKUs return False."""
+    if not isinstance(code, str) or not code:
+        return False
+    return bool(_SERIAL_SKU_RE.search(code))
+
 
 def _get_markup_bars_by_weight(env, weight_g: float) -> float:
     """

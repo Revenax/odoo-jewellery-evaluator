@@ -135,6 +135,29 @@ class PosOrder(models.Model):
             names = {n for n in overridden.mapped('override_approver_name') if n}
             order.override_approver_names = ', '.join(sorted(names))
 
+    # Audit summary of already-sold (over-sell) manager overrides on this order.
+    has_stock_override = fields.Boolean(
+        string="Already-Sold Override",
+        compute="_compute_stock_override_summary",
+        help="At least one line on this order sold a unique piece that had no "
+             "available stock (already sold) with manager approval.",
+    )
+    stock_override_approver_names = fields.Char(
+        string="Already-Sold Approved By",
+        compute="_compute_stock_override_summary",
+        help="Manager(s) who approved selling an already-sold piece on this order.",
+    )
+
+    @api.depends('lines.stock_override', 'lines.stock_override_approver_name')
+    def _compute_stock_override_summary(self):
+        for order in self:
+            overridden = order.lines.filtered('stock_override')
+            order.has_stock_override = bool(overridden)
+            names = {
+                n for n in overridden.mapped('stock_override_approver_name') if n
+            }
+            order.stock_override_approver_names = ', '.join(sorted(names))
+
     @api.constrains("partner_id", "session_id")
     def _check_partner(self):
         for rec in self:
@@ -243,11 +266,13 @@ class PosOrder(models.Model):
                 if uuid:
                     authorised_overrides[uuid] = override
 
-        # Validate storable product quantities do not exceed available stock
-        self._check_storable_product_stock(ui_order, lines_data)
+        # Block re-selling an already-sold unique piece (over-sell) unless a
+        # manager approved it. Returns the line uuids whose over-sell was
+        # authorised, to stamp below (mirrors the below-minimum override flow).
+        stock_authorised = self._check_storable_product_stock(ui_order, lines_data)
 
         # Populate gold fields on each order line from product and price service,
-        # and stamp any authorised below-minimum override for audit.
+        # and stamp any authorised below-minimum / already-sold override for audit.
         for line_cmd in order_fields.get('lines') or []:
             if len(line_cmd) >= 3 and isinstance(line_cmd[2], dict):
                 vals = line_cmd[2]
@@ -255,8 +280,26 @@ class PosOrder(models.Model):
                 self._stamp_min_price_override(
                     vals, override_config, authorised_overrides
                 )
+                self._stamp_stock_override(vals, stock_authorised)
 
         return order_fields
+
+    def _stamp_stock_override(self, vals, stock_authorised):
+        """Persist only authorised already-sold (over-sell) overrides onto the
+        saved line vals, keyed by uuid from ``_check_storable_product_stock``.
+
+        Fail closed: any stock_override flag not backed by a validated approval
+        is cleared, so the persisted-line stock cannot be silently over-sold.
+        """
+        override = stock_authorised.get(vals.get('uuid'))
+        if override:
+            vals['stock_override'] = True
+            vals['stock_override_approver_uid'] = override['approver_uid']
+            vals['stock_override_approver_name'] = override['approver_name']
+        else:
+            vals['stock_override'] = False
+            vals['stock_override_approver_uid'] = 0
+            vals['stock_override_approver_name'] = False
 
     def _validate_min_price_override(self, line_vals, product, effective_min,
                                      final_price, config):
@@ -337,73 +380,125 @@ class PosOrder(models.Model):
             vals['override_approver_name'] = False
 
     @api.model
+    def _jewellery_location_available(self, location, product_id):
+        """On-hand (quantity - reserved) of a product at a single location."""
+        quants = self.env['stock.quant'].search([
+            ('product_id', '=', product_id),
+            ('location_id', '=', location.id),
+        ])
+        return sum(
+            (q.quantity - getattr(q, 'reserved_quantity', 0)) for q in quants
+        )
+
+    @api.model
     def _check_storable_product_stock(self, ui_order, lines_data):
         """
-        Raise ValidationError if any storable product line requests more than
-        available stock at the POS location. Consumables and services are ignored.
+        Block re-selling an already-sold UNIQUE jewellery piece.
+
+        A unique piece (serial SKU, on-hand 0/1) requested beyond its available
+        stock has already been sold; the sale is blocked unless a manager
+        approved it (``stock_override`` set + the approver still authorised — a
+        pos_hr manager employee, or master mode when pos_hr is off). Refund lines
+        (qty < 0) and fungible/non-unique products are ignored.
+
+        Returns ``{uuid: {approver_uid, approver_name}}`` for the lines whose
+        over-sell was authorised, so ``_stamp_stock_override`` can persist them.
+        Raises ValidationError for any unauthorised over-sell.
+
+        NOTE: the earlier version filtered on the legacy ``type == 'product'``,
+        which is never true in Odoo 19 (goods are ``consu`` + ``is_storable``),
+        so the check was a silent no-op. It now uses ``is_storable`` and is
+        scoped to unique pieces.
         """
         if not lines_data:
-            return
+            return {}
         session_id = ui_order.get('pos_session_id')
         if not session_id:
-            return
+            return {}
         session = self.env['pos.session'].browse(session_id)
         if not session.exists():
-            return
-        picking_type = session.config_id.picking_type_id
+            return {}
+        config = session.config_id
+        picking_type = config.picking_type_id
         if not picking_type:
-            return
+            return {}
         location = picking_type.default_location_src_id
         if not location:
-            return
+            return {}
 
-        # Aggregate requested quantity per product (positive qty only; refunds excluded)
-        product_qty: dict[int, float] = {}
+        # Group positive-qty lines per product (refunds qty < 0 excluded).
+        product_lines: dict[int, list] = {}
         for line_data in lines_data:
             if len(line_data) < 3 or not isinstance(line_data[2], dict):
                 continue
             line_vals = line_data[2]
             product_id = line_vals.get('product_id')
-            qty = line_vals.get('qty', 0)
             try:
-                qty = float(qty)
+                qty = float(line_vals.get('qty', 0))
             except (TypeError, ValueError):
                 qty = 0
             if product_id and qty > 0:
-                product_qty[product_id] = product_qty.get(product_id, 0) + qty
+                product_lines.setdefault(product_id, []).append(line_vals)
 
-        if not product_qty:
-            return
+        if not product_lines:
+            return {}
 
-        products = self.env['product.product'].browse(product_qty.keys())
-        storable = products.filtered(lambda p: p.type == 'product')
-        if not storable:
-            return
+        products = self.env['product.product'].browse(list(product_lines))
+        # Scope: unique serial pieces that actually track stock. Fungible bars/
+        # coins and non-jewellery products keep their existing behaviour.
+        unique = products.filtered(
+            lambda p: p.is_unique_jewellery_piece and p.is_storable
+        )
+        if not unique:
+            return {}
 
-        StockQuant = self.env['stock.quant']
-        for product in storable:
-            requested = product_qty.get(product.id, 0)
-            if requested <= 0:
-                continue
-            quants = StockQuant.search([
-                ('product_id', '=', product.id),
-                ('location_id', '=', location.id),
-            ])
-            available = sum(
-                (q.quantity - getattr(q, 'reserved_quantity', 0)) for q in quants
+        authorised: dict = {}
+        for product in unique:
+            product_line_vals = product_lines.get(product.id, [])
+            requested = sum(
+                float(lv.get('qty', 0)) for lv in product_line_vals
             )
-            if requested > available:
-                raise ValidationError(
-                    _(
-                        'Not enough stock for "%(name)s". Requested: %(requested)s, '
-                        'available: %(available)s.'
-                    )
-                    % {
-                        'name': product.display_name,
-                        'requested': requested,
-                        'available': available,
-                    }
+            available = self._jewellery_location_available(location, product.id)
+            if requested <= available:
+                continue
+            # Over-sell: allowed only when EVERY contributing line carries a
+            # valid manager override (fail closed against a forged flag).
+            all_authorised = all(
+                lv.get('stock_override')
+                and _override_is_authorised(
+                    self.env,
+                    _as_user_id(lv.get('stock_override_approver_uid')),
+                    config,
                 )
+                for lv in product_line_vals
+            )
+            if all_authorised:
+                for lv in product_line_vals:
+                    uuid = lv.get('uuid')
+                    if uuid:
+                        authorised[uuid] = {
+                            'approver_uid': _as_user_id(
+                                lv.get('stock_override_approver_uid')
+                            ),
+                            'approver_name': (
+                                (lv.get('stock_override_approver_name') or '')[:120]
+                                or False
+                            ),
+                        }
+                continue
+            raise ValidationError(
+                _(
+                    '"%(name)s" is out of stock (requested %(requested)s, '
+                    'available %(available)s). It may already be sold — a '
+                    'manager approval is required to sell it.'
+                )
+                % {
+                    'name': product.display_name,
+                    'requested': requested,
+                    'available': available,
+                }
+            )
+        return authorised
 
     @api.model
     def _get_invoice_lines_values(self, line_values, pos_order_line, move_type):
@@ -515,6 +610,23 @@ class PosOrderLine(models.Model):
         string='Override Reason',
         help='Optional reason recorded with a below-minimum price approval.',
     )
+    # --- Already-sold (over-sell) manager override for unique pieces (audit) ---
+    stock_override = fields.Boolean(
+        string='Already-Sold Sale Approved',
+        default=False,
+        help='Set when a manager approved selling a unique piece that had no '
+             'available stock (already sold / over-sell).',
+    )
+    stock_override_approver_uid = fields.Integer(
+        string='Already-Sold Override Approver ID',
+        help='The approving manager employee id (pos_hr) that authorised selling '
+             'this already-sold piece, or 0 when the master fallback PIN was used.',
+    )
+    stock_override_approver_name = fields.Char(
+        string='Already-Sold Override Approver',
+        help='Name of the manager who approved selling this already-sold piece, '
+             'or "Override PIN" for the master fallback.',
+    )
 
     @api.model
     def _load_pos_data_fields(self, config):
@@ -525,6 +637,9 @@ class PosOrderLine(models.Model):
             'override_approver_name',
             'override_original_min',
             'override_reason',
+            'stock_override',
+            'stock_override_approver_uid',
+            'stock_override_approver_name',
         ]
         return list(dict.fromkeys([*fields_list, *extra]))
 
@@ -576,3 +691,30 @@ class PosOrderLine(models.Model):
                         'price': final_price,
                     }
                 )
+
+
+class PosSession(models.Model):
+    _inherit = 'pos.session'
+
+    @api.model
+    def jewellery_stock_availability(self, session_id, product_ids):
+        """Live on-hand (per product id) at this session's source location.
+
+        The register calls this at Pay time to detect an already-sold unique
+        piece before checkout, so it can prompt for a manager override — using
+        the exact same location + quant logic as the backend
+        ``_check_storable_product_stock`` guard (no stale boot data). Returns
+        ``{product_id: available_qty}``.
+        """
+        session = self.browse(session_id)
+        if not session.exists() or not product_ids:
+            return {}
+        picking_type = session.config_id.picking_type_id
+        location = picking_type.default_location_src_id if picking_type else False
+        if not location:
+            return {}
+        PosOrder = self.env['pos.order']
+        return {
+            pid: PosOrder._jewellery_location_available(location, pid)
+            for pid in product_ids
+        }

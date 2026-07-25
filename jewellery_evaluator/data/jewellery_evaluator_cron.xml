@@ -21,4 +21,18 @@
         <field name="active" eval="True"/>
         <field name="user_id" ref="base.user_root"/>
     </record>
+
+    <!-- Non-destructive watchdog for the unique-piece 0/1 on-hand invariant:
+         logs (never clamps) any XXXX-NNNN serial piece whose on-hand exceeds 1
+         so a human can investigate. -->
+    <record id="ir_cron_check_unique_onhand" model="ir.cron">
+        <field name="name">Check Unique Jewellery On-hand (0/1 invariant)</field>
+        <field name="model_id" search="[('model', '=', 'product.product')]" model="ir.model"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_check_unique_onhand()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+        <field name="user_id" ref="base.user_root"/>
+    </record>
 </odoo>

@@ -1,0 +1,144 @@
+// Read-only Diamond Rap viewer inside the POS (Navbar burger menu). Scoped to
+// .o_pos_rap so it never leaks into the register. Light, high-contrast, touch-
+// friendly; the grid header + row labels stay pinned while the body scrolls.
+.o_pos_rap {
+    --rap-ink: #0f172a;
+    --rap-muted: #64748b;
+    --rap-line: #e6e8f0;
+    --rap-accent: #4f46e5;
+    color: var(--rap-ink);
+    font-size: 14px;
+
+    .o_pos_rap_toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+        padding: 0.6rem 0.25rem 0.9rem;
+        background: inherit;
+    }
+
+    .o_pos_rap_tabs {
+        display: inline-flex;
+        background: #eef0f6;
+        border-radius: 999px;
+        padding: 4px;
+        button {
+            border: 0;
+            background: transparent;
+            border-radius: 999px;
+            padding: 0.4rem 1.4rem;
+            font-weight: 600;
+            color: var(--rap-muted);
+            cursor: pointer;
+            transition: all 0.12s ease;
+            &.active {
+                background: #fff;
+                color: var(--rap-ink);
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.16);
+            }
+        }
+    }
+
+    .o_pos_rap_carat {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: auto;
+        label { font-weight: 600; color: var(--rap-muted); }
+        input {
+            width: 6rem;
+            padding: 0.35rem 0.6rem;
+            border: 1px solid var(--rap-line);
+            border-radius: 8px;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+            &:focus { outline: 0; border-color: var(--rap-accent); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+        }
+        .o_pos_rap_unit {
+            font-size: 0.82rem;
+            color: var(--rap-accent);
+            font-weight: 600;
+            min-width: 9rem;
+        }
+    }
+
+    .o_pos_rap_body { padding-bottom: 1rem; }
+
+    .o_pos_rap_bucket { margin-bottom: 1.1rem; }
+    .o_pos_rap_bucket_title {
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 0.35rem;
+        .ct { font-weight: 400; color: var(--rap-muted); margin-left: 0.3rem; font-size: 0.82rem; }
+    }
+
+    .o_pos_rap_tier {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.7rem;
+        padding: 0.55rem 1rem;
+        background: #f8fafc;
+        border: 1px solid var(--rap-line);
+        border-radius: 10px;
+        .val { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .note { color: var(--rap-muted); font-size: 0.8rem; }
+    }
+
+    .o_pos_rap_table_wrap {
+        overflow-x: auto;
+        border: 1px solid var(--rap-line);
+        border-radius: 10px;
+    }
+    table.o_pos_rap_table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+
+        th, td {
+            border-right: 1px solid #eef1f6;
+            border-bottom: 1px solid #eef1f6;
+            text-align: center;
+            padding: 0.5rem 0.55rem;
+            white-space: nowrap;
+        }
+        th:last-child, td:last-child { border-right: 0; }
+        tr:last-child th, tr:last-child td { border-bottom: 0; }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #0f172a;
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.74rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        tbody th {
+            position: sticky;
+            left: 0;
+            background: #1e293b;
+            color: #fff;
+            font-weight: 700;
+            z-index: 1;
+        }
+        tbody tr:nth-child(even) td { background: #fafbfd; }
+        td.disc { color: #b91c1c; font-weight: 600; }   // a discount is applied
+        td.empty { color: #cbd5e1; }
+    }
+
+    .o_pos_rap_footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 1rem;
+        span { color: var(--rap-muted); font-size: 0.82rem; }
+    }
+}

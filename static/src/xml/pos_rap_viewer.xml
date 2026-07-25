@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Read-only Diamond Rapaport price viewer for the POS register (Navbar burger
+    menu). Round/Exotic tabs, < 0.25 ct flat tiers as cards, >= 0.25 ct grids.
+    Cells show net $/ct; a carat input flips them to the total stone price.
+-->
+<templates xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.RapViewerPopup">
+        <Dialog title="'Diamond Rap Prices'" size="'xl'">
+            <div class="o_pos_rap">
+                <div class="o_pos_rap_toolbar">
+                    <div class="o_pos_rap_tabs">
+                        <button type="button"
+                                t-att-class="{ active: state.sheet === 'round' }"
+                                t-on-click="() => this.setSheet('round')">Round</button>
+                        <button type="button"
+                                t-att-class="{ active: state.sheet === 'exotic' }"
+                                t-on-click="() => this.setSheet('exotic')">Exotic</button>
+                    </div>
+                    <div class="o_pos_rap_carat">
+                        <label>Carat</label>
+                        <input type="number" min="0" step="0.01" placeholder="—"
+                               t-model="state.caratInput"/>
+                        <span class="o_pos_rap_unit" t-esc="unitLabel"/>
+                    </div>
+                </div>
+
+                <div class="o_pos_rap_body">
+                    <t t-foreach="structure" t-as="b" t-key="b.bucket">
+                        <div class="o_pos_rap_bucket">
+                            <div class="o_pos_rap_bucket_title">
+                                <t t-esc="b.bucket"/><span class="ct">ct</span>
+                            </div>
+
+                            <!-- < 0.25 ct: one flat per-carat price -->
+                            <t t-if="b.single">
+                                <div class="o_pos_rap_tier">
+                                    <span class="val" t-esc="tierText(b.value)"/>
+                                    <span class="note">flat · all colours &amp; clarities</span>
+                                </div>
+                            </t>
+
+                            <!-- >= 0.25 ct: colour x clarity grid -->
+                            <t t-else="">
+                                <div class="o_pos_rap_table_wrap">
+                                    <table class="o_pos_rap_table">
+                                        <thead>
+                                            <tr>
+                                                <th></th>
+                                                <th t-foreach="b.cols" t-as="c" t-key="c" t-esc="c"/>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr t-foreach="b.rows" t-as="r" t-key="r">
+                                                <th t-esc="r"/>
+                                                <td t-foreach="b.cols" t-as="c" t-key="c"
+                                                    t-att-class="{ disc: hasDiscount(b.bucket, r, c), empty: !cellText(b.bucket, r, c) }">
+                                                    <t t-esc="cellText(b.bucket, r, c) or '·'"/>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </t>
+                        </div>
+                    </t>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <div class="o_pos_rap_footer">
+                    <span>Read-only · net = list price × (1 − discount)</span>
+                    <button class="btn btn-primary" t-on-click="() => this.props.close()">Close</button>
+                </div>
+            </t>
+        </Dialog>
+    </t>
+
+    <t t-inherit="point_of_sale.Navbar" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[@onSelected=&quot;() =&gt; this.pos.cashMove()&quot;]" position="after">
+            <DropdownItem class="'o_pos_rap_menu_item'" onSelected="() => this.onClickRapPrices()">
+                Diamond Rap Prices
+            </DropdownItem>
+        </xpath>
+    </t>
+
+</templates>

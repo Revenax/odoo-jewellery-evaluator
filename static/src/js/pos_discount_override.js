@@ -145,6 +145,85 @@ async function ensureMinPriceApproval(pos, order) {
 }
 
 /**
+ * Gate the re-sale of an already-sold unique piece behind a manager approval.
+ * A unique jewellery piece (serial SKU) whose ordered quantity exceeds its live
+ * on-hand at this POS's source location has already been sold — block it unless
+ * a manager approves (flags stamped on the offending lines). Returns true when
+ * nothing is over-sold or approval is granted; false (abort) when refused.
+ * Runs once, on Pay. Only unique pieces are considered; fungible products are
+ * untouched. On any RPC failure it does not block here — the backend guard
+ * (_check_storable_product_stock) remains authoritative.
+ */
+async function ensureStockApproval(pos, order) {
+  const lines = (order.getOrderlines ? order.getOrderlines() : order.lines) || [];
+  const byProduct = new Map(); // productId -> { product, qty, lines: [] }
+  for (const line of lines) {
+    if (line.stock_override) {
+      continue; // already approved
+    }
+    const qty = line.getQuantity ? line.getQuantity() : line.qty;
+    if (!(qty > 0)) {
+      continue; // refund/return or empty line — not a sale
+    }
+    const product = line.getProduct && line.getProduct();
+    if (!product || !product.is_unique_jewellery_piece) {
+      continue; // scope: unique serial pieces only
+    }
+    const entry = byProduct.get(product.id) || { product, qty: 0, lines: [] };
+    entry.qty += qty;
+    entry.lines.push(line);
+    byProduct.set(product.id, entry);
+  }
+  if (byProduct.size === 0) {
+    return true;
+  }
+
+  let avail;
+  try {
+    avail = await pos.data.call("pos.session", "jewellery_stock_availability", [
+      pos.session.id,
+      [...byProduct.keys()],
+    ]);
+  } catch {
+    return true; // backend guard stays authoritative if the live check fails
+  }
+
+  const short = [];
+  let firstName = "";
+  for (const [pid, entry] of byProduct) {
+    const available = Number((avail && (avail[pid] ?? avail[String(pid)])) || 0);
+    if (entry.qty > available) {
+      short.push(entry);
+      if (!firstName) {
+        firstName = entry.product.display_name;
+      }
+    }
+  }
+  if (short.length === 0) {
+    return true;
+  }
+
+  const label =
+    short.length > 1 ? `${firstName} (+${short.length - 1} more)` : firstName;
+  const approved = await promptManagerOverride(pos, { productName: label, floor: 0 });
+  if (!approved) {
+    pos.notification.add(
+      _t("Manager approval is required to sell an already-sold piece."),
+      { type: "warning" },
+    );
+    return false;
+  }
+  for (const entry of short) {
+    for (const line of entry.lines) {
+      line.stock_override = true;
+      line.stock_override_approver_uid = approved.approverId;
+      line.stock_override_approver_name = approved.approverName;
+    }
+  }
+  return true;
+}
+
+/**
  * PIN/badge popup that authorises selling below the minimum sale price.
  */
 export class ManagerOverridePopup extends Component {
@@ -243,6 +322,9 @@ patch(PosStore.prototype, {
     const order = this.getOrder();
     if (order && !(await ensureMinPriceApproval(this, order))) {
       return; // below-min approval refused — stay on the product screen
+    }
+    if (order && !(await ensureStockApproval(this, order))) {
+      return; // already-sold approval refused — stay on the product screen
     }
     return super.pay(...arguments);
   },
