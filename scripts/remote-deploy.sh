@@ -29,7 +29,12 @@ while systemctl is-active -q odoo 2>/dev/null && [ "$(date +%s)" -lt "$deadline"
 
 # Resolve Odoo command from systemd if not set
 if [ -z "${ODOO_BIN:-}" ] || [ ! -x "$ODOO_BIN" ]; then
-  _line=$(systemctl cat odoo 2>/dev/null | sed -n 's/^ExecStart=//p')
+  # Use the EFFECTIVE ExecStart (the last one). `systemctl cat` prints the base
+  # unit's ExecStart AND any drop-in override; a drop-in clears with `ExecStart=`
+  # then sets the real one, so the last non-empty line is what actually runs.
+  # Without `tail -1` we'd pick the base unit's (the old source odoo-bin), which
+  # after the Enterprise cutover runs April core against the July DB and crashes.
+  _line=$(systemctl cat odoo 2>/dev/null | sed -n 's/^ExecStart=//p' | grep -v '^$' | tail -1)
   ODOO_PYTHON="${ODOO_PYTHON:-$(echo "$_line" | tr ' ' '\n' | grep -E '^/.*/(python3?|python)$' | head -1)}"
   ODOO_BIN="${ODOO_BIN:-$(echo "$_line" | tr ' ' '\n' | grep -E '^/.*odoo-bin' | head -1)}"
   [ -z "$ODOO_BIN" ] && ODOO_BIN=$(echo "$_line" | tr ' ' '\n' | grep -E '^/.*odoo' | grep -v python | head -1)
