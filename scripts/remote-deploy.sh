@@ -79,10 +79,19 @@ else
 fi
 
 run_upgrade() {
+  # NOTE: we deliberately do NOT pass --addons-path here. On the Enterprise box the
+  # server runs the deb Odoo (via the ee-odoo-bin wrapper) whose config addons_path
+  # already points at the enterprise addons (/opt/odoo-e/.../addons) + custom-addons.
+  # Passing an explicit --addons-path re-introduced the OLD source core
+  # (/opt/odoo/odoo/odoo/addons) into the odoo.addons namespace first, so core
+  # modules (e.g. base_setup) loaded April code against the July DB and the upgrade
+  # crashed. The custom modules are found via the config's custom-addons entry (the
+  # repo checkout is /opt/odoo/custom-addons/jewellery_evaluator; submodules are the
+  # persistent sibling symlinks created above), so the config path is sufficient.
   if [ -n "${ODOO_PYTHON:-}" ] && [ -x "$ODOO_PYTHON" ]; then
-    sudo -u odoo "$ODOO_PYTHON" "$ODOO_BIN" -d "$DB_NAME" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
+    sudo -u odoo "$ODOO_PYTHON" "$ODOO_BIN" -d "$DB_NAME" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" "$@"
   else
-    sudo -u odoo "$ODOO_BIN" -d "$DB_NAME" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" --addons-path "$ADDONS_PATH" "$@"
+    sudo -u odoo "$ODOO_BIN" -d "$DB_NAME" -u "$UPGRADE_MODULES" --stop-after-init -c "$CONFIG" "$@"
   fi
 }
 run_upgrade >"$OUT" 2>&1 || { cat "$OUT"; exit 1; }
