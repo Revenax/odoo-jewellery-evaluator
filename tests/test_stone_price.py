@@ -85,10 +85,16 @@ class TestBuckets:
         assert rap_keys("N", "P3", False) == ("M", "I3")           # N->M, P3->I3
         assert rap_keys("D", "LC", False) == ("D", "IF")           # LC->IF
         assert rap_keys("G", "VS1", True) == ("GH", "VS")          # grouped collapse
-        # ungraded stone: '' colour must NOT match the 'DEFGHIJKLM' string (a
-        # substring bug) — falls to the M row; '' clarity -> I3.
-        assert rap_keys("", "VS1", False) == ("M", "VS1")
-        assert rap_keys("G", "", False) == ("G", "I3")
+        # MISSING metadata defaults to the BEST grade (the max-price cell), never
+        # the worst: '' colour -> 'D' row, '' clarity -> 'IF' col. Real low grades
+        # keep their true mapping (colour 'N' -> 'M' row, asserted above).
+        assert rap_keys("", "VS1", False) == ("D", "VS1")          # missing colour
+        assert rap_keys("G", "", False) == ("G", "IF")             # missing clarity
+        assert rap_keys("", "", False) == ("D", "IF")              # fully ungraded -> max
+        assert rap_keys("N", "", False) == ("M", "IF")             # real N kept, clarity max
+        assert rap_keys("", "", True) == ("DF", "IF-VVS")          # grouped -> max
+        assert rap_keys("", "VS1", True) == ("DF", "VS")           # grouped missing colour
+        assert rap_keys("N", "P3", True) == ("MN", "I3")           # grouped real N/P3 kept
 
 
 class TestRouter:
@@ -120,8 +126,16 @@ class TestRouter:
         assert get_stone_price_usd(_env, "Round", 1.20, "D", "LC") == 18000.0
 
     def test_colour_n_and_p3(self):
-        # 2.5 ct N P3 -> M / I3 = 15 -> x100 x2.5 = 3750
+        # 2.5 ct N P3 -> M / I3 = 15 -> x100 x2.5 = 3750 (real low grades stay worst)
         assert get_stone_price_usd(_env, "Round", 2.50, "N", "P3") == 3750.0
+
+    def test_ungraded_prices_at_max_cell(self):
+        # A stone with NO colour/clarity now prices at the BEST grade (D/IF = the
+        # max cell of the 1.00-1.49 bucket, list 150), not the worst. 150x100x1.20.
+        assert get_stone_price_usd(_env, "Round", 1.20, "", "") == 18000.0
+        # ...and that is strictly above a real mid grade (G/VS1 = 6480).
+        assert get_stone_price_usd(_env, "Round", 1.20, "", "") > \
+            get_stone_price_usd(_env, "Round", 1.20, "G", "VS1")
 
     def test_pear_uses_exotic_grid(self):
         assert get_stone_price_usd(_env, "Pear", 1.20, "G", "VS1") == 4800.0

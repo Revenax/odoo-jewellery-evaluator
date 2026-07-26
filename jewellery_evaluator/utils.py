@@ -441,16 +441,28 @@ def rap_bucket_for_carat(carat: float):
 
 
 def rap_keys(colour: str, clarity: str, grouped: bool):
-    """Map a stone's colour + clarity to the (rowKey, colKey) for a bucket."""
+    """Map a stone's colour + clarity to the (rowKey, colKey) for a bucket.
+
+    MISSING metadata (blank/unknown colour or clarity) defaults to the BEST grade
+    — the top-left, maximum-price cell (D / IF) — so an ungraded stone is never
+    undervalued. (It used to default to the worst grade M / I3 = the minimum cell.)
+    Real, gradable values keep their true mapping: colour 'N' -> 'M' row, 'N'/'P3'
+    stay at the bottom; only a value that isn't a real grade takes the max default.
+    """
     colour = (colour or '').upper()
     clarity = (clarity or '').upper()
     if grouped:
         return (
-            _RAP_COLOUR_GROUP.get(colour, 'MN'),
-            _RAP_CLARITY_GROUP.get(clarity, 'I3'),
+            _RAP_COLOUR_GROUP.get(colour, 'DF'),        # missing colour -> best (max) row
+            _RAP_CLARITY_GROUP.get(clarity, 'IF-VVS'),  # missing clarity -> best (max) col
         )
-    row = colour if colour in _RAP_FULL_COLOURS else 'M'  # colour N -> M row
-    return row, _RAP_CLARITY_FULL.get(clarity, 'I3')
+    if colour in _RAP_FULL_COLOURS:
+        row = colour
+    elif colour == 'N':
+        row = 'M'                                       # 'N' is a real low grade -> M row
+    else:
+        row = 'D'                                       # missing colour -> best (max) row
+    return row, _RAP_CLARITY_FULL.get(clarity, 'IF')    # missing clarity -> best (max) col
 
 
 def _rap_grid(env, sheet: str) -> dict:
