@@ -23,6 +23,7 @@ from ..utils import (
     get_silver_markup_per_gram,
     get_silver_min_markup_per_gram,
     get_ticket_weight_g,
+    is_serial_sku,
 )
 
 _logger = logging.getLogger(__name__)
@@ -232,6 +233,21 @@ class ProductTemplate(models.Model):
         help='Automatically set to True for silver jewellery type.',
     )
 
+    # Template-level mirror of product.product.is_unique_jewellery_piece. The POS
+    # loads product.template AND product.product; hiding a sold unique piece only
+    # at the variant level leaves an orphaned template that the (Enterprise) POS
+    # renders and crashes on when clicked (reads product_template_attribute_value_ids
+    # on the missing variant). Filtering the template too keeps them consistent.
+    is_unique_jewellery_piece = fields.Boolean(
+        string='Unique Jewellery Piece',
+        compute='_compute_is_unique_jewellery_piece_tmpl',
+        store=True,
+        index=True,
+        help='A single physical piece with a serial SKU (PREFIX-NNNN). On-hand '
+             'is 0 or 1; the POS hides it when sold. Fungible weight/scrap SKUs '
+             'are not unique pieces.',
+    )
+
     # ── Diamond Jewellery ──────────────────────────────────────────────────────
 
     stone_ids = fields.One2many(
@@ -393,6 +409,29 @@ class ProductTemplate(models.Model):
         """Mark product as silver product based on jewellery type."""
         for record in self:
             record.is_silver_product = bool(record.jewellery_type == 'silver')
+
+    @api.depends('jewellery_type', 'product_variant_ids.default_code')
+    def _compute_is_unique_jewellery_piece_tmpl(self):
+        for template in self:
+            code = template.product_variant_ids[:1].default_code
+            template.is_unique_jewellery_piece = bool(
+                template.jewellery_type
+            ) and is_serial_sku(code)
+
+    @api.model
+    def _load_pos_data_domain(self, data, config):
+        domain = super()._load_pos_data_domain(data, config)
+        # Hide already-sold unique pieces (serial SKU, stock-tracked, on-hand < 1)
+        # from the register at the TEMPLATE level too — filtering only the variant
+        # (product.product) leaves an orphaned template that the POS renders and
+        # crashes on when clicked. Show when not-unique, not stock-tracked, or
+        # still on-hand.
+        return list(domain) + [
+            '|', '|',
+            ('is_unique_jewellery_piece', '=', False),
+            ('is_storable', '=', False),
+            ('qty_available', '>', 0),
+        ]
 
     @api.depends('jewellery_weight_g', 'stone_ids.carat', 'stone_ids.quantity')
     def _compute_jewellery_weights(self):
