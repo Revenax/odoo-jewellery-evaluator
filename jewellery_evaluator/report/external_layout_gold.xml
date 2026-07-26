@@ -69,10 +69,16 @@
     <!-- Blank the auto-header on the active (standard) layout: Marjaan prints
          on pre-printed letterhead, so the top must stay clear for the physical
          logo. Keep the `header` class so wkhtmltopdf still reserves the top
-         margin but renders nothing. -->
+         margin but renders nothing. We keep an EMPTY `d-flex justify-content-between`
+         child: since 19.0-2026-07 the standard header carries that div and
+         account_edi_ubl_cii xpaths into it, so deleting the whole header (as the
+         original did) breaks that module's inherit. An empty one stays visually
+         blank yet preserves the anchor. Works on both April and July core. -->
     <template id="external_layout_gold_standard_blank_header" inherit_id="web.external_layout_standard">
         <xpath expr="//div[contains(@t-attf-class, 'header o_company')]" position="replace">
-            <div t-attf-class="header o_company_#{company.id}_layout"/>
+            <div t-attf-class="header o_company_#{company.id}_layout">
+                <div class="d-flex justify-content-between align-items-center mb-2"/>
+            </div>
         </xpath>
     </template>
 </odoo>
