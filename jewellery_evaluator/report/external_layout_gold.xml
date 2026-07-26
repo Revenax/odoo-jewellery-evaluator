@@ -24,6 +24,21 @@
         </div>
     </template>
 
+    <!-- Blank the auto-header on the active (standard) layout: Marjaan prints on
+         pre-printed letterhead, so the top stays clear for the physical logo.
+         Use position="attributes" (visibility:hidden) rather than replacing or
+         deleting the header div. On the 2026-07 core, other inherits
+         (account_edi_ubl_cii, l10n_eg) xpath INTO the header's inner divs
+         (d-flex, company_address); deleting the header breaks their validation.
+         Hiding keeps every anchor intact — safe regardless of inherit order.
+         Declared BEFORE the footer templates so an -u re-applies it before the
+         footer view triggers a re-validation of the shared external_layout tree. -->
+    <template id="external_layout_gold_standard_blank_header" inherit_id="web.external_layout_standard">
+        <xpath expr="//div[contains(@t-attf-class, 'header o_company')]" position="attributes">
+            <attribute name="style">visibility: hidden;</attribute>
+        </xpath>
+    </template>
+
     <template id="external_layout_gold_standard" inherit_id="web.external_layout_standard">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
@@ -63,21 +78,6 @@
     <template id="external_layout_gold_bubble" inherit_id="web.external_layout_bubble">
         <xpath expr="//div[contains(@class, 'o_footer_content') or contains(@t-attf-class, 'o_footer_content')]" position="replace">
             <t t-call="jewellery_evaluator.marjaan_invoice_footer_body"/>
-        </xpath>
-    </template>
-
-    <!-- Blank the auto-header on the active (standard) layout: Marjaan prints
-         on pre-printed letterhead, so the top must stay clear for the physical
-         logo. Keep the `header` class so wkhtmltopdf still reserves the top
-         margin but renders nothing.
-         priority=999 makes this inherit apply LAST — after core/l10n/EDI views
-         (account_edi_ubl_cii, l10n_eg...) have hooked the header's inner divs
-         (d-flex, company_address). Since nothing runs after us, replacing the
-         whole header with an empty div is safe on the 2026-07 core (deleting it
-         at the default priority broke those views' xpaths). -->
-    <template id="external_layout_gold_standard_blank_header" inherit_id="web.external_layout_standard" priority="999">
-        <xpath expr="//div[contains(@t-attf-class, 'header o_company')]" position="replace">
-            <div t-attf-class="header o_company_#{company.id}_layout"/>
         </xpath>
     </template>
 </odoo>
