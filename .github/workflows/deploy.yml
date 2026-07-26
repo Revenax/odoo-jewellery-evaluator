@@ -55,6 +55,10 @@ jobs:
           echo "$EC2_SSH_KEY" > "$key"
           chmod 600 "$key"
           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          # ODOO_BIN pinned to the Enterprise wrapper (deb Odoo + PYTHONPATH).
+          # Auto-detection from systemctl is unreliable when a drop-in overrides
+          # ExecStart (it can pick the old source odoo-bin -> April core on the
+          # July DB). ODOO_PYTHON empty so the wrapper is invoked directly.
           ssh -i "$key" -o StrictHostKeyChecking=no -o UserKnownHostsFile=~/.ssh/known_hosts "${EC2_USER}@${EC2_HOST}" \
-            "GIT_REPO_PATH='$EC2_GIT_REPO_PATH' bash -s" < scripts/remote-deploy.sh
+            "GIT_REPO_PATH='$EC2_GIT_REPO_PATH' ODOO_BIN='/opt/odoo/ee-odoo-bin' ODOO_PYTHON='' bash -s" < scripts/remote-deploy.sh
           rm -f "$key"
