@@ -406,7 +406,7 @@ def get_stone_tier_price(env, carat: float) -> float:
 
 # ── Rapaport grid pricing (stones >= 0.25 ct) ────────────────────────────────
 # The Rap price list is stored as two JSON grids (config params
-# jewellery_evaluator.diamond_rap_round / _exotic), each { bucket: { rowKey: {
+# jewellery_evaluator.diamond_rap_round / _fancy), each { bucket: { rowKey: {
 # colKey: cell } } } where cell is the PDF number in *hundreds of USD per carat*
 # (e.g. 54 -> $5,400/ct). Stones < 0.25 ct keep the 5-tier pricing above.
 RAP_MIN_CARAT = 0.25
@@ -505,10 +505,10 @@ def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str
 
     net = list(hundreds USD/ct) x 100 x carat x (1 - disc%/100), where `list` is the
     Rapaport LIST cell and `disc` is the per-cell discount percent (0..100, default
-    0 = full list). Round shape -> round grid; every other (exotic/fancy) shape ->
-    exotic grid.
+    0 = full list). Round shape -> round grid; every other (fancy) shape ->
+    fancy grid.
     """
-    sheet = 'round' if shape == 'Round' else 'exotic'
+    sheet = 'round' if shape == 'Round' else 'fancy'
     bucket, grouped = rap_bucket_for_carat(carat)
     if not bucket:
         return None

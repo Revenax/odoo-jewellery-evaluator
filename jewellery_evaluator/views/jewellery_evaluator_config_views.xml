@@ -376,7 +376,7 @@
                             <div class="o_setting_left_pane"/>
                             <div class="o_setting_right_pane">
                                 <span class="o_form_label">Rapaport Grid (stones ≥ 0.25 ct)</span>
-                                <div class="text-muted">Stones ≥ 0.25 ct are priced from the editable Rapaport LIST grid (Round / Exotic).</div>
+                                <div class="text-muted">Stones ≥ 0.25 ct are priced from the editable Rapaport LIST grid (Round / Fancy).</div>
                                 <button name="%(jewellery_evaluator.action_diamond_rap_editor)d" type="action"
                                         string="Open Diamond Rap Prices" class="btn-link" icon="fa-arrow-right"/>
                             </div>

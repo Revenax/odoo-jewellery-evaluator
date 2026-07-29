@@ -6,7 +6,7 @@
  *
  * A READ-ONLY Diamond Rapaport price viewer inside the POS register. Adds a
  * "Diamond Rap Prices" item to the Navbar burger menu that opens a full-screen
- * lookup: Round / Exotic tabs, the < 0.25 ct flat tiers as cards, and the
+ * lookup: Round / Fancy tabs, the < 0.25 ct flat tiers as cards, and the
  * >= 0.25 ct grids. Cells show the NET price per carat (list x (1 - discount));
  * type a carat and every cell switches to the TOTAL stone price for that weight
  * — a one-tap pricing tool at the counter. Data comes from the same

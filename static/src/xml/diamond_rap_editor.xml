@@ -19,8 +19,8 @@
                     <div class="o_rap_tabs">
                         <button t-att-class="state.sheet === 'round' ? 'active' : ''"
                                 t-on-click="() => state.sheet = 'round'">Round</button>
-                        <button t-att-class="state.sheet === 'exotic' ? 'active' : ''"
-                                t-on-click="() => state.sheet = 'exotic'">Exotic</button>
+                        <button t-att-class="state.sheet === 'fancy' ? 'active' : ''"
+                                t-on-click="() => state.sheet = 'fancy'">Fancy</button>
                     </div>
                     <button class="o_rap_save" t-att-disabled="state.saving"
                             t-on-click="() => this.save()">

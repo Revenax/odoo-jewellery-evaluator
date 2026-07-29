@@ -20,9 +20,9 @@ values: the Rapaport **list** (existing, black) and a **per-cell discount %**
 ## A. Data
 
 Keep the list grids untouched; add a **parallel discount grid** per sheet:
-- `jewellery_evaluator.diamond_rap_round_disc` / `…_exotic_disc` — same
+- `jewellery_evaluator.diamond_rap_round_disc` / `…_fancy_disc` — same
   `{ bucket: { rowKey: { colKey: pct } } }` shape, `pct` a number 0–100.
-- List grids `diamond_rap_round` / `_exotic` unchanged.
+- List grids `diamond_rap_round` / `_fancy` unchanged.
 
 ## B. Pricing (`utils.py`)
 
@@ -43,10 +43,10 @@ list). Clamp 0–100 at read time (defence in depth).
 `static/src/{js,xml,scss}/diamond_rap_editor.*`:
 - Each cell = two stacked inputs — **list** (black, top) + **discount %** (red,
   bottom, `0–100`).
-- `rap_get` returns `round`, `exotic`, `round_disc`, `exotic_disc`, `structure`.
+- `rap_get` returns `round`, `fancy`, `round_disc`, `fancy_disc`, `structure`.
 - `rap_set(sheet, grid, disc)` stores the list grid (whitelisted numeric > 0 as
   today) **and** the disc grid (whitelisted, clamped 0–100), then recomputes
-  stones. Client state gains `discs = { round, exotic }`; `discCell` / `onDiscCell`
+  stones. Client state gains `discs = { round, fancy }`; `discCell` / `onDiscCell`
   mirror `cell` / `onCell`.
 - SCSS: taller cells for the two stacked inputs; red disc input.
 
@@ -54,7 +54,7 @@ list). Clamp 0–100 at read time (defence in depth).
 
 Net math (`list 54, disc 25, 1.20 ct → 54×100×1.2×0.75 = 4860`); missing disc →
 full list; disc 0 → list; clamp (disc 150 → treated as 100 by the reader); per-cell
-(two cells, different disc). Round/Exotic unaffected by each other's disc.
+(two cells, different disc). Round/Fancy unaffected by each other's disc.
 
 ## E. Deploy
 

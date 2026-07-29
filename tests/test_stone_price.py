@@ -56,7 +56,7 @@ _ROUND = {
     "0.23-0.29": {"GH": {"VS": 10.8}},
     "2.00-2.99": {"M": {"I3": 15}},
 }
-_EXOTIC = {"1.00-1.49": {"G": {"VS1": 40}}}
+_FANCY = {"1.00-1.49": {"G": {"VS1": 40}}}
 # Per-cell discount % — only F/VS1 (25%) and E/VS1 (150 -> clamped 100) carry one;
 # every other cell has no discount = full list.
 _ROUND_DISC = {"1.00-1.49": {"F": {"VS1": 25}, "E": {"VS1": 150}}}
@@ -65,7 +65,7 @@ _ROUND_DISC = {"1.00-1.49": {"F": {"VS1": 25}, "E": {"VS1": 150}}}
 def env_with():
     return _FakeEnv({
         "jewellery_evaluator.diamond_rap_round": json.dumps(_ROUND),
-        "jewellery_evaluator.diamond_rap_exotic": json.dumps(_EXOTIC),
+        "jewellery_evaluator.diamond_rap_fancy": json.dumps(_FANCY),
         "jewellery_evaluator.diamond_rap_round_disc": json.dumps(_ROUND_DISC),
     })
 
@@ -137,11 +137,11 @@ class TestRouter:
         assert get_stone_price_usd(_env, "Round", 1.20, "", "") > \
             get_stone_price_usd(_env, "Round", 1.20, "G", "VS1")
 
-    def test_pear_uses_exotic_grid(self):
+    def test_pear_uses_fancy_grid(self):
         assert get_stone_price_usd(_env, "Pear", 1.20, "G", "VS1") == 4800.0
 
-    def test_all_non_round_use_exotic_grid(self):
-        # Round uses the round grid; every other shape -> the exotic grid.
+    def test_all_non_round_use_fancy_grid(self):
+        # Round uses the round grid; every other shape -> the fancy grid.
         assert get_stone_price_usd(_env, "Oval", 1.20, "G", "VS1") == 4800.0
         assert get_stone_price_usd(_env, "Marquise", 1.20, "G", "VS1") == 4800.0
         assert get_stone_price_usd(_env, "Round", 1.20, "G", "VS1") == 6480.0

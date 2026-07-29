@@ -4,11 +4,14 @@
 # Website: https://www.revenax.com
 
 import json
+import logging
 
 from odoo import _, api, models
 from odoo.exceptions import UserError
 
 from ..utils import _STONE_TIERS
+
+_logger = logging.getLogger(__name__)
 
 # The Rapaport grid layout, mirroring the printed sheet. Two table formats:
 #   * grouped  — the 0.23-0.29 bucket (colour groups DF..MN, clarity IF-VVS/VS/…)
@@ -102,6 +105,53 @@ class DiamondRapPrice(models.AbstractModel):
     _name = "diamond.rap.price"
     _description = "Diamond Rapaport Price Grid"
 
+    # Legacy sheet name -> current one. The non-round sheet was renamed
+    # "pear" -> "exotic" -> "fancy"; the grids are hand-populated from the
+    # Rapaport PDFs and live ONLY in these config params, so a rename must
+    # carry the data across or ~1560 cells are silently orphaned.
+    _LEGACY_SHEET_KEYS = {"fancy": ("exotic", "pear")}
+
+    def _register_hook(self):
+        super()._register_hook()
+        if self._name != "diamond.rap.price":
+            return
+        # NEVER let a data migration stop the server from booting: _register_hook
+        # runs during registry load, so an exception here would take Odoo down.
+        # A failed migration just leaves the legacy key in place to retry next
+        # boot; pricing meanwhile falls back to the tier price, never to zero.
+        try:
+            self._migrate_legacy_sheet_params()
+        except Exception:
+            _logger.exception(
+                "Rap grid legacy-key migration failed; leaving legacy params intact"
+            )
+
+    def _migrate_legacy_sheet_params(self):
+        """Rename legacy sheet config params in place. Idempotent: only copies
+        when the current key is absent/empty and a legacy one has content, so
+        re-running (every server boot) is a no-op once migrated."""
+        icp = self._icp()
+        for sheet, legacy_names in self._LEGACY_SHEET_KEYS.items():
+            for suffix in ("", "_disc"):
+                new_key = f"jewellery_evaluator.diamond_rap_{sheet}{suffix}"
+                if (icp.get_param(new_key) or "").strip() not in ("", "{}"):
+                    continue  # already migrated / already populated
+                for legacy in legacy_names:
+                    old_key = f"jewellery_evaluator.diamond_rap_{legacy}{suffix}"
+                    old_val = icp.get_param(old_key)
+                    if not old_val or old_val.strip() in ("", "{}"):
+                        continue
+                    icp.set_param(new_key, old_val)
+                    # Drop the stale key so the old name cannot resurface.
+                    old = icp.search([("key", "=", old_key)], limit=1)
+                    if old:
+                        old.unlink()
+                    _logger.info(
+                        "Rap grid migrated: %s -> %s (%d bytes)",
+                        old_key, new_key, len(old_val),
+                    )
+                    break
+
     def _icp(self):
         return self.env["ir.config_parameter"].sudo()
 
@@ -117,9 +167,9 @@ class DiamondRapPrice(models.AbstractModel):
     def rap_get(self):
         return {
             "round": self._load("round"),
-            "exotic": self._load("exotic"),
+            "fancy": self._load("fancy"),
             "round_disc": self._load("round", "_disc"),
-            "exotic_disc": self._load("exotic", "_disc"),
+            "fancy_disc": self._load("fancy", "_disc"),
             "structure": _structure_payload(self.env),
         }
 
@@ -160,7 +210,7 @@ class DiamondRapPrice(models.AbstractModel):
 
     @api.model
     def rap_set(self, sheet, grid, disc=None):
-        if sheet not in ("round", "exotic"):
+        if sheet not in ("round", "fancy"):
             raise UserError(_("Unknown Rap sheet %s.") % sheet)
         self._icp().set_param(
             f"jewellery_evaluator.diamond_rap_{sheet}", json.dumps(self._clean_grid(grid))

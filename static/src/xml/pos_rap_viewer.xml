@@ -5,7 +5,7 @@
     Website: https://www.revenax.com
 
     Read-only Diamond Rapaport price viewer for the POS register (Navbar burger
-    menu). Round/Exotic tabs, < 0.25 ct flat tiers as cards, >= 0.25 ct grids.
+    menu). Round/Fancy tabs, < 0.25 ct flat tiers as cards, >= 0.25 ct grids.
     Cells show net $/ct; a carat input flips them to the total stone price.
 -->
 <templates xml:space="preserve">
@@ -19,8 +19,8 @@
                                 t-att-class="{ active: state.sheet === 'round' }"
                                 t-on-click="() => this.setSheet('round')">Round</button>
                         <button type="button"
-                                t-att-class="{ active: state.sheet === 'exotic' }"
-                                t-on-click="() => this.setSheet('exotic')">Exotic</button>
+                                t-att-class="{ active: state.sheet === 'fancy' }"
+                                t-on-click="() => this.setSheet('fancy')">Fancy</button>
                     </div>
                     <div class="o_pos_rap_carat">
                         <label>Carat</label>
