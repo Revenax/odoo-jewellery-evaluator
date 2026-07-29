@@ -1,0 +1,58 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+//
+// "Jewellery" app dashboard. Scoped under .o_jewellery_dashboard so nothing
+// here can leak into the rest of the backend UI.
+
+.o_jewellery_dashboard {
+    .o_jd_title {
+        font-size: 1.75rem;
+        font-weight: 600;
+    }
+
+    .o_jd_kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+
+    .o_jd_kpi {
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-top: 4px solid #c9a227; // gold
+        border-radius: 0.5rem;
+        padding: 1.25rem 1.5rem;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    // Purity-ranked accents: 24K richest, 18K palest.
+    .o_jd_kpi_24K { border-top-color: #b8860b; }
+    .o_jd_kpi_21K { border-top-color: #c9a227; }
+    .o_jd_kpi_18K { border-top-color: #d9c26a; }
+
+    .o_jd_kpi_label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6c757d;
+    }
+
+    .o_jd_kpi_value {
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 1.2;
+        // Tabular figures so the three tiles stay column-aligned as prices tick.
+        font-variant-numeric: tabular-nums;
+    }
+
+    .o_jd_kpi_unit {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .o_jd_footer {
+        font-size: 0.875rem;
+    }
+}

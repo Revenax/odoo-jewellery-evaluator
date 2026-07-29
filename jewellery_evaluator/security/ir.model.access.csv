@@ -1,6 +1,7 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_gold_price_service_user,gold.price.service.user,model_gold_price_service,group_jewellery_evaluator_user,1,0,0,0
 access_gold_price_service_manager,gold.price.service.manager,model_gold_price_service,group_jewellery_evaluator_manager,1,1,1,1
+access_gold_price_service_all,gold.price.service.all,model_gold_price_service,base.group_user,1,0,0,0
 access_jewellery_evaluator_config_user,jewellery.evaluator.config.user,base.model_res_config_settings,group_jewellery_evaluator_user,1,0,0,0
 access_jewellery_evaluator_config_manager,jewellery.evaluator.config.manager,base.model_res_config_settings,group_jewellery_evaluator_manager,1,1,1,1
 access_jewellery_stone_user,jewellery.stone.user,model_jewellery_stone,group_jewellery_evaluator_user,1,0,0,0

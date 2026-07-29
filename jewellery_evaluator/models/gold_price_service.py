@@ -9,14 +9,51 @@ import time
 import requests
 from odoo import api, fields, models
 
-from ..utils import parse_gold_price_with_regex  # noqa: E402
+from ..utils import gold_price_for_purity, parse_gold_price_with_regex  # noqa: E402
 
 _logger = logging.getLogger(__name__)
+
+# Purities shown on the dashboard, best first.
+_DASHBOARD_PURITIES = ('24K', '21K', '18K')
 
 
 class GoldPriceService(models.Model):
     _name = 'gold.price.service'
     _description = 'Gold Price Service'
+
+    @api.model
+    def dashboard_data(self):
+        """Feed for the "Jewellery" app dashboard: live per-gram prices + freshness.
+
+        Read-only and cheap (one config-param read). ``changed_at`` is the
+        ``write_date`` of the price parameter, i.e. when the price last *moved* —
+        ``set_param`` only writes on a changed value, so this is deliberately
+        NOT "last checked". The UI labels it "Price last changed" so a quiet
+        market does not read as a dead feed.
+        """
+        param = self.env['ir.config_parameter'].sudo().search(
+            [('key', '=', 'jewellery_evaluator.fallback_price')], limit=1)
+        try:
+            base_21k = float(param.value or 0.0)
+        except (TypeError, ValueError):
+            base_21k = 0.0
+
+        return {
+            'prices': [
+                {'purity': p, 'price': gold_price_for_purity(base_21k, p)}
+                for p in _DASHBOARD_PURITIES
+            ],
+            'currency': self.env.company.currency_id.name or 'EGP',
+            # Naive UTC string; the web client renders it in the user's timezone.
+            'changed_at': (
+                fields.Datetime.to_string(param.write_date) if param.write_date else False
+            ),
+            'configured': base_21k > 0,
+            # The Rap editor action is manager-gated, so a non-manager must not
+            # be shown the button that opens it.
+            'is_manager': self.env.user.has_group(
+                'jewellery_evaluator.group_jewellery_evaluator_manager'),
+        }
 
     def get_current_gold_price(self):
         """

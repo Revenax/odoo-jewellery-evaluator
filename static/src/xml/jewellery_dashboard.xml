@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    "Jewellery" app home page: three live gold price KPIs (24K / 21K / 18K),
+    when the price last changed, and a manager-only shortcut into the Diamond
+    Rap Prices editor. Styling: jewellery_dashboard.scss.
+-->
+<templates xml:space="preserve">
+    <t t-name="jewellery_evaluator.JewelleryDashboard">
+        <div class="o_jewellery_dashboard o_action h-100 overflow-auto p-4">
+
+            <div t-if="state.loading" class="text-center text-muted p-5">
+                Loading gold prices…
+            </div>
+
+            <div t-else="">
+                <div class="o_jd_header d-flex flex-wrap align-items-center justify-content-between mb-4">
+                    <div>
+                        <h1 class="o_jd_title mb-1">Gold Prices</h1>
+                        <div class="o_jd_sub text-muted">
+                            Live price per gram ·
+                            <span t-esc="state.currency"/>
+                        </div>
+                    </div>
+                    <button t-if="state.isManager"
+                            class="btn btn-primary o_jd_rap_btn"
+                            t-on-click="openRap">
+                        Open Rap
+                    </button>
+                </div>
+
+                <div t-if="!state.configured" class="alert alert-warning" role="alert">
+                    <strong>No gold price configured.</strong>
+                    The price source has not returned a usable value, so every
+                    figure below reads 0. Check the gold API settings.
+                </div>
+
+                <div t-if="state.failed" class="alert alert-warning" role="alert">
+                    Could not refresh just now — showing the last values received.
+                </div>
+
+                <div class="o_jd_kpis">
+                    <div t-foreach="state.prices" t-as="p" t-key="p.purity"
+                         t-attf-class="o_jd_kpi o_jd_kpi_{{ p.purity }}">
+                        <div class="o_jd_kpi_label" t-esc="p.purity"/>
+                        <div class="o_jd_kpi_value">
+                            <span t-esc="formatPrice(p.price)"/>
+                        </div>
+                        <div class="o_jd_kpi_unit">
+                            <span t-esc="state.currency"/> / gram
+                        </div>
+                    </div>
+                </div>
+
+                <div class="o_jd_footer text-muted mt-4">
+                    Price last changed: <span t-esc="changedAtLabel"/>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

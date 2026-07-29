@@ -20,6 +20,16 @@ BAR_TIER_DEFAULT_MARKUP = [200.0, 200.0, 125.0,
 # 1 (metric) carat = 0.2 grams.
 CARAT_TO_GRAM = Decimal('0.2')
 
+# Gold purity factors, relative to 21K — which is what the price API quotes, so
+# 21K is the identity. 24K = 8/7 of 21K; 18K = 7/8 of 21K. Single source of
+# truth: the gold, diamond and dashboard price paths all read this, so the
+# factors cannot drift apart.
+GOLD_PURITY_FACTORS = {
+    '24K': Decimal('8') / Decimal('7'),
+    '21K': Decimal('1'),
+    '18K': Decimal('7') / Decimal('8'),
+}
+
 # A "unique jewellery piece" carries a serial SKU: PREFIX-NNNN with an optional
 # twin-pair letter (A/B), e.g. GRL1-0001, DS-0001, DRL8-0030A. Fungible weight
 # SKUs (GB-BTC-1G, GB-KANZI-10.35G) and scrap (SCRAP-GOLD-24K) never match — the
@@ -27,6 +37,21 @@ CARAT_TO_GRAM = Decimal('0.2')
 # (…-1000G) can't be mistaken for a serial. Used to scope the POS 0/1-inventory
 # rules (hide-when-sold, block re-sale, on-hand invariant) to unique pieces only.
 _SERIAL_SKU_RE = re.compile(r'-[0-9]{4}[AB]?$')
+
+
+def gold_price_for_purity(base_gold_price_21k: float, purity: str) -> float:
+    """Price per gram (EGP) for a purity, from the 21K base the API quotes.
+
+    Display helper for the dashboard KPIs — it converts a base price, it does
+    NOT price a product (no weight, no making fee). Returns 0.0 rather than
+    raising for an unusable base or an unknown purity, so a broken gold source
+    surfaces as an obvious 0 on screen instead of an error page.
+    """
+    factor = GOLD_PURITY_FACTORS.get((purity or '').strip().upper(), Decimal('0'))
+    if factor <= 0 or base_gold_price_21k <= 0:
+        return 0.0
+    price = Decimal(str(base_gold_price_21k)) * factor
+    return float(price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
 
 def is_serial_sku(code) -> bool:
@@ -263,15 +288,7 @@ def compute_gold_product_price(
             - sale_price: Sale price (cost + markup), rounded to nearest 50
             - min_sale_price: Minimum sale price (the floor), rounded to nearest 50
     """
-    # Purity factors mapping (relative to 21K, which is what the API returns)
-    # 24K = 8/7 of 21K; 18K = 7/8 of 21K
-    purity_factors = {
-        '24K': Decimal('8') / Decimal('7'),         # 8/7 of 21K
-        '21K': Decimal('1.0'),                       # 1.0000
-        '18K': Decimal('7') / Decimal('8'),          # 7/8 of 21K
-    }
-
-    purity_factor = purity_factors.get(purity, Decimal('0'))
+    purity_factor = GOLD_PURITY_FACTORS.get(purity, Decimal('0'))
     if purity_factor <= 0:
         raise ValueError(f'Invalid purity: {purity}')
 
@@ -563,12 +580,7 @@ def compute_diamond_jewellery_price(
         dict with keys: total_gold_cost_usd, total_stones_cost_usd,
         ticket_price_usd, sale_price_usd, sale_price_egp.
     """
-    purity_factors = {
-        '24K': Decimal('8') / Decimal('7'),
-        '21K': Decimal('1'),
-        '18K': Decimal('7') / Decimal('8'),
-    }
-    purity_factor = purity_factors.get(gold_purity, Decimal('0'))
+    purity_factor = GOLD_PURITY_FACTORS.get(gold_purity, Decimal('0'))
     if purity_factor <= 0:
         raise ValueError(f'Unsupported gold purity: {gold_purity!r}')
     if exchange_rate_usd <= 0:

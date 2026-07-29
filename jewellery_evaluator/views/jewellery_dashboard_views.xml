@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The "Jewellery" app: a root menu (so the module shows on the Apps home
+         screen) whose default page is the gold-price dashboard client action.
+
+         Visible to all internal users (base.group_user); the Rap editor entry
+         below stays manager-gated, and the dashboard's "Open Rap" button is
+         hidden for non-managers so nobody is handed an access error. -->
+    <record id="action_jewellery_dashboard" model="ir.actions.client">
+        <field name="name">Gold Prices</field>
+        <field name="tag">jewellery_evaluator.dashboard</field>
+    </record>
+
+    <menuitem id="menu_jewellery_root"
+              name="Jewellery"
+              web_icon="jewellery_evaluator,static/description/icon.png"
+              groups="base.group_user"
+              sequence="15"/>
+
+    <menuitem id="menu_jewellery_dashboard"
+              name="Gold Prices"
+              parent="menu_jewellery_root"
+              action="action_jewellery_dashboard"
+              groups="base.group_user"
+              sequence="10"/>
+
+    <!-- Second entry point to the existing Rap editor. The original menu under
+         the POS app is deliberately left in place — people already use it, and
+         moving it would be disruption for no gain. Two menu items pointing at
+         one action is harmless. -->
+    <menuitem id="menu_jewellery_rap"
+              name="Diamond Rap Prices"
+              parent="menu_jewellery_root"
+              action="action_diamond_rap_editor"
+              groups="jewellery_evaluator.group_jewellery_evaluator_manager"
+              sequence="20"/>
+</odoo>

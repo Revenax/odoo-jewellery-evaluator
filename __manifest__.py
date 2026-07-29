@@ -35,6 +35,9 @@
         'jewellery_evaluator/security/jewellery_evaluator_security.xml',
         'jewellery_evaluator/security/ir.model.access.csv',
         'jewellery_evaluator/views/diamond_rap_views.xml',
+        # Must load AFTER diamond_rap_views.xml — it references
+        # action_diamond_rap_editor for the app's second menu entry.
+        'jewellery_evaluator/views/jewellery_dashboard_views.xml',
         'jewellery_evaluator/views/jewellery_evaluator_config_views.xml',
         'jewellery_evaluator/views/pos_config_views.xml',
         'jewellery_evaluator/views/pos_order_views.xml',
@@ -67,11 +70,14 @@
             'jewellery_evaluator/static/src/scss/diamond_rap_editor.scss',
             'jewellery_evaluator/static/src/js/diamond_rap_editor.js',
             'jewellery_evaluator/static/src/xml/diamond_rap_editor.xml',
+            'jewellery_evaluator/static/src/scss/jewellery_dashboard.scss',
+            'jewellery_evaluator/static/src/js/jewellery_dashboard.js',
+            'jewellery_evaluator/static/src/xml/jewellery_dashboard.xml',
         ],
     },
     'post_init_hook': 'post_init_hook',
     'installable': True,
-    'application': False,
+    'application': True,
     'auto_install': False,
     'license': 'OPL-1',
 } # type: ignore
