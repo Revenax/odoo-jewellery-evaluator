@@ -20,6 +20,15 @@ BAR_TIER_DEFAULT_MARKUP = [200.0, 200.0, 125.0,
 # 1 (metric) carat = 0.2 grams.
 CARAT_TO_GRAM = Decimal('0.2')
 
+# Carat precision: 6 decimals (0.000001 .. 9.999999 per stone). Melee carat is
+# entered as a TOTAL and divided by the stone count upstream, so the per-stone
+# value is usually a repeating decimal (0.5 / 85) — 3 decimals used to round it
+# hard enough to distort line totals, and to reject a legitimate 0.00045 ct stone.
+CARAT_DECIMALS = 6
+CARAT_MIN = 0.000001
+CARAT_MAX = 9.999999
+_CARAT_QUANT = Decimal('0.000001')
+
 # Gold purity factors, relative to 21K — which is what the price API quotes, so
 # 21K is the identity. 24K = 8/7 of 21K; 18K = 7/8 of 21K. Single source of
 # truth: the gold, diamond and dashboard price paths all read this, so the
@@ -37,6 +46,26 @@ GOLD_PURITY_FACTORS = {
 # (…-1000G) can't be mistaken for a serial. Used to scope the POS 0/1-inventory
 # rules (hide-when-sold, block re-sale, on-hand invariant) to unique pieces only.
 _SERIAL_SKU_RE = re.compile(r'-[0-9]{4}[AB]?$')
+
+
+def total_carat_for(carat_per_stone, quantity) -> float:
+    """Total carat for a stone line = per-stone carat x quantity, to 6 dp.
+
+    Rounding matters here: the per-stone value is a division result (the
+    operator enters a total and it is split by the stone count), so the naive
+    product carries float noise — 0.5/85 x 85 = 0.49999999999999994, which must
+    read back as the 0.5 that was typed. Returns 0.0 for unusable input rather
+    than raising, since this only ever feeds a display/rollup field.
+    """
+    try:
+        cps = Decimal(str(carat_per_stone))
+        qty = int(quantity)
+    except (TypeError, ValueError, ArithmeticError):
+        return 0.0
+    if cps <= 0 or qty <= 0:
+        return 0.0
+    total = (cps * Decimal(qty)).quantize(_CARAT_QUANT, rounding=ROUND_HALF_UP)
+    return float(total)
 
 
 def gold_price_for_purity(base_gold_price_21k: float, purity: str) -> float:
@@ -808,10 +837,21 @@ def format_weight_g(value: float) -> str:
 
 def format_carat(value: float) -> str:
     """Carat — 3 decimals, trailing zeros trimmed: 1.010 -> '1.01', 0.362 ->
-    '0.362', 0.024 -> '0.024'."""
-    d = Decimal(str(value or 0)).quantize(Decimal("0.001")).normalize()
+    '0.362', 0.024 -> '0.024'.
+
+    Melee can be far below 0.001 ct (a divided total, e.g. 0.01 ct across 22
+    stones), and 3 decimals would render such a stone as a bare '0'. When that
+    happens, fall back to the full 6-decimal carat precision so a real stone is
+    never displayed as zero, while ordinary sizes keep the short form.
+    """
+    raw = Decimal(str(value or 0))
+    d = raw.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP).normalize()
     if d == 0:
-        return "0"
+        if raw == 0:
+            return "0"
+        d = raw.quantize(_CARAT_QUANT, rounding=ROUND_HALF_UP).normalize()
+        if d == 0:
+            return "0"
     return f"{d:f}"
 
 

@@ -34,13 +34,14 @@
                     <table class="table table-sm mb-0">
                         <thead>
                             <tr>
-                                <th>Carat</th><th>Qty</th><th>Shape</th><th>Colour</th><th>Clarity</th>
+                                <th>Carat/Stone</th><th>Qty</th><th>Total Ct</th><th>Shape</th><th>Colour</th><th>Clarity</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr t-foreach="jew.stones" t-as="s" t-key="s_index">
                                 <td t-esc="s.carat"/>
                                 <td t-esc="s.quantity"/>
+                                <td t-esc="s.total_carat"/>
                                 <td t-esc="s.shape"/>
                                 <td t-esc="s.color"/>
                                 <td t-esc="s.clarity"/>

@@ -64,8 +64,9 @@
                                 <create string="Add a stone"/>
                             </control>
                             <field name="sequence" widget="handle"/>
-                            <field name="carat"/>
+                            <field name="carat" string="Carat / Stone"/>
                             <field name="quantity" string="Qty"/>
+                            <field name="total_carat" readonly="1" string="Total Carat"/>
                             <field name="color"/>
                             <field name="cut"/>
                             <field name="shape"/>
@@ -76,7 +77,9 @@
                         <form>
                             <group>
                                 <group>
-                                    <field name="carat"/>
+                                    <field name="carat" string="Carat / Stone"/>
+                                    <field name="quantity" string="Qty"/>
+                                    <field name="total_carat" readonly="1" string="Total Carat"/>
                                     <field name="color"/>
                                     <field name="clarity"/>
                                 </group>

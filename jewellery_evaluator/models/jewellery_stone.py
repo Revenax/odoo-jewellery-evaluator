@@ -6,7 +6,13 @@
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
-from ..utils import get_stone_price_usd
+from ..utils import (
+    CARAT_DECIMALS,
+    CARAT_MAX,
+    CARAT_MIN,
+    get_stone_price_usd,
+    total_carat_for,
+)
 
 # GIA colour scale (D = best, N = lower commercial grade)
 STONE_COLOR_SELECTION = [
@@ -52,10 +58,19 @@ class JewelleryStone(models.Model):
     sequence = fields.Integer(default=10)
 
     carat = fields.Float(
-        string='Carat',
+        string='Carat / Stone',
         required=True,
-        digits=(6, 3),
-        help='Stone weight in carats (0.001 – 7.000).',
+        digits=(7, CARAT_DECIMALS),
+        help='Carat weight of ONE stone (cps), 0.000001 – 9.999999. '
+             'For several identical stones enter the per-stone weight here and '
+             'the count in Qty; Total Carat is worked out for you.',
+    )
+    total_carat = fields.Float(
+        string='Total Carat',
+        digits=(12, CARAT_DECIMALS),
+        compute='_compute_total_carat',
+        store=True,
+        help='Carat / Stone × Qty — the total carat weight of this line.',
     )
     color = fields.Selection(
         selection=STONE_COLOR_SELECTION,
@@ -95,12 +110,19 @@ class JewelleryStone(models.Model):
         help='Unit price × quantity (USD). Sum this across all stones to get total stones cost.',
     )
 
+    @api.depends('carat', 'quantity')
+    def _compute_total_carat(self):
+        for stone in self:
+            stone.total_carat = total_carat_for(stone.carat, stone.quantity)
+
     @api.constrains('carat')
     def _check_carat_range(self):
         for stone in self:
-            if not (0.001 <= stone.carat <= 7.000):
+            if not (CARAT_MIN <= stone.carat <= CARAT_MAX):
                 raise ValidationError(
-                    f'Carat must be between 0.001 and 7.000 (got {stone.carat:.3f}).'
+                    f'Carat / Stone must be between {CARAT_MIN:.6f} and '
+                    f'{CARAT_MAX:.6f} (got {stone.carat:.6f}). Note this is the '
+                    f'weight of ONE stone, not the total for the line.'
                 )
 
     @api.constrains('quantity')

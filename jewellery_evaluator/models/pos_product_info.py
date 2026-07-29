@@ -67,6 +67,7 @@ class ProductTemplate(models.Model):
             for s in self.stone_ids:
                 stones.append({
                     "carat": format_carat(s.carat),
+                    "total_carat": format_carat(s.total_carat),
                     "quantity": s.quantity,
                     "shape": slabel("shape", s.shape),
                     "color": slabel("color", s.color),
