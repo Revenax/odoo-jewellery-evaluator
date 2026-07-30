@@ -91,9 +91,16 @@
         <!-- Description cell -> "Material Shape" (Title Case) from the product category -->
         <xpath expr="//td[@name='account_invoice_line_name']" position="replace">
             <td name="account_invoice_line_name" class="text-start">
-                <t t-set="categ" t-value="line.product_id.categ_id"/>
-                <span t-if="categ and categ.parent_id and categ.parent_id.name in ('Gold','Diamond','Silver')"
-                      t-esc="categ.parent_id.name + ' ' + categ.name"/>
+                <!-- product.template.jewellery_description turns the category
+                     ("Gold / Coin") into "Gold Coin". It reads complete_name,
+                     so it works whether the category is a real parent/child
+                     tree or - as in prod - one flat record NAMED "Gold / Coin"
+                     with no parent. The previous version walked parent_id,
+                     which is None on the flat shape, so invoices printed the
+                     raw "[SKU] SKU" line name. Covered by
+                     tests/test_line_description.py. -->
+                <span t-if="line.product_id.jewellery_description"
+                      t-esc="line.product_id.jewellery_description"/>
                 <span t-else="" t-field="line.name"/>
             </td>
         </xpath>

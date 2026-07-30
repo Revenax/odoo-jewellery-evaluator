@@ -24,6 +24,7 @@ from ..utils import (
     get_silver_min_markup_per_gram,
     get_ticket_weight_g,
     is_serial_sku,
+    jewellery_line_description,
 )
 
 _logger = logging.getLogger(__name__)
@@ -211,6 +212,21 @@ class ProductTemplate(models.Model):
              '(minimum making fee × weight). Falls back to cost + 70% of the '
              'making fee when no minimum is set.',
     )
+
+    jewellery_description = fields.Char(
+        string='Printed Description',
+        compute='_compute_jewellery_description',
+        help='Customer-facing line description built from the product category '
+             '("Gold / Coin" -> "Gold Coin"). Empty for non-jewellery products, '
+             'where documents fall back to the normal line name.',
+    )
+
+    @api.depends('categ_id', 'categ_id.complete_name')
+    def _compute_jewellery_description(self):
+        for record in self:
+            record.jewellery_description = jewellery_line_description(
+                record.categ_id.complete_name or record.categ_id.name
+            ) or False
 
     is_gold_product = fields.Boolean(
         string='Is Gold Product',

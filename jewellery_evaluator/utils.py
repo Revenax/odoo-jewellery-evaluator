@@ -20,6 +20,10 @@ BAR_TIER_DEFAULT_MARKUP = [200.0, 200.0, 125.0,
 # 1 (metric) carat = 0.2 grams.
 CARAT_TO_GRAM = Decimal('0.2')
 
+# Top-level material names used to build a printed line description
+# ("Gold / Coin" -> "Gold Coin"). Anything else is not ours to describe.
+JEWELLERY_MATERIALS = ('Gold', 'Diamond', 'Silver')
+
 # Carat precision: 6 decimals (0.000001 .. 9.999999 per stone). Melee carat is
 # entered as a TOTAL and divided by the stone count upstream, so the per-stone
 # value is usually a repeating decimal (0.5 / 85) — 3 decimals used to round it
@@ -46,6 +50,30 @@ GOLD_PURITY_FACTORS = {
 # (…-1000G) can't be mistaken for a serial. Used to scope the POS 0/1-inventory
 # rules (hide-when-sold, block re-sale, on-hand invariant) to unique pieces only.
 _SERIAL_SKU_RE = re.compile(r'-[0-9]{4}[AB]?$')
+
+
+def jewellery_line_description(category_complete_name) -> str | None:
+    """Customer-facing line description from a product category: "Gold Coin".
+
+    Returns None when the category is not a jewellery one, so the caller can
+    fall back to the normal Odoo line name.
+
+    Works off ``complete_name`` deliberately. Prod categories are FLAT — a
+    single record literally named "Gold / Coin" with ``parent_id`` unset — while
+    a conventional Odoo setup would nest "Coin" under "Gold". ``complete_name``
+    is "Gold / Coin" in BOTH shapes, so splitting it handles either, whereas
+    walking ``parent_id`` silently fails on the flat one and leaks the raw
+    "[SKU] SKU" line name onto a printed invoice.
+    """
+    if not category_complete_name or not isinstance(category_complete_name, str):
+        return None
+    parts = [p.strip() for p in category_complete_name.split('/') if p.strip()]
+    if len(parts) < 2:
+        return None
+    material, shape = parts[-2], parts[-1]
+    if material not in JEWELLERY_MATERIALS:
+        return None
+    return f'{material} {shape}'
 
 
 def total_carat_for(carat_per_stone, quantity) -> float:
