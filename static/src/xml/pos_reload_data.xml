@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Keep "Reload Data" in the POS burger menu at ALL times.
+
+    Stock Odoo renders that item with t-if="!this.pos.data.network.offline", so
+    it vanishes the moment the register believes it is offline. It is NOT
+    access-gated (its siblings Install App / Cash In/Out check
+    cashier._role != 'minimal'; this one never did), so the disappearance staff
+    reported was the offline flag, not permissions.
+
+    That guard is backwards for this shop: a register that has gone stale or
+    wrongly thinks it is offline is exactly when the cashier needs to force a
+    reload. Hiding the control leaves them stuck with no recourse but closing
+    the session. Reloading while genuinely offline just surfaces a normal
+    network error, which is a far better outcome than a missing button.
+
+    Overriding the attribute (rather than adding a second item) keeps ONE entry
+    in the menu — no duplicate when online.
+-->
+<templates id="template" xml:space="preserve">
+
+    <t t-inherit="point_of_sale.Navbar" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[contains(text(), 'Reload Data')]" position="attributes">
+            <attribute name="t-if">true</attribute>
+        </xpath>
+    </t>
+
+</templates>
