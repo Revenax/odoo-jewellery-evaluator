@@ -12,11 +12,10 @@
 // Stock pos_hr (utils/select_cashier_mixin.js) gates the scan on:
 //     employee && employee !== pos.getCashier() &&
 //     (!employee._pin || (await checkPin(employee)))
-// The PIN prompt is skipped when _pin is falsy, so we blank _pin on just the
-// scanned employee for the duration of that call and restore it after. The
-// mixin's callback is a closure created inside a hook, so it cannot be patched
-// directly — wrapping it as it is registered with the barcode reader is the
-// available seam.
+// The prompt is skipped when _pin is falsy, so we hide _pin on just the scanned
+// employee for the duration of that call. The mixin's callback is a closure
+// created inside a hook, so it cannot be patched directly — wrapping it as it
+// is registered with the barcode reader is the available seam.
 
 import { patch } from "@web/core/utils/patch";
 import { BarcodeReader } from "@point_of_sale/app/services/barcode_reader_service";
@@ -32,6 +31,33 @@ patch(PosStore.prototype, {
     },
 });
 
+/**
+ * Find the raw-data object backing a POS record.
+ *
+ * Server-supplied extras like `_pin` are exposed by model_classes.js as an
+ * accessor over the record's raw data: the getter reads `this[RAW_SYMBOL][f]`
+ * and the setter throws "`_pin` is read-only". The property is also declared
+ * NON-configurable, so it cannot be redefined either — the raw object is the
+ * only writable handle. RAW_SYMBOL is module-private, so locate it by shape.
+ *
+ * Returns null if the internals ever change, in which case we simply leave the
+ * PIN in place and stock behaviour (prompt for it) applies. Failing closed here
+ * is the safe direction.
+ */
+function rawDataOf(record, field) {
+    try {
+        for (const sym of Object.getOwnPropertySymbols(record)) {
+            const value = record[sym];
+            if (value && typeof value === "object" && field in value) {
+                return value;
+            }
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
 patch(BarcodeReader.prototype, {
     register(cbMap, exclusive) {
         // Wrap once — LoginScreen and CashierName each register their own map,
@@ -39,29 +65,32 @@ patch(BarcodeReader.prototype, {
         if (cbMap && typeof cbMap.cashier === "function" && !cbMap._jewelleryBadgeSkipsPin) {
             const original = cbMap.cashier;
             cbMap.cashier = async function (code) {
-                let target = null;
+                let raw = null;
                 let savedPin = null;
                 try {
                     const hash = Sha1.hash(code.code);
-                    // Same lookup stock uses, so we blank the PIN of exactly the
-                    // employee the mixin is about to match — never anyone else.
-                    target = posRef?.models?.["hr.employee"]?.find(
+                    // Same lookup stock uses, so we touch exactly the employee
+                    // the mixin is about to match — never anyone else.
+                    const target = posRef?.models?.["hr.employee"]?.find(
                         (emp) => emp._barcode === hash
                     );
+                    if (target && target._pin) {
+                        raw = rawDataOf(target, "_pin");
+                        if (raw) {
+                            savedPin = raw._pin;
+                            raw._pin = false;
+                        }
+                    }
                 } catch {
-                    target = null;
-                }
-                if (target && target._pin) {
-                    savedPin = target._pin;
-                    target._pin = false;
+                    raw = null;
                 }
                 try {
                     return await original.call(this, code);
                 } finally {
                     // Always restore, so the cashier list keeps asking for a PIN
                     // even if the login threw or the user cancelled.
-                    if (target && savedPin !== null) {
-                        target._pin = savedPin;
+                    if (raw && savedPin !== null) {
+                        raw._pin = savedPin;
                     }
                 }
             };
