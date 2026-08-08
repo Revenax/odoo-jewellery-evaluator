@@ -1,6 +1,6 @@
 {
     'name': 'Jewellery Evaluator',
-    'version': '19.0.3.6.1',
+    'version': '19.0.3.7.0',
     'category': 'Sales/Point of Sale',
     'summary': 'Automated gold pricing with live API updates and POS price enforcement',
     'description': """

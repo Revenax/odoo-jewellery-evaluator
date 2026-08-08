@@ -91,20 +91,36 @@ class AccountMoveLine(models.Model):
         help='Making fee for this line.',
     )
 
-    @api.depends('gold_purity', 'silver_purity', 'jewellery_weight_g', 'gold_weight_g')
+    @api.depends('gold_purity', 'silver_purity', 'jewellery_weight_g', 'gold_weight_g',
+                 'product_id')
     def _compute_jewellery_display_fields(self):
-        """Compute unified invoice-display fields for Karat and Weight."""
+        """Compute unified invoice-display fields for Karat and Weight.
+
+        Line-level values (stamped by the POS sale flow) win; when they are
+        empty — every manually created invoice — fall back to the LINKED
+        PRODUCT, mirroring exactly what the printed PDF does
+        (report_invoice_gold.xml td_karat/td_weight). Without the fallback the
+        backend form/list showed 0.00 for manual invoices while the PDF showed
+        the real values. Non-stored compute, so the fallback applies to every
+        existing invoice retroactively, draft and posted alike.
+        """
         for line in self:
+            tmpl = line.product_id.product_tmpl_id if line.product_id else None
             line.karat_display = (
                 line.gold_purity
                 or line.silver_purity
+                or (tmpl and (tmpl.gold_purity or tmpl.silver_purity))
                 or False
             )
-            line.weight_display_g = (
-                line.jewellery_weight_g
-                or line.gold_weight_g
-                or 0.0
-            )
+            weight = line.jewellery_weight_g or line.gold_weight_g
+            if not weight and tmpl:
+                # Same rule as the PDF: diamond pieces display GROSS weight
+                # (gold + stones); everything else the plain jewellery weight.
+                if tmpl.jewellery_type in ('diamond_jewellery', 'center_stone'):
+                    weight = tmpl.gross_jewellery_weight_g
+                else:
+                    weight = tmpl.jewellery_weight_g
+            line.weight_display_g = weight or 0.0
 
     def _inverse_karat_display(self):
         """
