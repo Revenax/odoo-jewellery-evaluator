@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Daily Ledger page — replicates the physical day book: opening cash, the
+    day's sales, other cash movements, closing count. Styling: jewellery_ledger.scss.
+-->
+<templates xml:space="preserve">
+    <t t-name="jewellery_evaluator.JewelleryLedger">
+        <div class="o_jewellery_ledger o_action h-100 overflow-auto p-4">
+
+            <div class="o_jl_toolbar d-flex flex-wrap align-items-center gap-2 mb-4">
+                <h1 class="o_jl_title mb-0 me-3">Daily Ledger</h1>
+                <button class="btn btn-secondary" t-on-click="() => this.shiftDay(-1)">‹</button>
+                <input type="date" class="form-control o_jl_date"
+                       t-att-value="state.date"
+                       t-on-change="(ev) => this.setDate(ev.target.value)"/>
+                <button class="btn btn-secondary" t-on-click="() => this.shiftDay(1)">›</button>
+                <button class="btn btn-secondary" t-on-click="() => this.setDate((new Date()).toISOString().slice(0,10))">Today</button>
+                <span class="flex-grow-1"/>
+                <button class="btn btn-primary" t-on-click="print">Print</button>
+            </div>
+
+            <div t-if="state.loading" class="text-center text-muted p-5">Loading…</div>
+            <div t-elif="state.failed" class="alert alert-warning">Could not load the ledger for this date.</div>
+
+            <div t-else="" class="o_jl_body">
+                <!-- ── Register sessions: opening / closing cash ── -->
+                <div class="o_jl_section">
+                    <h2>Cash Register</h2>
+                    <div t-if="!state.data.sessions.length" class="text-muted">No register session on this day.</div>
+                    <table t-else="" class="table table-sm o_jl_table">
+                        <thead><tr>
+                            <th>Register</th><th>Opened</th><th>Closed</th>
+                            <th class="text-end">Opening Cash</th>
+                            <th class="text-end">Expected Close</th>
+                            <th class="text-end">Counted</th>
+                            <th class="text-end">Difference</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr t-foreach="state.data.sessions" t-as="s" t-key="s.id">
+                                <td><t t-esc="s.config"/> <span t-if="s.state != 'closed'" class="badge text-bg-success">open</span></td>
+                                <td><t t-esc="s.opened_at"/> (<t t-esc="s.opened_by"/>)</td>
+                                <td t-esc="s.closed_at or '—'"/>
+                                <td class="text-end" t-esc="fmt(s.opening_cash)"/>
+                                <td class="text-end" t-esc="fmt(s.expected_close)"/>
+                                <td class="text-end" t-esc="s.counted_close === false ? '—' : fmt(s.counted_close)"/>
+                                <td t-attf-class="text-end {{ s.difference ? 'o_jl_bad' : '' }}"
+                                    t-esc="s.difference === false ? '—' : fmt(s.difference)"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ── Sales ── -->
+                <div class="o_jl_section">
+                    <h2>Sales <span class="o_jl_count">(<t t-esc="state.data.totals.sales_count"/>)</span></h2>
+                    <div t-if="!state.data.sales.length" class="text-muted">No POS sales on this day.</div>
+                    <table t-else="" class="table table-sm o_jl_table">
+                        <thead><tr>
+                            <th>Time</th><th>Receipt</th><th>Customer</th><th>Cashier</th>
+                            <th>Items</th><th>Paid by</th>
+                            <th class="text-end">Amount</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr t-foreach="state.data.sales" t-as="r" t-key="r_index"
+                                t-attf-class="{{ r.is_refund ? 'o_jl_refund' : '' }}">
+                                <td t-esc="r.time"/>
+                                <td t-esc="r.ref"/>
+                                <td t-esc="r.customer"/>
+                                <td t-esc="r.cashier"/>
+                                <td class="o_jl_items" t-esc="r.items"/>
+                                <td t-esc="r.payments"/>
+                                <td class="text-end" t-esc="fmt(r.amount)"/>
+                            </tr>
+                        </tbody>
+                        <tfoot><tr class="o_jl_total">
+                            <td colspan="6">Total sales</td>
+                            <td class="text-end" t-esc="fmt(state.data.totals.sales_total)"/>
+                        </tr></tfoot>
+                    </table>
+                    <div t-if="state.data.totals.by_method.length" class="o_jl_methods">
+                        <span t-foreach="state.data.totals.by_method" t-as="m" t-key="m.method" class="me-3">
+                            <strong t-esc="m.method"/>: <t t-esc="fmt(m.amount)"/>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- ── Manual invoices ── -->
+                <div class="o_jl_section" t-if="state.data.invoices.length">
+                    <h2>Invoices (non-POS)</h2>
+                    <table class="table table-sm o_jl_table">
+                        <thead><tr>
+                            <th>Number</th><th>Customer</th><th>Items</th><th>Status</th>
+                            <th class="text-end">Amount</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr t-foreach="state.data.invoices" t-as="m" t-key="m.ref">
+                                <td t-esc="m.ref"/>
+                                <td t-esc="m.customer"/>
+                                <td class="o_jl_items" t-esc="m.items"/>
+                                <td t-esc="m.state"/>
+                                <td class="text-end" t-esc="fmt(m.amount)"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ── Other cash movements ── -->
+                <div class="o_jl_section">
+                    <h2>Cash Movements <span class="o_jl_count">(buy-backs, transfers, currency)</span></h2>
+                    <div t-if="!state.data.movements.length" class="text-muted">No other cash movements.</div>
+                    <table t-else="" class="table table-sm o_jl_table">
+                        <thead><tr>
+                            <th>Time</th><th>Box</th><th>Description</th>
+                            <th class="text-end">Amount (− out of drawer)</th>
+                        </tr></thead>
+                        <tbody>
+                            <tr t-foreach="state.data.movements" t-as="mv" t-key="mv_index">
+                                <td t-esc="mv.time"/>
+                                <td t-esc="mv.journal"/>
+                                <td t-esc="mv.label"/>
+                                <td t-attf-class="text-end {{ mv.amount &lt; 0 ? 'o_jl_out' : 'o_jl_in' }}"
+                                    t-esc="fmt(mv.amount)"/>
+                            </tr>
+                        </tbody>
+                        <tfoot><tr class="o_jl_total">
+                            <td colspan="3">Net movement</td>
+                            <td class="text-end" t-esc="fmt(state.data.totals.movements_net)"/>
+                        </tr></tfoot>
+                    </table>
+                </div>
+
+                <div class="o_jl_footer text-muted">
+                    All amounts in <t t-esc="state.data.currency"/> ·
+                    Ledger for <t t-esc="state.data.date"/>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

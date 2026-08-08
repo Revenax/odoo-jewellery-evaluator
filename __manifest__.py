@@ -1,6 +1,6 @@
 {
     'name': 'Jewellery Evaluator',
-    'version': '19.0.3.7.0',
+    'version': '19.0.3.8.0',
     'category': 'Sales/Point of Sale',
     'summary': 'Automated gold pricing with live API updates and POS price enforcement',
     'description': """
@@ -75,6 +75,9 @@
             'jewellery_evaluator/static/src/scss/jewellery_dashboard.scss',
             'jewellery_evaluator/static/src/js/jewellery_dashboard.js',
             'jewellery_evaluator/static/src/xml/jewellery_dashboard.xml',
+            'jewellery_evaluator/static/src/scss/jewellery_ledger.scss',
+            'jewellery_evaluator/static/src/js/jewellery_ledger.js',
+            'jewellery_evaluator/static/src/xml/jewellery_ledger.xml',
         ],
     },
     'post_init_hook': 'post_init_hook',

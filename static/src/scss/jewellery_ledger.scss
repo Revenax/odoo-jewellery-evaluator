@@ -1,0 +1,85 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+//
+// Daily Ledger. Scoped under .o_jewellery_ledger; includes a print stylesheet
+// so the Print button yields a clean paper page like the physical book.
+
+.o_jewellery_ledger {
+    .o_jl_title {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .o_jl_date {
+        width: auto;
+    }
+
+    .o_jl_section {
+        margin-bottom: 1.75rem;
+
+        h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            border-bottom: 2px solid #c9a227;
+            padding-bottom: 0.25rem;
+            margin-bottom: 0.75rem;
+        }
+    }
+
+    .o_jl_count {
+        font-weight: 400;
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+
+    .o_jl_table {
+        font-variant-numeric: tabular-nums;
+
+        .o_jl_items {
+            max-width: 340px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    .o_jl_total td {
+        font-weight: 700;
+        border-top: 2px solid #000;
+    }
+
+    .o_jl_refund td { color: #b02a37; }
+    .o_jl_out { color: #b02a37; }
+    .o_jl_in { color: #146c43; }
+    .o_jl_bad { color: #b02a37; font-weight: 700; }
+
+    .o_jl_methods {
+        font-size: 0.9rem;
+        color: #495057;
+    }
+
+    .o_jl_footer {
+        font-size: 0.85rem;
+        margin-top: 1rem;
+    }
+}
+
+// Print: only the ledger body, full width, no app chrome.
+@media print {
+    .o_main_navbar,
+    .o_jewellery_ledger .o_jl_toolbar button,
+    .o_jewellery_ledger .o_jl_date {
+        display: none !important;
+    }
+
+    .o_jewellery_ledger {
+        overflow: visible !important;
+        padding: 0 !important;
+    }
+
+    .o_jewellery_ledger .o_jl_items {
+        max-width: none;
+        white-space: normal;
+    }
+}

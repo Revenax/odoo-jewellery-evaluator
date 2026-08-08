@@ -24,6 +24,18 @@
               groups="base.group_user"
               sequence="10"/>
 
+    <record id="action_jewellery_ledger" model="ir.actions.client">
+        <field name="name">Daily Ledger</field>
+        <field name="tag">jewellery_evaluator.ledger</field>
+    </record>
+
+    <menuitem id="menu_jewellery_ledger"
+              name="Daily Ledger"
+              parent="menu_jewellery_root"
+              action="action_jewellery_ledger"
+              groups="base.group_user"
+              sequence="15"/>
+
     <!-- Second entry point to the existing Rap editor. The original menu under
          the POS app is deliberately left in place — people already use it, and
          moving it would be disruption for no gain. Two menu items pointing at
