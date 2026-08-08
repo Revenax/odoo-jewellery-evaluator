@@ -1,0 +1,145 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+//
+// اليومية — styled to read like the paper day book: ruled grid, boxed header,
+// tabular figures. Scoped under .o_pos_ledger so nothing leaks into the POS.
+
+.o_pos_ledger {
+    direction: rtl;
+    font-size: 0.9rem;
+
+    .o_pl_toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+
+        .o_pl_spacer { flex: 1 1 auto; }
+        .o_pl_date { width: auto; }
+    }
+
+    .o_pl_msg {
+        padding: 2rem;
+        text-align: center;
+        color: #6c757d;
+    }
+
+    .o_pl_sheet {
+        background: #fffdf7;          // the book's cream paper
+        border: 1px solid #b9b19a;
+        padding: 0.75rem 1rem 1rem;
+    }
+
+    .o_pl_basmala {
+        text-align: center;
+        font-weight: 600;
+        margin-bottom: 0.6rem;
+    }
+
+    // Boxed header cells, as ruled on the page.
+    .o_pl_head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+        border: 1.5px solid #000;
+        margin-bottom: 0.6rem;
+
+        .o_pl_headbox {
+            flex: 1 1 0;
+            min-width: 140px;
+            padding: 0.3rem 0.6rem;
+            border-inline-start: 1px solid #000;
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+
+            &:first-child { border-inline-start: 0; }
+        }
+
+        .o_pl_lbl { font-weight: 700; }
+        .o_pl_val { font-variant-numeric: tabular-nums; }
+        .o_pl_hint { color: #6c757d; }
+
+        // The pre-printed serial is red in the book.
+        .o_pl_serial .o_pl_val { color: #c1121f; font-weight: 700; }
+    }
+
+    .o_pl_diff { margin-bottom: 0.5rem; font-weight: 700; }
+    .o_pl_bad { color: #b02a37; }
+
+    .o_pl_table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+
+        th, td {
+            border: 1px solid #6f6a5c;
+            padding: 0.22rem 0.45rem;
+            vertical-align: top;
+        }
+
+        thead th {
+            background: #f3efe2;
+            font-weight: 700;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .o_pl_num { text-align: center; white-space: nowrap; }
+        .o_pl_narrow { width: 4.5rem; }
+        .o_pl_out { color: #b02a37; }
+
+        .o_pl_desc { min-width: 14rem; }
+        .o_pl_notes { min-width: 10rem; color: #333; }
+
+        .o_pl_qty { color: #6c757d; margin-inline-start: 0.3rem; }
+        .o_pl_time {
+            color: #8a8577;
+            font-size: 0.78rem;
+            margin-inline-start: 0.4rem;
+            direction: ltr;
+            unicode-bidi: embed;
+        }
+
+        .o_pl_empty {
+            text-align: center;
+            color: #8a8577;
+            padding: 1.5rem;
+        }
+
+        // Returns and cash-outs are written in red in the book.
+        .o_pl_row_return td, .o_pl_row_cash .o_pl_out { color: #b02a37; }
+
+        .o_pl_totals td {
+            font-weight: 700;
+            border-top: 2px solid #000;
+            background: #f8f5ea;
+        }
+    }
+
+    .o_pl_foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .o_pl_openbadge { color: #146c43; font-weight: 600; }
+}
+
+// Print: just the sheet, edge to edge, no chrome.
+@media print {
+    .o_pos_ledger .o_pl_toolbar { display: none !important; }
+
+    .o_pos_ledger .o_pl_sheet {
+        border: 0;
+        padding: 0;
+        background: #fff;
+    }
+
+    .o_pos_ledger .o_pl_table { font-size: 11px; }
+}

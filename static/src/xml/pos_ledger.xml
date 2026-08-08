@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    اليومية — the paper day book, in the register. RTL, and the columns are in
+    the book's own order (right to left): وارد | منصرف | مللي | جرام | فئة |
+    بيان | مصدر | ملاحظات. Styling: pos_ledger.scss.
+-->
+<templates xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.LedgerPopup">
+        <Dialog title="'اليومية — Daily Ledger'" size="'fs'">
+            <div class="o_pos_ledger" dir="rtl">
+
+                <!-- ── Toolbar (hidden when printing) ── -->
+                <div class="o_pl_toolbar">
+                    <button class="btn btn-secondary" t-on-click="() => this.shiftDay(-1)">›</button>
+                    <input type="date" class="form-control o_pl_date"
+                           t-att-value="state.date"
+                           t-on-change="(ev) => this.setDate(ev.target.value)"/>
+                    <button class="btn btn-secondary" t-on-click="() => this.shiftDay(1)">‹</button>
+                    <button class="btn btn-secondary"
+                            t-on-click="() => this.setDate(new Date().toISOString().slice(0,10))">اليوم</button>
+                    <button t-attf-class="btn {{ state.thisRegisterOnly ? 'btn-primary' : 'btn-outline-primary' }}"
+                            t-on-click="toggleScope">
+                        <t t-if="state.thisRegisterOnly">هذه الخزنة</t>
+                        <t t-else="">كل الخزن</t>
+                    </button>
+                    <span class="o_pl_spacer"/>
+                    <button class="btn btn-primary" t-on-click="print">طباعة</button>
+                </div>
+
+                <div t-if="state.loading" class="o_pl_msg">جاري التحميل…</div>
+                <div t-elif="state.failed" class="o_pl_msg o_pl_bad">تعذّر تحميل اليومية.</div>
+
+                <div t-else="" class="o_pl_sheet">
+                    <!-- ── Book header: basmala, date, opening / closing ── -->
+                    <div class="o_pl_basmala">بسم الله الرحمن الرحيم وبه نستعين توكلت على الله</div>
+
+                    <div class="o_pl_head">
+                        <div class="o_pl_headbox">
+                            <span class="o_pl_lbl">إفتتاح</span>
+                            <span class="o_pl_val" t-esc="fmt(state.data.opening) or '0'"/>
+                        </div>
+                        <div class="o_pl_headbox">
+                            <span class="o_pl_lbl">إقفال</span>
+                            <span class="o_pl_val">
+                                <t t-if="state.data.counted_close === false">
+                                    <t t-esc="fmt(state.data.expected_close) or '0'"/>
+                                    <small class="o_pl_hint"> (متوقع)</small>
+                                </t>
+                                <t t-else="" t-esc="fmt(state.data.counted_close) or '0'"/>
+                            </span>
+                        </div>
+                        <div class="o_pl_headbox o_pl_serial">
+                            <span class="o_pl_lbl">مسلسل</span>
+                            <span class="o_pl_val" t-esc="state.data.serial"/>
+                        </div>
+                        <div class="o_pl_headbox">
+                            <span class="o_pl_lbl">التاريخ</span>
+                            <span class="o_pl_val">
+                                <t t-esc="state.data.day_name"/> — <t t-esc="state.data.date"/>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div t-if="state.data.difference" class="o_pl_diff o_pl_bad">
+                        فرق الإقفال: <t t-esc="fmt(state.data.difference)"/>
+                    </div>
+
+                    <!-- ── The book's own columns, right to left ── -->
+                    <table class="o_pl_table">
+                        <thead>
+                            <tr>
+                                <th class="o_pl_num">وارد</th>
+                                <th class="o_pl_num">منصرف</th>
+                                <th class="o_pl_num o_pl_narrow">مللي</th>
+                                <th class="o_pl_num o_pl_narrow">جرام</th>
+                                <th class="o_pl_narrow">فئة</th>
+                                <th>بيــــان</th>
+                                <th class="o_pl_narrow">مصدر</th>
+                                <th>ملاحظــات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="state.data.rows" t-as="r" t-key="r_index"
+                                t-attf-class="o_pl_row_{{ r.kind }}">
+                                <td class="o_pl_num" t-esc="fmt(r.in)"/>
+                                <td class="o_pl_num o_pl_out" t-esc="fmt(r.out)"/>
+                                <td class="o_pl_num" t-esc="fmtCell(r.milli)"/>
+                                <td class="o_pl_num" t-esc="fmtCell(r.grams)"/>
+                                <td t-esc="r.karat"/>
+                                <td class="o_pl_desc">
+                                    <t t-esc="r.desc"/>
+                                    <span t-if="r.qty and r.qty != 1" class="o_pl_qty">×<t t-esc="r.qty"/></span>
+                                    <span t-if="r.time" class="o_pl_time" t-esc="r.time"/>
+                                </td>
+                                <td t-esc="r.source"/>
+                                <td class="o_pl_notes" t-esc="r.notes"/>
+                            </tr>
+                            <tr t-if="!state.data.rows.length">
+                                <td colspan="8" class="o_pl_empty">لا توجد حركات في هذا اليوم.</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="o_pl_totals">
+                                <td class="o_pl_num" t-esc="fmt(state.data.totals.in)"/>
+                                <td class="o_pl_num o_pl_out" t-esc="fmt(state.data.totals.out)"/>
+                                <td class="o_pl_num" t-esc="fmtCell(state.data.totals.milli_in)"/>
+                                <td class="o_pl_num" t-esc="fmtCell(state.data.totals.grams_in)"/>
+                                <td/>
+                                <td>الإجمالي — صافي النقدية <t t-esc="fmt(state.data.totals.net)"/></td>
+                                <td/>
+                                <td><t t-esc="state.data.registers"/></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <div class="o_pl_foot">
+                        <span t-if="state.data.open_session" class="o_pl_openbadge">الخزنة مفتوحة — الإقفال متوقع وليس فعلي</span>
+                        <span>العملة: <t t-esc="state.data.currency"/></span>
+                    </div>
+                </div>
+            </div>
+        </Dialog>
+    </t>
+
+    <t t-inherit="point_of_sale.Navbar" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[@onSelected=&quot;() =&gt; this.pos.cashMove()&quot;]" position="after">
+            <DropdownItem class="'o_pos_ledger_menu_item'" onSelected="() => this.onClickDailyLedger()">
+                Daily Ledger — اليومية
+            </DropdownItem>
+        </xpath>
+    </t>
+
+</templates>

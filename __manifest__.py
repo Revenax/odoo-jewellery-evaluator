@@ -1,6 +1,6 @@
 {
     'name': 'Jewellery Evaluator',
-    'version': '19.0.3.8.0',
+    'version': '19.0.3.9.0',
     'category': 'Sales/Point of Sale',
     'summary': 'Automated gold pricing with live API updates and POS price enforcement',
     'description': """
@@ -55,10 +55,12 @@
         'point_of_sale._assets_pos': [
             'jewellery_evaluator/static/src/scss/orderline_below_min.scss',
             'jewellery_evaluator/static/src/scss/pos_rap_viewer.scss',
+            'jewellery_evaluator/static/src/scss/pos_ledger.scss',
             'jewellery_evaluator/static/src/js/pos_discount_override.js',
             'jewellery_evaluator/static/src/js/pos_cash_ops.js',
             'jewellery_evaluator/static/src/js/pos_gift_invoice.js',
             'jewellery_evaluator/static/src/js/pos_rap_viewer.js',
+            'jewellery_evaluator/static/src/js/pos_ledger.js',
             'jewellery_evaluator/static/src/js/pos_badge_login.js',
             'jewellery_evaluator/static/src/xml/manager_override_popup.xml',
             'jewellery_evaluator/static/src/xml/orderline_below_min.xml',
@@ -66,6 +68,7 @@
             'jewellery_evaluator/static/src/xml/pos_gift_invoice.xml',
             'jewellery_evaluator/static/src/xml/pos_product_info.xml',
             'jewellery_evaluator/static/src/xml/pos_rap_viewer.xml',
+            'jewellery_evaluator/static/src/xml/pos_ledger.xml',
             'jewellery_evaluator/static/src/xml/pos_reload_data.xml',
         ],
         'web.assets_backend': [
