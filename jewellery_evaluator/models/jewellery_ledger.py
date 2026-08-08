@@ -78,7 +78,7 @@ class JewelleryLedger(models.AbstractModel):
             ('state', '!=', 'cancel'),
         ], order='date_order')
         sale_rows = []
-        method_totals = {}
+        method_totals: dict[str, float] = {}
         for o in orders:
             payments = []
             for p in o.payment_ids:
