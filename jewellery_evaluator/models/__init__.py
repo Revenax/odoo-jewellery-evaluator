@@ -9,6 +9,7 @@ from . import (
     diamond_rap,  # noqa: F401
     gold_price_service,  # noqa: F401
     jewellery_evaluator_config,  # noqa: F401
+    jewellery_ledger,  # noqa: F401
     jewellery_purchase,  # noqa: F401
     jewellery_stone,  # noqa: F401
     pos_cash_ops,  # noqa: F401
