@@ -52,6 +52,28 @@ GOLD_PURITY_FACTORS = {
 _SERIAL_SKU_RE = re.compile(r'-[0-9]{4}[AB]?$')
 
 
+def format_invoice_weight(jewellery_type, weight_g) -> str:
+    """The Weight cell of an invoice line, as text so it can be genuinely empty.
+
+    A **Center Stone** is a loose diamond with no gold at all, so it has no
+    weight to quote and the cell must be BLANK — printing "0.00" there reads as
+    a broken invoice. Everything else shows 2 decimals; a zero or unparseable
+    weight is likewise blank rather than a bogus "0.00".
+
+    Returns text (not a float) precisely because a Float field always renders
+    0.00 and can never express "nothing to say here".
+    """
+    if jewellery_type == 'center_stone':
+        return ''
+    try:
+        weight = float(weight_g or 0.0)
+    except (TypeError, ValueError):
+        return ''
+    if weight <= 0:
+        return ''
+    return f'{weight:.2f}'
+
+
 def jewellery_line_description(category_complete_name) -> str | None:
     """Customer-facing line description from a product category: "Gold Coin".
 

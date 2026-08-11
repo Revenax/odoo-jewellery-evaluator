@@ -113,9 +113,14 @@
                 <span t-elif="line.product_id.silver_purity" t-field="line.product_id.silver_purity"/>
             </td>
             <td name="td_weight" class="text-end">
-                <t t-set="p" t-value="line.product_id"/>
-                <t t-set="wt" t-value="p.gross_jewellery_weight_g if p.jewellery_type in ('diamond_jewellery', 'center_stone') else (line.jewellery_weight_g or p.jewellery_weight_g or line.gold_weight_g or p.gold_weight_g or 0)"/>
-                <span t-esc="'%.2fg' % (wt or 0)"/>
+                <!-- line.weight_display is the ONE weight rule, shared with the
+                     backend views (account_move_line._compute_jewellery_display_fields
+                     -> utils.format_invoice_weight), so the printed invoice and
+                     the screen can never disagree. It is blank for a Center
+                     Stone — a loose diamond with no gold has no weight to quote,
+                     and "0.00g" on an invoice reads as a bug. Covered by
+                     tests/test_invoice_weight_display.py. -->
+                <span t-if="line.weight_display" t-esc="line.weight_display + 'g'"/>
             </td>
         </xpath>
         <!-- Value cell -> "32,000 EGP" (hidden on the gift invoice) -->

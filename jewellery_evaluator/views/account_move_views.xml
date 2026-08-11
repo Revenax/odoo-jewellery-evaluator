@@ -15,7 +15,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
                 <field name="karat_display" string="Karat" optional="show"/>
-                <field name="weight_display_g" string="Weight" optional="show"/>
+                <field name="weight_display" string="Weight" optional="show"/>
             </xpath>
         </field>
     </record>
@@ -28,7 +28,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
                 <field name="karat_display" string="Karat"/>
-                <field name="weight_display_g" string="Weight"/>
+                <field name="weight_display" string="Weight"/>
             </xpath>
         </field>
     </record>
@@ -43,7 +43,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='quantity']" position="before">
                 <field name="karat_display" string="Karat"/>
-                <field name="weight_display_g" string="Weight"/>
+                <field name="weight_display" string="Weight"/>
             </xpath>
         </field>
     </record>

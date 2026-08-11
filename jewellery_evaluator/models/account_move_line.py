@@ -5,6 +5,8 @@
 
 from odoo import api, fields, models
 
+from ..utils import format_invoice_weight
+
 # Same selections as product.template for display on invoice
 GOLD_PURITY_SELECTION = [
     ('24K', '24K'),
@@ -56,12 +58,13 @@ class AccountMoveLine(models.Model):
         inverse='_inverse_karat_display',
         help='Unified karat display (gold purity, diamond karat, or silver purity).',
     )
-    weight_display_g = fields.Float(
+    weight_display = fields.Char(
         string='Weight (g)',
-        digits=(16, 2),
         compute='_compute_jewellery_display_fields',
-        inverse='_inverse_weight_display_g',
-        help='Unified weight display in grams.',
+        inverse='_inverse_weight_display',
+        help='Unified weight display in grams. Text, not a number, so a Center '
+             'Stone (a loose diamond with no gold) can show a genuinely blank '
+             'cell instead of 0.00.',
     )
 
     gold_purity = fields.Selection(
@@ -114,13 +117,17 @@ class AccountMoveLine(models.Model):
             )
             weight = line.jewellery_weight_g or line.gold_weight_g
             if not weight and tmpl:
-                # Same rule as the PDF: diamond pieces display GROSS weight
-                # (gold + stones); everything else the plain jewellery weight.
+                # Diamond pieces are quoted GROSS (gold + stones); everything
+                # else uses the plain jewellery weight.
                 if tmpl.jewellery_type in ('diamond_jewellery', 'center_stone'):
                     weight = tmpl.gross_jewellery_weight_g
                 else:
                     weight = tmpl.jewellery_weight_g
-            line.weight_display_g = weight or 0.0
+            # A Center Stone has no gold, so its cell is blank — the single
+            # source of truth for that rule, shared with the printed invoice.
+            line.weight_display = format_invoice_weight(
+                tmpl.jewellery_type if tmpl else False, weight
+            )
 
     def _inverse_karat_display(self):
         """
@@ -148,9 +155,16 @@ class AccountMoveLine(models.Model):
                 line.gold_purity = False
                 line.silver_purity = False
 
-    def _inverse_weight_display_g(self):
-        """Persist editable unified weight to both new and legacy weight fields."""
+    def _inverse_weight_display(self):
+        """Persist the typed weight to both the new and legacy weight fields.
+
+        Blank (or anything unparseable) clears them, which is also how a Center
+        Stone stays weightless if someone edits the line.
+        """
         for line in self:
-            value = line.weight_display_g or 0.0
+            try:
+                value = float((line.weight_display or '').strip() or 0.0)
+            except ValueError:
+                value = 0.0
             line.jewellery_weight_g = value
             line.gold_weight_g = value
