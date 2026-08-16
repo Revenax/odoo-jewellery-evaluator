@@ -3,8 +3,14 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
+import logging
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+
+from .. import pulse
+
+_logger = logging.getLogger(__name__)
 
 # Same selections as product.template for gold fields on order line
 GOLD_PURITY_SELECTION = [
@@ -111,6 +117,90 @@ class PosOrder(models.Model):
     require_customer = fields.Selection(
         related="session_id.config_id.require_customer",
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        for order in orders:
+            order._pulse_notify_sale()
+        return orders
+
+    def _pulse_notify_sale(self):
+        """Tell Revenax about a completed sale. Never blocks or breaks the sale.
+
+        Fired in the background: the cashier is waiting on this request, and a
+        notification is never worth a slower checkout — let alone a failed one.
+        """
+        try:
+            currency = self.currency_id.name or ''
+            total = self.amount_total
+            reference = self.pos_reference or self.name
+            register = self.session_id.config_id.name or ''
+            customer = self.partner_id.name or 'Walk-in'
+            pieces = ', '.join(
+                line.product_id.default_code or line.product_id.name
+                for line in self.lines[:5] if line.product_id
+            )
+
+            # A wholly negative order is a return, not a sale.
+            if total < 0:
+                pulse.notify_in_background(
+                    'refund-issued',
+                    'Refund issued',
+                    f'{reference} — {abs(total):,.0f} {currency}, {register}, '
+                    f'{customer}',
+                    {
+                        'reference': reference, 'amount': abs(total),
+                        'currency': currency, 'register': register,
+                        'posOrderId': self.id,
+                    },
+                    pulse.make_idempotency_key('pos.order', self.id, 'refunded'),
+                    env=self.env,
+                )
+                return
+
+            pulse.notify_in_background(
+                'order-paid',
+                'Order paid',
+                f'{reference} — {total:,.0f} {currency}, {register}, {customer}'
+                + (f' · {pieces}' if pieces else ''),
+                {
+                    'reference': reference, 'amount': total, 'currency': currency,
+                    'register': register, 'posOrderId': self.id,
+                },
+                pulse.make_idempotency_key('pos.order', self.id, 'paid'),
+                env=self.env,
+            )
+
+            # A separate topic so an unusually large sale can be made urgent on
+            # Revenax's side without turning every routine sale into an alert.
+            threshold = self._pulse_large_order_threshold()
+            if threshold > 0 and total >= threshold:
+                pulse.notify_in_background(
+                    'order-large',
+                    'Large order',
+                    f'{reference} — {total:,.0f} {currency}, {register}, '
+                    f'{customer}',
+                    {
+                        'reference': reference, 'amount': total,
+                        'currency': currency, 'threshold': threshold,
+                        'register': register, 'posOrderId': self.id,
+                    },
+                    pulse.make_idempotency_key('pos.order', self.id, 'large'),
+                    env=self.env,
+                )
+        except Exception as exc:
+            # Gathering the message must not be able to fail a sale either.
+            _logger.warning('[pulse] could not describe order %s: %s', self.id, exc)
+
+    def _pulse_large_order_threshold(self):
+        """EGP above which a sale is also announced as `order-large`."""
+        raw = self.env['ir.config_parameter'].sudo().get_param(
+            'jewellery_evaluator.pulse_large_order_threshold', '250000')
+        try:
+            return float(raw or 0)
+        except (TypeError, ValueError):
+            return 0.0
 
     # Audit summary of below-minimum manager overrides on this order's lines.
     # The cashier who made the sale is pos_hr's own ``employee_id`` ("Cashier").
@@ -315,11 +405,33 @@ class PosOrder(models.Model):
         if line_vals.get('min_price_override'):
             uid = _as_user_id(line_vals.get('override_approver_uid'))
             if _override_is_authorised(self.env, uid, config):
+                approver = (line_vals.get('override_approver_name') or '')[:120]
+                price = line_vals.get('price_unit') or 0.0
+                # Its own topic, not folded into order-paid: selling under the
+                # floor is the one routine action that deliberately bypasses a
+                # control, so Revenax may want it loud while sales stay quiet.
+                pulse.notify_in_background(
+                    'price-override',
+                    'Sold below minimum',
+                    f'{product.default_code or product.name} at {price:,.0f} '
+                    f'(floor {effective_min:,.0f}) — approved by '
+                    f'{approver or "a manager"}',
+                    {
+                        'sku': product.default_code or '',
+                        'price': price,
+                        'minimum': effective_min,
+                        'approverId': uid,
+                        'register': config.name if config else '',
+                    },
+                    pulse.make_idempotency_key(
+                        'override', product.id, uid,
+                        line_vals.get('uuid') or price,
+                    ),
+                    env=self.env,
+                )
                 return {
                     'override_approver_uid': uid,
-                    'override_approver_name': (
-                        (line_vals.get('override_approver_name') or '')[:120] or False
-                    ),
+                    'override_approver_name': approver or False,
                     'override_original_min': (
                         line_vals.get('override_original_min') or effective_min
                     ),
