@@ -7,6 +7,8 @@ import logging
 
 from odoo import fields, models
 
+from .. import pulse
+
 _logger = logging.getLogger(__name__)
 
 
@@ -105,6 +107,39 @@ class AccountMove(models.Model):
             _logger.warning(
                 "Invoice %s: %s short by %s — not enough on-hand to deduct.",
                 self.name, product.default_code or product.display_name, remaining)
+            # We sold something we did not have. Either the count is wrong or
+            # the piece was already sold elsewhere; both need a human.
+            pulse.notify_in_background(
+                'suspicious-activity',
+                'Sold more than was in stock',
+                f'{product.default_code or product.display_name} on invoice '
+                f'{self.name}: short by {remaining:g}. On-hand was not enough '
+                f'to cover the sale.',
+                {'sku': product.default_code or '', 'short': remaining,
+                 'invoice': self.name},
+                pulse.make_idempotency_key('oversell', self.name, product.id),
+                env=self.env,
+            )
+            return
+
+        # Fungible stock (bars, coins) hitting zero is a reorder signal. A
+        # unique piece going to zero is just it being sold, so it is not news.
+        try:
+            product.invalidate_recordset(['qty_available'])
+            if not product.is_unique_jewellery_piece and product.qty_available <= 0:
+                pulse.notify_in_background(
+                    'stock-out',
+                    'Out of stock',
+                    f'{product.default_code or product.display_name} is now at '
+                    f'{product.qty_available:g} after invoice {self.name}.',
+                    {'sku': product.default_code or '',
+                     'onHand': product.qty_available, 'invoice': self.name},
+                    pulse.make_idempotency_key('stock-out', product.id, self.name),
+                    env=self.env,
+                )
+        except Exception as exc:
+            _logger.warning('[pulse] stock-out check failed for %s: %s',
+                            product.default_code or product.id, exc)
 
     def default_get(self, fields_list):
         """
