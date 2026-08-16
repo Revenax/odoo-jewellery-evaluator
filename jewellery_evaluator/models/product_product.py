@@ -7,6 +7,7 @@ import logging
 
 from odoo import api, fields, models
 
+from .. import pulse
 from ..utils import is_serial_sku
 
 _logger = logging.getLogger(__name__)
@@ -92,5 +93,19 @@ class ProductProduct(models.Model):
             _logger.warning(
                 "jewellery_evaluator: %s unique piece(s) exceed the 0/1 on-hand "
                 "invariant (on-hand > 1): %s", len(bad), details
+            )
+            # A one-of-a-kind piece showing 2+ on hand means either a bad stock
+            # adjustment or the same piece registered twice — both let it be
+            # sold more than once, so a human needs to look.
+            pulse.notify(
+                'suspicious-activity',
+                'Unique piece stock invariant broken',
+                f'{len(bad)} unique piece(s) have more than 1 on hand: '
+                f'{details[:400]}',
+                {'count': len(bad),
+                 'skus': [p.default_code for p in bad if p.default_code][:20]},
+                pulse.make_idempotency_key(
+                    'unique-onhand', ','.join(sorted(str(p.id) for p in bad))),
+                env=self.env,
             )
         return True

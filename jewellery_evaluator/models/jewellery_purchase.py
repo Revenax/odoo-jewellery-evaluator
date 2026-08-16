@@ -136,6 +136,11 @@ class ProductTemplatePurchase(models.Model):
             # POS shift automatically. Best-effort/idempotent (never blocks stock).
             self._settle_buyback_to_vault(po, warehouse, po.amount_total)
 
+        # NOTE: deliberately NOT notified here. The ops app owns this event —
+        # its /api/purchase/* endpoints wrap this method and already emit
+        # `purchase-received` with the operator and warehouse. Emitting from
+        # both sides would report one physical receipt twice.
+
         return [{'sku': p.default_code, 'product_id': p.id,
                  'name': p.display_name, 'qty': q} for p, q in resolved]
 

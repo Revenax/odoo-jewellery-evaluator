@@ -1311,6 +1311,10 @@ class ProductTemplate(models.Model):
             picking.move_ids._action_done()
         if picking.state == 'done':
             self._settle_buyback_to_vault(po, warehouse, price)
+            # NOTE: deliberately NOT notified here. The ops app owns this
+            # event — it emits `buyback-recorded` when the piece is
+            # registered, which is what calls this method. Notifying from
+            # both sides would report one buy-back twice.
         return picking.state == 'done'
 
     def _settle_buyback_to_vault(self, po, warehouse, amount):

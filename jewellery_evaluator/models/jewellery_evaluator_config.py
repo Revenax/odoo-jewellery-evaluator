@@ -10,6 +10,31 @@ from odoo.exceptions import ValidationError
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
+    # ── Revenax Pulse ────────────────────────────────────────────────────
+    # Env vars win; these exist because Odoo runs from a systemd unit with no
+    # env file, so this is the only way to set the key without editing the unit
+    # and restarting. Server-side only — never shipped to the POS bundle.
+    revenax_pulse_service_name = fields.Char(
+        string='Revenax Pulse Service Name',
+        config_parameter='jewellery_evaluator.revenax_pulse_service_name',
+        help='Sender name Pulse issued the key to, e.g. "Marjaan". Overridden '
+             'by the REVENAX_PULSE_SERVICE_NAME environment variable.',
+    )
+
+    revenax_pulse_api_key = fields.Char(
+        string='Revenax Pulse API Key',
+        config_parameter='jewellery_evaluator.revenax_pulse_api_key',
+        help='Secret key from Revenax (pulse_<prefix>.<secret>). Overridden by '
+             'the REVENAX_PULSE_API_KEY environment variable.',
+    )
+
+    pulse_large_order_threshold = fields.Float(
+        string='Large Order Alert (EGP)',
+        config_parameter='jewellery_evaluator.pulse_large_order_threshold',
+        help='Sales at or above this total also raise an "order-large" '
+             'notification. 0 disables it.',
+    )
+
     gold_api_endpoint = fields.Char(
         string='Gold API Endpoint',
         config_parameter='jewellery_evaluator.gold_api_endpoint',
