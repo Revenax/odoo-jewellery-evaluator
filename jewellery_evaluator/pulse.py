@@ -177,7 +177,7 @@ def notify(topic, title, body, data=None, idempotency_key=None, env=None,
             status = response.status_code
 
             if status in (200, 201):
-                info = {}
+                info: dict = {}
                 try:
                     info = response.json() or {}
                 except ValueError:
