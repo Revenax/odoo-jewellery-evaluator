@@ -18,8 +18,44 @@ SUBMODULES="${SUBMODULES:-jewellery_inventory_management}"
 cd "$GIT_REPO_PATH" || exit 1
 [ -d .git ] || { echo "Error: not a git repo. Clone into $GIT_REPO_PATH first."; exit 1; }
 
+# --- Revenax Pulse -------------------------------------------------------
+# A deploy stops and restarts Odoo, so it is worth announcing — especially when
+# it FAILS, since the shop is then running the previous code (or nothing).
+# Credentials come from /etc/revenax-pulse.env or the environment. Never allowed
+# to affect the deploy: backgrounded, output discarded, always returns success.
+[ -r /etc/revenax-pulse.env ] && . /etc/revenax-pulse.env
+pulse() {  # pulse <topic> <title> <body> <idempotency-key>
+  [ -n "${REVENAX_PULSE_SERVICE_NAME:-}" ] || return 0
+  [ -n "${REVENAX_PULSE_API_KEY:-}" ] || return 0
+  ( curl -s -o /dev/null --max-time 5 -X POST https://pulse.revenax.com/notify \
+      -H "X-Service-Name: ${REVENAX_PULSE_SERVICE_NAME}" \
+      -H "X-API-Key: ${REVENAX_PULSE_API_KEY}" \
+      -H "Idempotency-Key: $4" \
+      -H 'Content-Type: application/json' \
+      --data "$(printf '{"topic":"%s","title":"%s","body":"%s","data":{"host":"%s","commit":"%s"}}' \
+                "$1" "$2" "$3" "$(hostname)" "${DEPLOY_SHA:-unknown}")" || true ) >/dev/null 2>&1 &
+}
+# Announce a failure wherever the script exits non-zero, so no early `exit 1`
+# can slip out silently.
+_pulse_on_exit() {
+  # Accepts the exit code as $1 because when chained after other commands in a
+  # trap, $? is that command's status, not the script's.
+  rc=${1:-$?}
+  if [ "$rc" -ne 0 ]; then
+    pulse deploy-failed "Deploy failed" \
+      "remote-deploy.sh exited $rc on $(hostname). Odoo may be running the previous code." \
+      "deploy-failed:${DEPLOY_SHA:-unknown}:${rc}"
+    sleep 1   # give the backgrounded curl a moment before the shell dies
+  fi
+}
+trap _pulse_on_exit EXIT
+
 git fetch origin main
 git pull --ff-only origin main || git rebase origin/main || { echo "Error: pull/rebase failed"; exit 1; }
+DEPLOY_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+pulse deploy-started "Deploy started" \
+  "Upgrading ${MODULE_NAME} to ${DEPLOY_SHA} on $(hostname)." \
+  "deploy-started:${DEPLOY_SHA}"
 
 # Stop Odoo so upgrade does not hit lock timeouts
 STOP_TIMEOUT="${GRACEFUL_STOP_TIMEOUT:-60}"
@@ -53,7 +89,10 @@ DB_NAME="${ODOO_DB:-$(awk -F= '/^[[:space:]]*db_name[[:space:]]*=/{gsub(/[[:spac
 
 OUT=$(mktemp)
 STAGE_ROOT=$(mktemp -d)
-trap 'rm -rf "$STAGE_ROOT" "$OUT"; sudo systemctl start odoo 2>/dev/null' EXIT
+# Chains _pulse_on_exit: a bare `trap ... EXIT` REPLACES the handler set above,
+# so without naming it here a mid-run failure would clean up silently and never
+# report deploy-failed.
+trap 'rc=$?; rm -rf "$STAGE_ROOT" "$OUT"; sudo systemctl start odoo 2>/dev/null; _pulse_on_exit "$rc"' EXIT
 
 # Primary module: the repo root IS the jewellery_evaluator addon (see CLAUDE.md packaging).
 ln -s "$GIT_REPO_PATH" "$STAGE_ROOT/$MODULE_NAME"
@@ -101,6 +140,9 @@ run_upgrade() {
 }
 run_upgrade >"$OUT" 2>&1 || { cat "$OUT"; exit 1; }
 
-trap - EXIT
+trap _pulse_on_exit EXIT
 sudo systemctl start odoo || exit 1
+pulse deploy-finished "Deploy finished" \
+  "${MODULE_NAME} upgraded to ${DEPLOY_SHA} and Odoo restarted." \
+  "deploy-finished:${DEPLOY_SHA}"
 echo "Deployment successful."

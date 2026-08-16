@@ -31,6 +31,25 @@ LOG=/var/log/odoo-watchdog.log
 URL="http://127.0.0.1:8069/web/login"
 log() { echo "$(date '+%F %T') $*" >>"$LOG" 2>/dev/null; }
 
+# --- Revenax Pulse -------------------------------------------------------
+# Odoo being down is the single most urgent thing this box can tell anyone, and
+# the watchdog is the only thing awake to notice. Reads the credentials from
+# /etc/revenax-pulse.env if present (KEY=VALUE lines), else the environment.
+# Never allowed to affect the restart: fully backgrounded, output discarded,
+# and `|| true` so a curl failure cannot trip `set -u`/pipefail logic.
+[ -r /etc/revenax-pulse.env ] && . /etc/revenax-pulse.env
+pulse() {  # pulse <topic> <title> <body> <idempotency-key>
+  [ -n "${REVENAX_PULSE_SERVICE_NAME:-}" ] || return 0
+  [ -n "${REVENAX_PULSE_API_KEY:-}" ] || return 0
+  ( curl -s -o /dev/null --max-time 5 -X POST https://pulse.revenax.com/notify \
+      -H "X-Service-Name: ${REVENAX_PULSE_SERVICE_NAME}" \
+      -H "X-API-Key: ${REVENAX_PULSE_API_KEY}" \
+      -H "Idempotency-Key: $4" \
+      -H 'Content-Type: application/json' \
+      --data "$(printf '{"topic":"%s","title":"%s","body":"%s","data":{"host":"%s"}}' \
+                "$1" "$2" "$3" "$(hostname)")" || true ) >/dev/null 2>&1 &
+}
+
 healthy() {
   local c
   c=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$URL" 2>/dev/null)
@@ -42,6 +61,9 @@ case "$state" in
   failed)
     log "service=failed -> systemctl restart odoo"
     systemctl restart odoo
+    pulse health-check-failed "Odoo was down" \
+      "The service was in a failed state and the watchdog restarted it." \
+      "odoo-failed:$(date -u '+%Y-%m-%dT%H:%M')"
     ;;
   active)
     # Alive but maybe hung (nginx would show 502). Confirm twice before acting
@@ -51,6 +73,9 @@ case "$state" in
       if ! healthy; then
         log "service=active but unresponsive -> systemctl restart odoo"
         systemctl restart odoo
+        pulse health-check-failed "Odoo was unresponsive" \
+          "The service was running but not answering (the 502 case); the watchdog restarted it." \
+          "odoo-hung:$(date -u '+%Y-%m-%dT%H:%M')"
       fi
     fi
     ;;
