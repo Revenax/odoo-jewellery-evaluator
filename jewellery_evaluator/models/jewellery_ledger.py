@@ -18,6 +18,7 @@ import pytz
 from odoo import api, fields, models
 
 from .. import pulse
+from ..utils import english_day_name
 
 _logger = logging.getLogger(__name__)
 
@@ -244,6 +245,9 @@ class JewelleryLedger(models.AbstractModel):
         return {
             'date': date_str,
             'day_name': self._AR_DAYS[day.weekday()],
+            # ASCII twin of day_name. The book stays Arabic; notifications must
+            # not, so they read this instead. See utils.english_day_name.
+            'day_name_en': english_day_name(day),
             'serial': ' / '.join(str(s.id) for s in sessions) or '—',
             'registers': ', '.join(s.config_id.name for s in sessions) or '—',
             'currency': currency.symbol or currency.name,
@@ -413,7 +417,7 @@ class JewelleryLedger(models.AbstractModel):
 
         pulse.notify(
             'daily-summary',
-            f'Day totals — {book["day_name"]} {date_str}',
+            f'Day totals — {book["day_name_en"]} {date_str}',
             f'In {totals["in"]:,.0f} {currency} · Out {totals["out"]:,.0f} · '
             f'Net {totals["net"]:,.0f} across {totals["count"]} movement(s)'
             f'{weight}. Closing {book["counted_close"] or book["expected_close"]:,.0f}.',

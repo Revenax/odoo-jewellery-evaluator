@@ -6,6 +6,7 @@
 import hashlib
 import json
 import re
+from datetime import date as _date
 from decimal import ROUND_HALF_UP, Decimal
 
 # Bar markup tiers: (weight_g, config_param_suffix). Weight 1000 means 1000g+.
@@ -50,6 +51,27 @@ GOLD_PURITY_FACTORS = {
 # (…-1000G) can't be mistaken for a serial. Used to scope the POS 0/1-inventory
 # rules (hide-when-sold, block re-sale, on-hand invariant) to unique pieces only.
 _SERIAL_SKU_RE = re.compile(r'-[0-9]{4}[AB]?$')
+
+
+# Day names for NOTIFICATIONS. The POS day book renders Arabic (it mirrors the
+# paper ledger), but anything Pulse sends stays ASCII: a lock screen, an inbox
+# and a browser toast give no guarantee of correct RTL rendering or ordering.
+_EN_DAYS = ('Monday', 'Tuesday', 'Wednesday', 'Thursday',
+            'Friday', 'Saturday', 'Sunday')
+
+
+def english_day_name(value) -> str:
+    """English weekday for a date or ISO string. '' for anything unusable.
+
+    Returns empty rather than raising because this feeds a notification, and a
+    notification must never be the reason something fails.
+    """
+    try:
+        if isinstance(value, str):
+            value = _date.fromisoformat(value.strip()[:10])
+        return _EN_DAYS[value.weekday()]
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return ''
 
 
 def format_invoice_weight(jewellery_type, weight_g) -> str:
