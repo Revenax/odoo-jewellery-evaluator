@@ -8,6 +8,8 @@ import logging
 from odoo import _, api, models
 from odoo.exceptions import UserError
 
+from .. import pulse
+
 _logger = logging.getLogger(__name__)
 
 
@@ -254,4 +256,28 @@ class PosSessionCashOps(models.Model):
             ref = _('POS owner in: %(name)s -> %(amt)s %(ccy)s') % {
                 'name': owner_journal.name, 'amt': amount,
                 'ccy': (ccy.name if ccy else company_ccy.name)}
-        return session._cash_ops_post(key, ref, lines)
+        result = session._cash_ops_post(key, ref, lines)
+
+        # Cash moving between the drawer and an owner is the largest routine
+        # non-sale movement in the shop. Skip the duplicate replay so a
+        # double-click does not notify twice.
+        if not (result or {}).get('duplicate'):
+            currency = (ccy.name if ccy else company_ccy.name) or ''
+            pulse.notify_in_background(
+                'payout-sent',
+                'Owner cash out' if direction == 'out' else 'Owner cash in',
+                f'{owner_journal.name} '
+                f'{"took" if direction == "out" else "deposited"} '
+                f'{amount:,.0f} {currency} '
+                f'{"from" if direction == "out" else "into"} {box.name}',
+                {
+                    'owner': owner_journal.name, 'box': box.name,
+                    'direction': direction, 'amount': amount,
+                    'amountEgp': amount_egp, 'currency': currency,
+                    'move': (result or {}).get('move', ''),
+                },
+                pulse.make_idempotency_key(
+                    'owner-transfer', (result or {}).get('move') or key),
+                env=self.env,
+            )
+        return result

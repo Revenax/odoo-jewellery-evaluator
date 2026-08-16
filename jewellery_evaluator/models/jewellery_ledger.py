@@ -11,10 +11,15 @@ conversions, deposits), and the closing count. Read-only: it assembles what is
 already posted; it never writes.
 """
 
+import logging
 from datetime import datetime, time, timedelta
 
 import pytz
 from odoo import api, fields, models
+
+from .. import pulse
+
+_logger = logging.getLogger(__name__)
 
 # The shop's timezone when the user has none configured.
 _FALLBACK_TZ = 'Africa/Cairo'
@@ -381,3 +386,48 @@ class JewelleryLedger(models.AbstractModel):
                 'movements_net': sum(m['amount'] for m in movements),
             },
         }
+
+    @api.model
+    def cron_notify_daily_summary(self):
+        """End-of-day totals to Revenax. Reports YESTERDAY, so it can run in the
+        early hours and always cover a whole, closed day.
+
+        Reuses ``ledger_rows`` — the same numbers the shop reads off the paper
+        day book, so the notification and the book can never disagree.
+        """
+        try:
+            tz = pytz.timezone(self.env.user.tz or 'Africa/Cairo')
+            yesterday = (datetime.now(tz) - timedelta(days=1)).date()
+            date_str = fields.Date.to_string(yesterday)
+            book = self.ledger_rows(date_str)
+        except Exception as exc:
+            _logger.warning('[pulse] could not build the daily summary: %s', exc)
+            return False
+
+        totals = book['totals']
+        currency = book['currency']
+        weight = ''
+        if totals['grams_in'] or totals['milli_in']:
+            weight = (f" · {totals['grams_in']}g "
+                      f"{totals['milli_in']}mg gold out")
+
+        pulse.notify(
+            'daily-summary',
+            f'Day totals — {book["day_name"]} {date_str}',
+            f'In {totals["in"]:,.0f} {currency} · Out {totals["out"]:,.0f} · '
+            f'Net {totals["net"]:,.0f} across {totals["count"]} movement(s)'
+            f'{weight}. Closing {book["counted_close"] or book["expected_close"]:,.0f}.',
+            {
+                'date': date_str,
+                'in': totals['in'], 'out': totals['out'], 'net': totals['net'],
+                'movements': totals['count'],
+                'opening': book['opening'],
+                'closingCounted': book['counted_close'],
+                'closingExpected': book['expected_close'],
+                'currency': currency,
+            },
+            # One summary per day, however many times the cron is retried.
+            pulse.make_idempotency_key('daily-summary', date_str),
+            env=self.env,
+        )
+        return True
