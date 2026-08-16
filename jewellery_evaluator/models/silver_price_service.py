@@ -8,6 +8,7 @@ import time
 
 from odoo import api, fields, models
 
+from .. import pulse
 from ..utils import parse_silver_price_text  # noqa: E402
 
 _logger = logging.getLogger(__name__)
@@ -399,6 +400,19 @@ class SilverPriceService(models.Model):
                     'Live silver scrape failed (%s); falling back to stored value.',
                     str(e),
                 )
+                # Not fatal — we still price from the cache — but the scrape is
+                # a headless Chrome against a third-party page and is the most
+                # fragile input we have. Hourly idempotency: the cron is frequent.
+                pulse.notify(
+                    'vendor-down',
+                    'Silver price scrape failed',
+                    f'The silver scrape (dahabmasr.com) failed: {e}. Silver is '
+                    f'being priced from the last stored value.',
+                    {'vendor': 'dahabmasr-silver', 'error': str(e)[:500]},
+                    pulse.make_idempotency_key(
+                        'silver-vendor-down', started_at[:13]),
+                    env=self.env,
+                )
                 base_silver_price = self._get_fallback_silver_price()
 
             if base_silver_price <= 0:
@@ -406,6 +420,16 @@ class SilverPriceService(models.Model):
                        'fallback both unavailable); nothing updated.')
                 _logger.warning('[silver-cron] %s', msg)
                 self._cron_log(msg, level='WARNING')
+                pulse.notify(
+                    'job-failed',
+                    'Silver price unavailable',
+                    'Both the live silver scrape and the stored fallback are '
+                    'unavailable, so no silver product was repriced.',
+                    {'job': 'update_all_silver_product_prices'},
+                    pulse.make_idempotency_key(
+                        'silver-noprice', started_at[:13]),
+                    env=self.env,
+                )
                 return {
                     'success': True,
                     'products_updated': 0,
@@ -456,6 +480,16 @@ class SilverPriceService(models.Model):
                 self._cron_log(msg, level='ERROR')
             except Exception:
                 pass
+            pulse.notify(
+                'job-failed',
+                'Silver price update failed',
+                f'The silver cron failed after {elapsed:.1f}s. Silver prices '
+                f'are frozen at the last good value. {e}',
+                {'job': 'update_all_silver_product_prices', 'error': str(e)[:500]},
+                pulse.make_idempotency_key(
+                    'silver-cron-failed', started_at[:13], str(e)[:60]),
+                env=self.env,
+            )
             return {
                 'success': False,
                 'products_updated': 0,

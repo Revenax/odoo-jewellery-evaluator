@@ -9,6 +9,7 @@ import time
 import requests
 from odoo import api, fields, models
 
+from .. import pulse  # noqa: E402
 from ..utils import gold_price_for_purity, parse_gold_price_with_regex  # noqa: E402
 
 _logger = logging.getLogger(__name__)
@@ -147,6 +148,25 @@ class GoldPriceService(models.Model):
             if last_good > 0 and max_jump > 0:
                 jump = abs(price - last_good) / last_good
                 if jump > max_jump:
+                    # Its own topic, and the most urgent one here: this almost
+                    # always means the source site changed and the regex is now
+                    # matching the wrong number. Prices are safe (we keep the
+                    # old value) but they are FROZEN until a human looks.
+                    pulse.notify(
+                        'price-guard-tripped',
+                        'Gold price rejected as implausible',
+                        f'Fetched {price:.2f} EGP/g — a {jump * 100:.0f}% jump '
+                        f'from {last_good:.2f} (max {max_jump * 100:.0f}%). '
+                        f'Kept the old price; the feed may have changed shape.',
+                        {
+                            'fetched': price, 'lastGood': last_good,
+                            'jumpPct': round(jump * 100, 1),
+                            'maxJumpPct': round(max_jump * 100, 1),
+                        },
+                        pulse.make_idempotency_key(
+                            'gold-guard', round(price, 2), round(last_good, 2)),
+                        env=self.env,
+                    )
                     raise ValueError(
                         f'Rejected implausible gold price {price:.2f}: '
                         f'{jump * 100:.0f}% jump from last good {last_good:.2f} '
@@ -163,15 +183,18 @@ class GoldPriceService(models.Model):
 
         except requests.exceptions.Timeout as e:
             _logger.error('API request timed out after %d seconds', timeout)
+            self._pulse_vendor_down(f'timed out after {timeout}s')
             raise ValueError(
                 'Gold API request timed out. Please check network connectivity.') from e
         except requests.exceptions.ConnectionError as e:
             _logger.error('Failed to connect to gold API endpoint')
+            self._pulse_vendor_down('connection refused/unreachable')
             raise ValueError(
                 'Failed to connect to gold API. Please check endpoint configuration.') from e
         except requests.exceptions.HTTPError as e:
             _logger.error('API returned HTTP error: %d',
                           e.response.status_code)
+            self._pulse_vendor_down(f'HTTP {e.response.status_code}')
             raise ValueError(
                 f'Gold API returned error status {e.response.status_code}') from e
         except requests.exceptions.RequestException as e:
@@ -186,6 +209,25 @@ class GoldPriceService(models.Model):
                 'Unexpected error parsing API response: %s', type(e).__name__)
             raise ValueError(
                 'Unexpected error while parsing gold API response.') from e
+
+    def _pulse_vendor_down(self, reason):
+        """The gold feed is unreachable. Prices fall back to the cached value.
+
+        Keyed by the hour so a sustained outage reports once an hour, not once
+        a minute — the cron runs every minute.
+        """
+        pulse.notify(
+            'vendor-down',
+            'Gold price feed unreachable',
+            f'The gold API is not responding ({reason}). Prices are being '
+            f'served from the last cached value.',
+            {'vendor': 'gold-api', 'reason': reason},
+            pulse.make_idempotency_key(
+                'gold-vendor-down',
+                fields.Datetime.to_string(fields.Datetime.now())[:13],
+            ),
+            env=self.env,
+        )
 
     def _get_fallback_price(self):
         """
@@ -375,6 +417,19 @@ class GoldPriceService(models.Model):
                 self._cron_log(msg, level='ERROR')
             except Exception:
                 pass
+            # Every price in the shop — and the POS floor — depends on this run.
+            # Idempotency is keyed to the hour so a minute-by-minute outage
+            # reports once an hour instead of sixty times.
+            pulse.notify(
+                'job-failed',
+                'Gold price update failed',
+                f'The gold cron failed after {elapsed:.1f}s. Prices are frozen '
+                f'at the last good value. {e}',
+                {'job': 'update_all_gold_product_prices', 'error': str(e)[:500]},
+                pulse.make_idempotency_key(
+                    'gold-cron-failed', started_at[:13], str(e)[:60]),
+                env=self.env,
+            )
             return {
                 'success': False,
                 'products_updated': 0,
