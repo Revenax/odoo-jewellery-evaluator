@@ -8,7 +8,6 @@ import logging
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from .. import pulse
 from ..utils import (
     compute_gold_product_price,
     get_markup_per_gram,
@@ -137,23 +136,10 @@ class ProductTemplatePurchase(models.Model):
             # POS shift automatically. Best-effort/idempotent (never blocks stock).
             self._settle_buyback_to_vault(po, warehouse, po.amount_total)
 
-        if picking and picking.state == 'done':
-            pieces = ', '.join(f'{p.default_code}×{q:g}' for p, q in resolved[:8])
-            pulse.notify_in_background(
-                'stock-restocked',
-                'Stock received',
-                f'{len(resolved)} line(s) received into '
-                f'{warehouse.code if warehouse else "stock"} — {pieces}',
-                {
-                    'lines': len(resolved),
-                    'warehouse': warehouse.code if warehouse else '',
-                    'purchaseOrder': po.name if po else '',
-                    'origin': origin or '',
-                },
-                pulse.make_idempotency_key(
-                    'receipt', po.name if po else origin, 'done'),
-                env=self.env,
-            )
+        # NOTE: deliberately NOT notified here. The ops app owns this event —
+        # its /api/purchase/* endpoints wrap this method and already emit
+        # `purchase-received` with the operator and warehouse. Emitting from
+        # both sides would report one physical receipt twice.
 
         return [{'sku': p.default_code, 'product_id': p.id,
                  'name': p.display_name, 'qty': q} for p, q in resolved]
