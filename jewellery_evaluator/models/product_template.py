@@ -380,13 +380,14 @@ class ProductTemplate(models.Model):
         compute='_compute_invoice_display',
         store=True,
         readonly=True,
-        help="Auto diamond-detail note for the invoice (e.g. 'Diamond 15 DR. 0.362'). "
+        help="Auto diamond-detail note for the invoice (e.g. '17 DR 0.29CT' — "
+             "17 diamonds, Round, 0.29 ct in total). "
              "Empty for non-diamond pieces.",
     )
 
     @api.depends(
         'jewellery_type', 'gross_jewellery_weight_g',
-        'stone_ids.carat', 'stone_ids.quantity',
+        'stone_ids.carat', 'stone_ids.quantity', 'stone_ids.shape',
     )
     def _compute_invoice_display(self):
         for record in self:
@@ -396,7 +397,8 @@ class ProductTemplate(models.Model):
                     record.gross_jewellery_weight_g
                 )
                 record.invoice_diamond_note = format_diamond_note(
-                    [{'carat': s.carat, 'quantity': s.quantity} for s in record.stone_ids]
+                    [{'carat': s.carat, 'quantity': s.quantity, 'shape': s.shape}
+                     for s in record.stone_ids]
                 )
             else:
                 record.invoice_weight_display = False

@@ -927,17 +927,37 @@ def format_carat(value: float) -> str:
     return f"{d:f}"
 
 
+# Shape letter for the invoice stone line. Single letters, because the note is
+# read at a glance on a printed invoice — except where one would be ambiguous:
+# Princess would collide with Pear and Radiant with Round, and Pear/Princess
+# BOTH occur in live data, so those two take a second letter.
+STONE_SHAPE_CODES = {
+    'Round': 'R',
+    'Oval': 'O',
+    'Marquise': 'M',
+    'Pear': 'P',
+    'Heart': 'H',
+    'Emerald': 'E',
+    'Princess': 'PR',
+    'Radiant': 'RA',
+}
+
+
 def format_diamond_note(stones: list[dict]) -> str:
     """Auto invoice note for a diamond piece, from its stone rows.
 
-    Each row is a dict with ``carat`` and ``quantity``. A single stone renders
-    ``'<carat> CR'``; a group of N identical stones renders ``'N DR. <carat>'``;
-    multiple groups are joined with ' + '. Returns e.g. ``'Diamond 1.01 CR'`` or
-    ``'Diamond 15 DR. 0.362'``; empty string when there are no stones.
+    ``<qty> D<shape> <total>CT`` — D for diamond, then the shape letter, then
+    the carat weight of the WHOLE line. Groups join with ' + '.
+    Example: 17 round stones of 0.017059 ct -> ``'17 DR 0.29CT'``.
+
+    The carat is the line total on purpose. The previous note printed the
+    per-stone weight ("15 DR. 0.362"), so a fifteen-stone line read as though
+    the piece held 0.362 ct when it actually held 5.43.
     """
     parts: list[str] = []
     for stone in stones:
-        carat = format_carat(stone.get("carat", 0))
         qty = int(stone.get("quantity") or 1)
-        parts.append(f"{qty} DR. {carat}" if qty > 1 else f"{carat} CR")
-    return ("Diamond " + " + ".join(parts)) if parts else ""
+        total = total_carat_for(stone.get("carat", 0), qty)
+        code = STONE_SHAPE_CODES.get((stone.get("shape") or "").strip(), "")
+        parts.append(f"{qty} D{code} {format_carat(total)}CT")
+    return " + ".join(parts)
