@@ -3,7 +3,13 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
+import logging
+
 from odoo import api, models
+
+from .. import pulse
+
+_logger = logging.getLogger(__name__)
 
 
 class PosSession(models.Model):
@@ -104,3 +110,57 @@ class PosSession(models.Model):
             cash['amount'] += total
             cash['moves'] = (cash.get('moves') or []) + moves
         return data
+
+    def _validate_session(self, balancing_account=False, amount_to_balance=0,
+                          bank_payment_method_diffs=None):
+        """Close the shift, then report the count.
+
+        The whole point of the vault override above is that the cashier counts
+        the WHOLE drawer, so the closing difference is the number that says
+        whether the day reconciles. Sent after the close succeeds, so a
+        notification can never be the reason a shift fails to close.
+        """
+        result = super()._validate_session(
+            balancing_account=balancing_account,
+            amount_to_balance=amount_to_balance,
+            bank_payment_method_diffs=bank_payment_method_diffs,
+        )
+        for session in self:
+            try:
+                session._pulse_notify_closed()
+            except Exception as exc:
+                _logger.warning(
+                    '[pulse] could not describe the close of session %s: %s',
+                    session.id, exc)
+        return result
+
+    def _pulse_notify_closed(self):
+        currency = self.currency_id.name or self.company_id.currency_id.name or ''
+        expected = self.cash_register_balance_end
+        counted = self.cash_register_balance_end_real
+        diff = self.cash_register_difference
+        register = self.config_id.name or ''
+        # A difference is the interesting case, so it gets its own topic and can
+        # be made urgent without every routine close paging anyone.
+        topic = 'shift-closed-short' if abs(diff) >= 0.01 else 'shift-closed'
+        pulse.notify_in_background(
+            topic,
+            'Shift closed short' if diff < -0.01 else (
+                'Shift closed over' if diff > 0.01 else 'Shift closed'),
+            f'{register} — counted {counted:,.0f} {currency} against expected '
+            f'{expected:,.0f}'
+            + (f', off by {diff:+,.0f}' if abs(diff) >= 0.01 else ', exact')
+            + f'. Opened {self.cash_register_balance_start:,.0f}.',
+            {
+                'session': self.id,
+                'register': register,
+                'opening': self.cash_register_balance_start,
+                'expected': expected,
+                'counted': counted,
+                'difference': diff,
+                'currency': currency,
+                'orders': len(self.order_ids),
+            },
+            pulse.make_idempotency_key('pos.session', self.id, 'closed'),
+            env=self.env,
+        )

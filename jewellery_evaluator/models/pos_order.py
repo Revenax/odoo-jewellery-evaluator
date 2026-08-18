@@ -386,6 +386,25 @@ class PosOrder(models.Model):
             vals['stock_override'] = True
             vals['stock_override_approver_uid'] = override['approver_uid']
             vals['stock_override_approver_name'] = override['approver_name']
+            # A one-of-a-kind piece is being sold although stock says it is
+            # already gone. Either the piece came back and nobody recorded it,
+            # or the same piece is about to be sold twice — both need a look,
+            # so this gets its own topic rather than sharing the price one.
+            pulse.notify_in_background(
+                'stock-override',
+                'Sold a piece already out of stock',
+                f'{vals.get("full_product_name") or vals.get("product_id") or "A piece"} '
+                f'was sold with manager approval despite showing no stock — '
+                f'approved by {override.get("approver_name") or "a manager"}',
+                {
+                    'productId': vals.get('product_id'),
+                    'approverId': override.get('approver_uid'),
+                    'uuid': vals.get('uuid'),
+                },
+                pulse.make_idempotency_key(
+                    'stock-override', vals.get('uuid') or vals.get('product_id')),
+                env=self.env,
+            )
         else:
             vals['stock_override'] = False
             vals['stock_override_approver_uid'] = 0

@@ -201,7 +201,32 @@ class PosSessionCashOps(models.Model):
             ]
             ref = _('POS FX sell: %(amt)s %(ccy)s -> %(egp)s EGP') % {
                 'amt': to_amount, 'ccy': ccy.name, 'egp': amount_egp}
-        return session._cash_ops_post(key, ref, lines)
+        result = session._cash_ops_post(key, ref, lines)
+
+        # Foreign currency crossing the drawer. Its own topic: unlike an owner
+        # transfer the money does not leave the business, but the rate is struck
+        # by hand at the counter, so it is worth a second pair of eyes.
+        if not (result or {}).get('duplicate'):
+            pulse.notify_in_background(
+                'currency-exchanged',
+                'Currency bought' if direction == 'buy' else 'Currency sold',
+                f'{amount_egp:,.0f} EGP '
+                f'{"->" if direction == "buy" else "<-"} '
+                f'{to_amount:,.2f} {ccy.name} '
+                f'(rate {(amount_egp / to_amount) if to_amount else 0:,.2f})',
+                {
+                    'direction': direction,
+                    'amountEgp': amount_egp,
+                    'amountForeign': to_amount,
+                    'currency': ccy.name,
+                    'rate': round(amount_egp / to_amount, 4) if to_amount else 0,
+                    'move': (result or {}).get('move', ''),
+                },
+                pulse.make_idempotency_key(
+                    'fx', (result or {}).get('move') or key),
+                env=self.env,
+            )
+        return result
 
     @api.model
     def post_owner_transfer(self, session_id, direction, owner_journal_id,
