@@ -234,7 +234,8 @@ def _retry_after(response, default):
     return max(0.0, min(value, MAX_RETRY_AFTER))
 
 
-def notify_in_background(topic, title, body, data=None, idempotency_key=None, env=None):
+def notify_in_background(topic, title, body, data=None, idempotency_key=None,
+                         env=None, credentials=None):
     """Fire-and-forget ``notify`` on a daemon thread. Never raises.
 
     Credentials are resolved HERE, on the calling thread, and handed to the
@@ -243,7 +244,7 @@ def notify_in_background(topic, title, body, data=None, idempotency_key=None, en
     from anything a user is waiting on — a sale, a POS sync, a web request.
     """
     try:
-        credentials = _credentials(env)
+        credentials = _credentials(env, credentials)
         if not credentials[0] or not credentials[1]:
             _warn_missing_once(*credentials)
             return

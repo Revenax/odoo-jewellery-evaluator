@@ -97,7 +97,7 @@ class ProductProduct(models.Model):
             # A one-of-a-kind piece showing 2+ on hand means either a bad stock
             # adjustment or the same piece registered twice — both let it be
             # sold more than once, so a human needs to look.
-            pulse.notify(
+            pulse.notify_in_background(
                 'suspicious-activity',
                 'Unique piece stock invariant broken',
                 f'{len(bad)} unique piece(s) have more than 1 on hand: '

@@ -152,7 +152,7 @@ class GoldPriceService(models.Model):
                     # always means the source site changed and the regex is now
                     # matching the wrong number. Prices are safe (we keep the
                     # old value) but they are FROZEN until a human looks.
-                    pulse.notify(
+                    pulse.notify_in_background(
                         'price-guard-tripped',
                         'Gold price rejected as implausible',
                         f'Fetched {price:.2f} EGP/g — a {jump * 100:.0f}% jump '
@@ -216,7 +216,7 @@ class GoldPriceService(models.Model):
         Keyed by the hour so a sustained outage reports once an hour, not once
         a minute — the cron runs every minute.
         """
-        pulse.notify(
+        pulse.notify_in_background(
             'vendor-down',
             'Gold price feed unreachable',
             f'The gold API is not responding ({reason}). Prices are being '
@@ -420,7 +420,7 @@ class GoldPriceService(models.Model):
             # Every price in the shop — and the POS floor — depends on this run.
             # Idempotency is keyed to the hour so a minute-by-minute outage
             # reports once an hour instead of sixty times.
-            pulse.notify(
+            pulse.notify_in_background(
                 'job-failed',
                 'Gold price update failed',
                 f'The gold cron failed after {elapsed:.1f}s. Prices are frozen '

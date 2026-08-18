@@ -173,3 +173,83 @@ class TestRetryPolicy:
 
     def test_error_code_falls_back_to_the_status(self):
         assert pulse._error_code(self._response(503)) == "http_503"
+
+
+class TestNonBlocking:
+    """A notification must never hold up the thing that triggered it.
+
+    `notify` is synchronous: up to MAX_ATTEMPTS x TIMEOUT_SECONDS plus backoff
+    (~15.75s) if Pulse is unreachable. This box runs max_cron_threads=1, so one
+    blocking call there stalls EVERY cron — including the gold price feed that
+    the POS floor depends on. Model code therefore always uses the background
+    variant.
+    """
+
+    def test_background_returns_immediately_even_when_the_network_hangs(
+        self, monkeypatch
+    ):
+        import threading
+        import time as _time
+
+        started = threading.Event()
+        release = threading.Event()
+
+        def _hanging_post(*a, **kw):
+            started.set()
+            release.wait(5)          # simulate an unreachable Pulse
+            raise pulse.requests.RequestException("hung")
+
+        monkeypatch.setattr(pulse.requests, "post", _hanging_post)
+        monkeypatch.setattr(pulse, "BACKOFF_SECONDS", (0, 0))
+
+        began = _time.monotonic()
+        pulse.notify_in_background(
+            "order-paid", "t", "b", credentials=("Marjaan", "pulse_x.y")
+        )
+        elapsed = _time.monotonic() - began
+
+        # The caller is free well before the request would have finished.
+        assert elapsed < 0.5, f"notify_in_background blocked for {elapsed:.2f}s"
+        assert started.wait(2), "the worker thread never ran"
+        release.set()
+
+    def test_the_worker_is_a_daemon_so_it_cannot_hold_the_process_open(
+        self, monkeypatch
+    ):
+        seen = {}
+
+        class _Thread(pulse.threading.Thread):
+            def start(self):
+                seen["daemon"] = self.daemon
+                seen["name"] = self.name
+                # Do not actually run; we only care how it was constructed.
+
+        monkeypatch.setattr(pulse.threading, "Thread", _Thread)
+        pulse.notify_in_background(
+            "order-paid", "t", "b", credentials=("Marjaan", "pulse_x.y")
+        )
+        assert seen.get("daemon") is True
+        assert seen.get("name") == "revenax-pulse"
+
+    def test_credentials_are_resolved_before_the_thread_starts(self, monkeypatch):
+        """The worker must never touch the ORM: a cursor is not thread-safe.
+
+        Resolution happens on the calling thread, so the thread receives plain
+        strings and `env` is never handed across.
+        """
+        captured = {}
+
+        class _Thread(pulse.threading.Thread):
+            def __init__(self, *a, **kw):
+                captured.update(kw.get("kwargs") or {})
+                super().__init__(*a, **kw)
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(pulse.threading, "Thread", _Thread)
+        pulse.notify_in_background(
+            "order-paid", "t", "b", credentials=("Marjaan", "pulse_x.y")
+        )
+        assert captured.get("credentials") == ("Marjaan", "pulse_x.y")
+        assert "env" not in captured

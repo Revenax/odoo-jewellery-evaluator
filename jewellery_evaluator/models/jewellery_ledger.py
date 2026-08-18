@@ -415,7 +415,7 @@ class JewelleryLedger(models.AbstractModel):
             weight = (f" · {totals['grams_in']}g "
                       f"{totals['milli_in']}mg gold out")
 
-        pulse.notify(
+        pulse.notify_in_background(
             'daily-summary',
             f'Day totals — {book["day_name_en"]} {date_str}',
             f'In {totals["in"]:,.0f} {currency} · Out {totals["out"]:,.0f} · '
