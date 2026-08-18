@@ -10,6 +10,7 @@ from ..utils import (
     CARAT_DECIMALS,
     CARAT_MAX,
     CARAT_MIN,
+    format_diamond_note,
     get_stone_price_usd,
     total_carat_for,
 )
@@ -109,6 +110,24 @@ class JewelleryStone(models.Model):
         store=True,
         help='Unit price × quantity (USD). Sum this across all stones to get total stones cost.',
     )
+
+    invoice_display = fields.Char(
+        string='Invoice Line',
+        compute='_compute_invoice_display',
+        help="How this stone reads on the invoice: '17 DR 0.29CT' — count, D for "
+             "diamond, the shape letter, then the total carat for the line.",
+    )
+
+    @api.depends('carat', 'quantity', 'shape')
+    def _compute_invoice_display(self):
+        # Same formatter as product.invoice_diamond_note, so the per-stone row
+        # on the invoice and the summary note can never drift apart.
+        for stone in self:
+            stone.invoice_display = format_diamond_note([{
+                'carat': stone.carat,
+                'quantity': stone.quantity,
+                'shape': stone.shape,
+            }])
 
     @api.depends('carat', 'quantity')
     def _compute_total_carat(self):

@@ -10,6 +10,26 @@
             th { font-weight: 900; font-size: 14px; }
             td { font-size: 14px; }
             td.o_stone_row { font-size: 12px; }
+
+            /* Vertical rules between the invoice columns (SKU | Description |
+               Karat | Weight | Value). Drawn as a left border on every cell
+               except the first, so the count follows the columns automatically
+               when the Value column is hidden on a gift invoice. Scoped to the
+               line table by name so the totals table stays borderless. */
+            table[name='invoice_line_table'] th,
+            table[name='invoice_line_table'] td {
+                border-left: 1px solid #000;
+            }
+            table[name='invoice_line_table'] th:first-child,
+            table[name='invoice_line_table'] td:first-child {
+                border-left: 0;
+            }
+            /* Keep some air either side of a rule so text never touches it. */
+            table[name='invoice_line_table'] th,
+            table[name='invoice_line_table'] td {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
         ]]></style>
         <t t-set="display_discount" t-value="False"/>
         <!-- Gift invoice: hide every price (Value column + Total). The flag rides
@@ -146,8 +166,10 @@
                 <tr t-foreach="sp.stone_ids" t-as="stone" t-key="stone.id">
                     <td/><td/><td/>
                     <td class="text-end o_stone_row fst-italic" style="color:#555;">
-                        <t t-set="shp" t-value="(' ' + stone.shape) if stone.shape else ''"/>
-                        <span t-esc="'%s &#215; %gct%s' % (stone.quantity, stone.carat, shp)"/>
+                        <!-- stone.invoice_display is the SAME formatter behind
+                             product.invoice_diamond_note, so this row and the
+                             summary note cannot drift: '17 DR 0.29CT'. -->
+                        <span t-esc="stone.invoice_display"/>
                     </td>
                     <td t-if="not jew_gift"/>
                 </tr>
