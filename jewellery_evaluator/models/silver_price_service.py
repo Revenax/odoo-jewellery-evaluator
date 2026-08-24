@@ -124,6 +124,72 @@ def _ensure_chrome_address_space():
         _logger.warning('Could not raise RLIMIT_AS for Chrome: %s', e)
 
 
+def pids_for_profile(profile_dir, proc_root="/proc"):
+    """PIDs of processes still holding ``profile_dir`` as their Chrome profile.
+
+    Matched on the scrape's OWN ``--user-data-dir``, which is a unique mkdtemp
+    path. Deliberately narrow: a blanket "pkill chrome" would kill a concurrent
+    scrape or a human's browser, and Chrome is used by other tooling on this
+    host. A blank profile matches nothing rather than everything.
+    """
+    import glob
+    import os
+
+    if not profile_dir:
+        return []
+    found = []
+    for entry in glob.glob(os.path.join(proc_root, "[0-9]*")):
+        try:
+            with open(os.path.join(entry, "cmdline"), "rb") as fh:
+                cmdline = fh.read().replace(b"\0", b" ").decode("utf-8", "replace")
+        except OSError:
+            continue
+        if profile_dir in cmdline:
+            try:
+                found.append(int(os.path.basename(entry)))
+            except ValueError:
+                continue
+    return sorted(found)
+
+
+def _kill_profile_processes(profile_dir, grace_s=3.0):
+    """Make sure nothing survives holding ``profile_dir``. Never raises.
+
+    ``driver.quit()`` is the only thing that stops headless Chrome, and it is
+    not dependable: when the page errors (this scraper sees repeated SSL
+    failures) quit() can raise or hang and the browser lives on. Two such runs
+    once left 22 orphans holding 1.7 GB.
+    """
+    import os
+    import signal
+    import time
+
+    pids = pids_for_profile(profile_dir)
+    if not pids:
+        return 0
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+    deadline = time.time() + grace_s
+    while time.time() < deadline and pids_for_profile(profile_dir):
+        time.sleep(0.2)
+    # Anything ignoring SIGTERM is already wedged; SIGKILL is the point.
+    stubborn = pids_for_profile(profile_dir)
+    for pid in stubborn:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    _logger.warning(
+        "silver scrape: killed %d leftover Chrome process(es) for %s%s",
+        len(pids), profile_dir,
+        f" ({len(stubborn)} needed SIGKILL)" if stubborn else "",
+    )
+    return len(pids)
+
+
 def _reap_stale_chrome_profiles(max_age_s=3600):
     """Backstop against the disk-fill outage: remove leftover chrome-silver-*
     profile dirs older than *max_age_s*. Each scrape cleans up its own dir, but
@@ -132,6 +198,7 @@ def _reap_stale_chrome_profiles(max_age_s=3600):
     import glob
     import os
     import shutil
+    import signal
     import tempfile
     import time
 
@@ -140,9 +207,29 @@ def _reap_stale_chrome_profiles(max_age_s=3600):
     for path in glob.glob(pattern):
         try:
             if now - os.path.getmtime(path) > max_age_s:
+                # Kill the browser BEFORE removing its profile: deleting the
+                # directory out from under a live Chrome leaves the process
+                # running and unkillable-by-path.
+                _kill_profile_processes(path)
                 shutil.rmtree(path, ignore_errors=True)
         except OSError:
             pass
+
+    # Orphans whose profile dir is already gone keep running forever otherwise
+    # — that is exactly how 22 of them accumulated. Match on the prefix, and
+    # only for processes older than max_age_s so a live scrape is never hit.
+    try:
+        for pid in pids_for_profile(os.path.join(tempfile.gettempdir(),
+                                                 "chrome-silver-")):
+            try:
+                if now - os.path.getmtime(f"/proc/{pid}") > max_age_s:
+                    os.kill(pid, signal.SIGKILL)
+                    _logger.warning(
+                        "silver scrape: reaped orphaned Chrome pid %d", pid)
+            except OSError:
+                pass
+    except Exception:
+        pass
 
 
 def _create_driver():
@@ -235,7 +322,15 @@ def _scrape_silver_price(page_url: str, xpath_selector: str) -> float:
     finally:
         import shutil
 
-        driver.quit()
+        # quit() must never be able to skip the cleanup below it. When the page
+        # errors it can raise or hang, and previously that left both the Chrome
+        # processes AND the profile dir behind.
+        try:
+            driver.quit()
+        except Exception as exc:
+            _logger.warning("silver scrape: driver.quit() failed: %s", exc)
+        # Belt and braces: kill anything still holding this profile.
+        _kill_profile_processes(profile_dir)
         # Chrome leaves the profile dir behind; remove it so it can't accumulate
         # and fill the disk (the outage root cause). Backstopped by the reaper.
         shutil.rmtree(profile_dir, ignore_errors=True)
