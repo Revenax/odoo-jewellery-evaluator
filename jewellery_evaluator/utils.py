@@ -87,7 +87,7 @@ def format_payment_summary(payments) -> str:
     """
     if not payments:
         return ''
-    totals: dict = {}
+    totals: dict[str, float] = {}
     for entry in payments:
         try:
             name, amount = entry
