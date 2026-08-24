@@ -74,6 +74,41 @@ def english_day_name(value) -> str:
         return ''
 
 
+def format_payment_summary(payments) -> str:
+    """How a sale was paid, for a notification body.
+
+    ``payments`` is an iterable of ``(method_name, amount)``. One method renders
+    as just its name — the amount would only repeat the order total already in
+    the message. A SPLIT renders each amount, because there the split is the
+    information: which part actually hit the cash drawer.
+
+    Amounts are absolute: a refund carries negative payments, and "-5,000"
+    beside a refund total already stated positively reads as a mistake.
+    """
+    if not payments:
+        return ''
+    totals: dict = {}
+    for entry in payments:
+        try:
+            name, amount = entry
+        except (TypeError, ValueError):
+            continue
+        name = (name or '').strip()
+        if not name:
+            continue
+        try:
+            totals[name] = totals.get(name, 0.0) + abs(float(amount or 0.0))
+        except (TypeError, ValueError):
+            totals.setdefault(name, 0.0)
+    if not totals:
+        return ''
+    if len(totals) == 1:
+        return next(iter(totals))
+    # Largest first: the dominant tender is what a reader wants up front.
+    ordered = sorted(totals.items(), key=lambda kv: (-kv[1], kv[0]))
+    return ' + '.join(f'{name} {amount:,.0f}' for name, amount in ordered)
+
+
 def format_invoice_weight(jewellery_type, weight_g) -> str:
     """The Weight cell of an invoice line, as text so it can be genuinely empty.
 

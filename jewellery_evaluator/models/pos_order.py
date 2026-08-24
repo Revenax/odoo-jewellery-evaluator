@@ -9,6 +9,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 from .. import pulse
+from ..utils import format_payment_summary
 
 _logger = logging.getLogger(__name__)
 
@@ -118,12 +119,21 @@ class PosOrder(models.Model):
         related="session_id.config_id.require_customer",
     )
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        orders = super().create(vals_list)
-        for order in orders:
-            order._pulse_notify_sale()
-        return orders
+    @api.model
+    def _process_order(self, order, existing_order):
+        """Notify AFTER the order is fully built, payments included.
+
+        The hook used to sit on create(), but core attaches payments later via
+        _process_payment_lines, so the notification could only ever have
+        reported a blank payment method. A re-synced order lands here again;
+        the idempotency key is the order id, so Pulse collapses the repeat.
+        """
+        order_id = super()._process_order(order, existing_order)
+        try:
+            self.browse(order_id)._pulse_notify_sale()
+        except Exception as exc:
+            _logger.warning('[pulse] could not notify order %s: %s', order_id, exc)
+        return order_id
 
     def _pulse_notify_sale(self):
         """Tell Revenax about a completed sale. Never blocks or breaks the sale.
@@ -137,6 +147,9 @@ class PosOrder(models.Model):
             reference = self.pos_reference or self.name
             register = self.session_id.config_id.name or ''
             customer = self.partner_id.name or 'Walk-in'
+            paid_with = format_payment_summary(
+                [(p.payment_method_id.name, p.amount) for p in self.payment_ids]
+            )
             pieces = ', '.join(
                 line.product_id.default_code or line.product_id.name
                 for line in self.lines[:5] if line.product_id
@@ -148,11 +161,11 @@ class PosOrder(models.Model):
                     'refund-issued',
                     'Refund issued',
                     f'{reference} — {abs(total):,.0f} {currency}, {register}, '
-                    f'{customer}',
+                    f'{customer}' + (f' · {paid_with}' if paid_with else ''),
                     {
                         'reference': reference, 'amount': abs(total),
                         'currency': currency, 'register': register,
-                        'posOrderId': self.id,
+                        'paymentMethods': paid_with, 'posOrderId': self.id,
                     },
                     pulse.make_idempotency_key('pos.order', self.id, 'refunded'),
                     env=self.env,
@@ -163,10 +176,12 @@ class PosOrder(models.Model):
                 'order-paid',
                 'Order paid',
                 f'{reference} — {total:,.0f} {currency}, {register}, {customer}'
+                + (f' · {paid_with}' if paid_with else '')
                 + (f' · {pieces}' if pieces else ''),
                 {
                     'reference': reference, 'amount': total, 'currency': currency,
-                    'register': register, 'posOrderId': self.id,
+                    'register': register, 'paymentMethods': paid_with,
+                    'posOrderId': self.id,
                 },
                 pulse.make_idempotency_key('pos.order', self.id, 'paid'),
                 env=self.env,
@@ -180,11 +195,12 @@ class PosOrder(models.Model):
                     'order-large',
                     'Large order',
                     f'{reference} — {total:,.0f} {currency}, {register}, '
-                    f'{customer}',
+                    f'{customer}' + (f' · {paid_with}' if paid_with else ''),
                     {
                         'reference': reference, 'amount': total,
                         'currency': currency, 'threshold': threshold,
-                        'register': register, 'posOrderId': self.id,
+                        'register': register, 'paymentMethods': paid_with,
+                        'posOrderId': self.id,
                     },
                     pulse.make_idempotency_key('pos.order', self.id, 'large'),
                     env=self.env,
