@@ -10,8 +10,8 @@
 <odoo>
     <template id="marjaan_invoice_footer_body">
         <div class="o_footer_content row align-items-center" style="border-top: 2px solid #000; padding-top: 8px; font-size: 10px; color: #555;">
-            <div class="col-5 text-start">
-                Tel: (+2)01000 226 992
+            <div class="col-5 text-start" style="white-space: nowrap;">
+                Tel: +2 010 11 480 480
             </div>
             <div class="col-2 text-center">
                 <img alt="marjaanjewellery.com" style="width:52px;height:52px;"
