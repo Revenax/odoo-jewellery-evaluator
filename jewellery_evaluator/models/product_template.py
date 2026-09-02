@@ -541,6 +541,34 @@ class ProductTemplate(models.Model):
                 record.silver_cost_price = 0.0
                 record.silver_min_sale_price = 0.0
 
+    def _diamond_price_args(self, base_gold_21k_egp, config):
+        """Build the compute_diamond_jewellery_price kwargs for this product.
+
+        Single source of truth for both pricing paths (the on-form compute and
+        the cron batch update) so they cannot drift apart.
+
+        A Center Stone is a loose diamond, not a made-up piece: it has no gold
+        (weight 0) and no ticket markup/discount either — that pair prices a
+        setting and mounting it does not have. Its sale price is therefore just
+        the stone converted to EGP.
+        """
+        self.ensure_one()
+        exchange_rate, fee_per_gram, multiplier, discount, min_pct = config
+        is_cs = self.jewellery_type == 'center_stone'
+        return {
+            'base_gold_price_21k_egp': base_gold_21k_egp,
+            'gold_purity': self.gold_purity or '21K',
+            'weight_g': 0.0 if is_cs else self.jewellery_weight_g,
+            'stone_prices_usd': [
+                s.total_price_usd for s in self.stone_ids if s.total_price_usd > 0
+            ],
+            'exchange_rate_usd': exchange_rate,
+            'fee_per_gram_usd': fee_per_gram,
+            'ticket_multiplier': 1.0 if is_cs else multiplier,
+            'ticket_discount': 0.0 if is_cs else discount,
+            'min_sale_pct': min_pct,
+        }
+
     @api.depends(
         'jewellery_type', 'gold_purity', 'jewellery_weight_g',
         'stone_ids.unit_price_usd', 'stone_ids.total_price_usd',
@@ -553,7 +581,8 @@ class ProductTemplate(models.Model):
         except Exception:
             base_gold_21k_egp = 0.0
 
-        exchange_rate, fee_per_gram, multiplier, discount, min_pct = self._diamond_pricing_config()
+        config = self._diamond_pricing_config()
+        exchange_rate = config[0]
 
         zero = {
             'diamond_total_gold_cost_usd': 0.0,
@@ -588,27 +617,9 @@ class ProductTemplate(models.Model):
                     setattr(record, k, v)
                 continue
 
-            valid_stone_prices = [
-                s.total_price_usd
-                for s in record.stone_ids
-                if s.total_price_usd > 0
-            ]
-
-            # A Center Stone is sold at the stone's own value: no gold, and no
-            # ticket markup/discount either (that pair exists to price the
-            # setting + mounting of a made-up piece). Ticket == stone cost, so
-            # the sale price is simply the stone converted to EGP.
             try:
                 result = compute_diamond_jewellery_price(
-                    base_gold_price_21k_egp=base_gold_21k_egp,
-                    gold_purity=record.gold_purity or '21K',
-                    weight_g=0.0 if is_cs else record.jewellery_weight_g,
-                    stone_prices_usd=valid_stone_prices,
-                    exchange_rate_usd=exchange_rate,
-                    fee_per_gram_usd=fee_per_gram,
-                    ticket_multiplier=1.0 if is_cs else multiplier,
-                    ticket_discount=0.0 if is_cs else discount,
-                    min_sale_pct=min_pct,
+                    **record._diamond_price_args(base_gold_21k_egp, config)
                 )
             except (ValueError, Exception) as e:
                 _logger.warning(
@@ -1471,36 +1482,26 @@ class ProductTemplate(models.Model):
             return (0, 0)
 
         threshold = self._price_update_threshold()
+        # Center Stones carry no gold, so the purity/weight requirement would
+        # skip them entirely — they'd never be repriced by the cron.
         diamond_products = self.filtered(
             lambda p: p.is_diamond_jewellery_product
-            and p.gold_purity
-            and p.jewellery_weight_g
-            and p.jewellery_weight_g > 0
+            and (
+                p.jewellery_type == 'center_stone'
+                or (p.gold_purity and p.jewellery_weight_g and p.jewellery_weight_g > 0)
+            )
         )
         if not diamond_products:
             return (0, len(self))
 
         updated = 0
         skipped = len(self) - len(diamond_products)
-        exchange_rate, fee_per_gram, multiplier, discount, min_pct = self._diamond_pricing_config()
+        config = self._diamond_pricing_config()
 
         for product in diamond_products:
-            valid_stone_prices = [
-                s.total_price_usd
-                for s in product.stone_ids
-                if s.total_price_usd > 0
-            ]
             try:
                 result = compute_diamond_jewellery_price(
-                    base_gold_price_21k_egp=base_gold_21k_egp,
-                    gold_purity=product.gold_purity,
-                    weight_g=product.jewellery_weight_g,
-                    stone_prices_usd=valid_stone_prices,
-                    exchange_rate_usd=exchange_rate,
-                    fee_per_gram_usd=fee_per_gram,
-                    ticket_multiplier=multiplier,
-                    ticket_discount=discount,
-                    min_sale_pct=min_pct,
+                    **product._diamond_price_args(base_gold_21k_egp, config)
                 )
             except (ValueError, Exception) as e:
                 _logger.warning(
