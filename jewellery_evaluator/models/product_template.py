@@ -594,6 +594,10 @@ class ProductTemplate(models.Model):
                 if s.total_price_usd > 0
             ]
 
+            # A Center Stone is sold at the stone's own value: no gold, and no
+            # ticket markup/discount either (that pair exists to price the
+            # setting + mounting of a made-up piece). Ticket == stone cost, so
+            # the sale price is simply the stone converted to EGP.
             try:
                 result = compute_diamond_jewellery_price(
                     base_gold_price_21k_egp=base_gold_21k_egp,
@@ -602,8 +606,8 @@ class ProductTemplate(models.Model):
                     stone_prices_usd=valid_stone_prices,
                     exchange_rate_usd=exchange_rate,
                     fee_per_gram_usd=fee_per_gram,
-                    ticket_multiplier=multiplier,
-                    ticket_discount=discount,
+                    ticket_multiplier=1.0 if is_cs else multiplier,
+                    ticket_discount=0.0 if is_cs else discount,
                     min_sale_pct=min_pct,
                 )
             except (ValueError, Exception) as e:

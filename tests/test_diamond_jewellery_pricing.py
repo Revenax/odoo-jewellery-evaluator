@@ -262,3 +262,83 @@ class TestComputeDiamondJewelleryPrice:
             raise AssertionError('Expected ValueError')
         except ValueError:
             pass
+
+
+# ── Center Stone: stone value only, no ticket markup/discount ────────────────
+# The model passes weight 0, multiplier 1 and discount 0 for jewellery_type
+# 'center_stone' (product_template._compute_diamond_jewellery_prices), so the
+# sale price is the stone converted straight to EGP.
+
+def _center_stone(stone_prices_usd, fx=48.0, min_sale_pct=0.9):
+    return compute_diamond_jewellery_price(
+        base_gold_price_21k_egp=4500.0,
+        gold_purity='21K',
+        weight_g=0.0,
+        stone_prices_usd=stone_prices_usd,
+        exchange_rate_usd=fx,
+        fee_per_gram_usd=12.0,
+        ticket_multiplier=1.0,
+        ticket_discount=0.0,
+        min_sale_pct=min_sale_pct,
+    )
+
+
+def test_center_stone_is_the_stone_converted_to_egp():
+    r = _center_stone([1000.0], fx=48.0)
+    assert r['total_gold_cost_usd'] == 0.0
+    assert r['total_stones_cost_usd'] == 1000.0
+    assert r['ticket_price_usd'] == 1000.0
+    assert r['sale_price_usd'] == 1000.0
+    assert r['sale_price_egp'] == 48000.0
+
+
+def test_center_stone_ignores_gold_base_and_fee():
+    """Weight 0 means neither the gold base nor the per-gram fee can leak in."""
+    a = _center_stone([1000.0])
+    b = compute_diamond_jewellery_price(
+        base_gold_price_21k_egp=99999.0,
+        gold_purity='24K',
+        weight_g=0.0,
+        stone_prices_usd=[1000.0],
+        exchange_rate_usd=48.0,
+        fee_per_gram_usd=999.0,
+        ticket_multiplier=1.0,
+        ticket_discount=0.0,
+        min_sale_pct=0.9,
+    )
+    assert a == b
+
+
+def test_center_stone_no_longer_applies_ticket_markup():
+    """Old behaviour was stone x 2.8 x (1 - 0.5); the new one drops both."""
+    old = compute_diamond_jewellery_price(
+        base_gold_price_21k_egp=4500.0,
+        gold_purity='21K',
+        weight_g=0.0,
+        stone_prices_usd=[1000.0],
+        exchange_rate_usd=48.0,
+        fee_per_gram_usd=12.0,
+        ticket_multiplier=2.8,
+        ticket_discount=0.5,
+        min_sale_pct=0.9,
+    )
+    assert old['sale_price_egp'] == 67200.0
+    assert _center_stone([1000.0])['sale_price_egp'] == 48000.0
+
+
+def test_center_stone_sums_multiple_stone_rows():
+    r = _center_stone([600.0, 400.25], fx=48.0)
+    assert r['total_stones_cost_usd'] == 1000.25
+    # 1000.25 x 48 = 48012.0 -> nearest 50
+    assert r['sale_price_egp'] == 48000.0
+
+
+def test_center_stone_floor_is_pct_of_sale():
+    r = _center_stone([1000.0], fx=48.0, min_sale_pct=0.9)
+    assert r['min_sale_price_egp'] == 43200.0
+
+
+def test_center_stone_with_no_priced_stone_is_zero():
+    r = _center_stone([])
+    assert r['sale_price_egp'] == 0.0
+    assert r['min_sale_price_egp'] == 0.0
