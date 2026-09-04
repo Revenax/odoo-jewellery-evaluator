@@ -52,6 +52,11 @@ GOLD_PURITY_FACTORS = {
 # rules (hide-when-sold, block re-sale, on-hand invariant) to unique pieces only.
 _SERIAL_SKU_RE = re.compile(r'-[0-9]{4}[AB]?$')
 
+# The same pattern as a Postgres regex, for the partial UNIQUE index that stops
+# two concurrent syncs from both creating the same unique piece (see
+# ProductTemplate.init). Kept beside _SERIAL_SKU_RE so the two cannot drift.
+SERIAL_SKU_SQL_REGEX = '-[0-9]{4}[AB]?$'
+
 
 # Day names for NOTIFICATIONS. The POS day book renders Arabic (it mirrors the
 # paper ledger), but anything Pulse sends stays ASCII: a lock screen, an inbox

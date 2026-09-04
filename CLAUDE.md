@@ -119,3 +119,103 @@ The ops side ([marjaan-operations-server/server.js](../marjaan/marjaan-operation
 **PDF headers/footers need patched-Qt wkhtmltopdf:** Ubuntu's distro `wkhtmltopdf` (`/usr/bin`, 0.12.6 *without* patched qt) silently drops `--header-html`/`--footer-html`, so page headers and footers never render (the report body still does). The prod box has the **patched build installed at `/usr/local/bin/wkhtmltopdf` (`0.12.6.1 (with patched qt)`)**, which is first on PATH. **This is a server-side install, NOT in git — if the EC2 box is rebuilt it must be reinstalled** (jammy `.deb` from the wkhtmltopdf releases) or invoice headers/footers will silently break again. The gold invoice uses a deliberately **blank header** (Marjaan prints on pre-printed letterhead) — see `external_layout_gold.xml` — plus a custom 3-column page footer.
 
 **Odoo self-healing (watchdog) — server-side, NOT auto-deployed:** the stock `odoo.service` had **no `Restart=`**, so any process death (crash, failed start, OOM kill on the 3.7 GB / **zero-swap** box) left Odoo `failed` until a human ran `systemctl restart odoo` — the recurring "502, odoo down again". Fixed by [scripts/install-odoo-watchdog.sh](scripts/install-odoo-watchdog.sh): a `Restart=on-failure` systemd drop-in (auto-restart in 5 s) **plus** a 1-minute watchdog timer (`/opt/odoo/odoo-watchdog.sh`) that restarts Odoo if it's `failed` or `active`-but-unresponsive (502/hung) — the case `Restart=` can't see. The watchdog is **deploy-safe** (ignores the brief `inactive`/`activating` states a deploy produces). **Like wkhtmltopdf, this is installed on the box, not in the deploy path — re-run `install-odoo-watchdog.sh` if the EC2 box is rebuilt.** The original trigger was *overlapping* `remote-deploy.sh` runs (each stop/starting Odoo) flapping a transient `passlib` import failure; `deploy.yml` now has a `concurrency` group to serialize deploys.
+
+## The physical day book (`PHYSICAL_LEDGER/`) — reading and transcribing it
+
+The handwritten Arabic day book (دفتر اليومية) is the **source of truth** for the
+business. Odoo is reconciled *against* it, never the other way round. Everything below
+was learned the hard way transcribing 53 pages (26 Jun – 16 Aug 2026); re-derive none of it.
+
+### Page anatomy
+
+- Each photo in `PHYSICAL_LEDGER/` is named for its page date (`YYYY-MM-DD.jpeg`; a
+  second page for one day gets `-1` / `-2`).
+- Every page carries a **red 6-digit serial**. For this set they run **000003–000055
+  with no gaps** — the serial is the strongest integrity check available: it proves no
+  page is missing or duplicated, and it dates a page whose digits are unreadable.
+- **Read the date from the day-name + serial position, not the digits.** Five filenames
+  were initially wrong from digit-reading alone (٤ read as ١٤, ٣٠ as ٢٠). The red Arabic
+  day name cross-checked against the 2026 calendar settles it.
+
+### Column geometry (memorise — getting this wrong silently corrupts everything)
+
+Printed header, read **left to right** across the page:
+
+```
+ملاحظات | مصدر | بيــان | فئة | جرام | مللي | منصرف | وارد
+```
+
+- **وارد (money in) is the RIGHTMOST column; ملاحظات is leftmost.**
+- **جرام sits to the LEFT of مللي.** Do not swap them.
+- `جرام` + `مللي` are the two halves of ONE weight (جرام=10, مللي=91 → 10.91 g).
+  Keep them in **separate** columns and do no arithmetic on them.
+- `فئة` is karat (18/21/22/24) and is empty on many pages.
+- `مصدر`: بيع = sale, مشترى/مشتري = purchase, مرجوع/مرتجع = return, حل, شغل, قلب.
+
+### Notation — three conventions that cause silent, order-of-magnitude errors
+
+1. **Separators are THOUSANDS, not decimals.** `٤٧٫٧٠٠` is **47700**, never 47.7 or 4770.
+2. **The trailing tail is two different marks:** a **wavy tail = two zeros (`00`)**, a
+   **small comma/dot = one zero (`0`)**. This was the single largest source of ×10
+   errors across the whole ledger (81 of 615 cross-pass disagreements).
+3. **Money is often BRACKET-GROUPED:** a `}` spans several rows and **one** figure covers
+   the whole group, written on the group's **top** row. A blank money cell frequently
+   means "included in the brace above", not zero.
+
+### The bottom figure is NOT a page total
+
+Rows at the foot of a page look like totals but are **carried / cumulative balances**.
+Proof: `2026-06-30` shows 7,169,450 against entries summing to 1,155,760; `2026-06-28`
+shows 2,244,670 against a page وارد sum of 296,230. **Do not reconcile a page against
+them, and do not treat them as daily takings when comparing to Odoo.** A solver that
+used them to "prove" ambiguous digits by arithmetic was built and correctly found
+nothing — the constraint does not exist.
+
+### Sanity band — as a re-read trigger only, never a correction
+
+Implied EGP per gram, 2026: **bars ~4,500 · jewellery ~5,600–7,000 · coins ~10,100–10,650**.
+A single 4,000–10,000 band is too crude (coins legitimately exceed it).
+If a row falls far outside its band, **re-read it** — but if the digits really are what
+they are, **keep them as written and flag**. Never bend a figure to satisfy the check.
+
+### Handwriting traps
+
+`٤` vs `١٤` · `٣٠` vs `٢٠` · `٥`/`٦`/`٠` · `٧`/`٨` · `١١`/`١٧`.
+Eastern Arabic digits throughout: `٠١٢٣٤٥٦٧٨٩` = `0123456789`.
+
+### Transcription methodology (the important lesson)
+
+**A single pass's own confidence flags are not trustworthy.** They catch illegibility but
+are blind to being *confidently wrong*. Measured on this ledger: pass A self-flagged only
+80 `grams` cells across 779 rows, yet an independent second pass **disagreed on 122**.
+
+Use **N independent passes and diff them.** Agreement between blind reads is real
+evidence; self-assessment is not.
+
+| passes | result |
+|---|---|
+| 1 (self-flagged) | looked ~47% trustworthy — overstated |
+| 2 (diffed) | **300/779 rows (39%)** agree on every number |
+| 3 (June only) | **556/695 cells (80%)** triple-confirmed; 56 cells unresolvable |
+
+Practical rules for any future run:
+- Give each pass **enlarged crops** of the numeric columns; at 960×1280 the raw page is
+  at the limit of legibility. Enlargement helps the reader resolve strokes but **adds no
+  information** — it cannot recover what compression destroyed.
+- Diff **per cell**, not per row, and report `CONFIRMED` / `MAJORITY` / `UNRESOLVED`.
+- Ship the unresolved cells as an explicit worklist with every candidate reading, so a
+  human settles a short finite list instead of re-checking everything.
+
+### Image quality is the binding constraint
+
+The photos are WhatsApp-compressed (960×1280 / 1200×1600, EXIF stripped) and the
+originals no longer exist. **No processing recovers that detail.** If more accuracy is
+ever needed, re-photograph the book at full camera resolution — that is worth more than
+any number of extra passes.
+
+### Artifacts
+
+- `PHYSICAL_LEDGER_TRANSCRIPTION.xlsx` — all 53 pages, 779 rows, passes A and B side by
+  side, disagreements highlighted; sheets `Confirmed` (300) and `Needs human` (479).
+- `JUNE_LEDGER_VERIFIED.xlsx` — June only, three passes, per-cell consensus, plus
+  `Cells needing the book` (the 56 genuinely unresolved cells).

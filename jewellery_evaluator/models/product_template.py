@@ -9,6 +9,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 from ..utils import (
+    SERIAL_SKU_SQL_REGEX,
     _get_diamond_config_float,
     compute_diamond_jewellery_price,
     compute_diamond_weight_g,
@@ -435,6 +436,64 @@ class ProductTemplate(models.Model):
             template.is_unique_jewellery_piece = bool(
                 template.jewellery_type
             ) and is_serial_sku(code)
+
+    _SKU_UNIQ_INDEX = 'product_template_jewellery_sku_uniq'
+
+    def init(self):
+        """Make it IMPOSSIBLE for one unique piece to exist twice.
+
+        The ops sync resolves a SKU with ``search`` and then ``create``s when it
+        finds nothing. That is a check-then-act race: the registration sync and
+        the reconcile sweep can run it concurrently for the same SKU, both find
+        nothing, and both create — which is exactly how 11 SKUs ended up with two
+        product records (3 of them showing 2 on hand for a one-of-a-kind piece).
+        No amount of application-side care closes that window; only the database
+        can. This partial unique index does.
+
+        Scoped to ACTIVE rows with a serial SKU (``PREFIX-NNNN`` + optional A/B),
+        so archived history and non-unique goods (sell-by-weight, scrap) are
+        untouched.
+
+        Creating the index FAILS while duplicates still exist. That must not
+        block a module upgrade — prod would refuse to start — so it is attempted
+        in a savepoint and, on failure, logs the offending SKUs loudly and
+        carries on. Clean those up and the next upgrade installs the guard.
+        """
+        super().init()
+        try:
+            with self.env.cr.savepoint():
+                # The index NAME is a module constant, never user input; the
+                # regex is bound as a parameter.
+                self.env.cr.execute(
+                    f"""
+                    CREATE UNIQUE INDEX IF NOT EXISTS {self._SKU_UNIQ_INDEX}
+                        ON product_template (default_code)
+                     WHERE active
+                       AND default_code IS NOT NULL
+                       AND default_code ~ %s
+                    """,
+                    (SERIAL_SKU_SQL_REGEX,),
+                )
+        except Exception as exc:  # pragma: no cover - needs a live duplicate
+            self.env.cr.execute(
+                """
+                SELECT default_code, count(*), array_agg(id ORDER BY id)
+                  FROM product_template
+                 WHERE active AND default_code IS NOT NULL
+                   AND default_code ~ %s
+                 GROUP BY default_code HAVING count(*) > 1
+                 ORDER BY default_code
+                """,
+                (SERIAL_SKU_SQL_REGEX,),
+            )
+            dups = self.env.cr.fetchall()
+            _logger.error(
+                "[jewellery] duplicate-SKU guard NOT installed (%s). "
+                "%d SKU(s) already exist more than once: %s. "
+                "Resolve these and re-run the upgrade to install the index.",
+                exc, len(dups),
+                ', '.join(f'{d[0]} x{d[1]} (ids {d[2]})' for d in dups) or '(none found)',
+            )
 
     @api.model
     def _load_pos_data_domain(self, data, config):
