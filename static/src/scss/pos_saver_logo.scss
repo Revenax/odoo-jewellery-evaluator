@@ -1,0 +1,10 @@
+// POS screen saver: the Marjaan monogram instead of the Odoo logo.
+//
+// The saver (point_of_sale.SaverScreen) draws its logo as a `.pos-logo` div whose
+// image comes from the `--navbar-logo` CSS variable. The navbar logo uses the
+// same class, so this is scoped to `.login-overlay` (the saver's wrapper) and
+// leaves the navbar alone. Two classes also out-rank pos_enterprise's dark-mode
+// `.pos-logo { --navbar-logo: ... }` override.
+.login-overlay .pos-logo {
+    --navbar-logo: url("/jewellery_evaluator/static/src/img/marjaan_logo.png");
+}

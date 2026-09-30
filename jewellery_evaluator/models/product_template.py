@@ -1519,7 +1519,11 @@ class ProductTemplate(models.Model):
                 skipped += 1
                 continue
 
-            product.write({
+            # tracking_disable: this runs for every product on every price tick.
+            # With chatter tracking on, each write logged a 'price changed'
+            # message: 1.5M of them (~1 GB of a 1.17 GB database) that nobody
+            # reads. Human edits in the form keep their tracking.
+            product.with_context(tracking_disable=True).write({
                 'list_price': sale_price,
                 'gold_cost_price': cost_price,
                 'gold_min_sale_price': min_sale_price,
@@ -1579,7 +1583,7 @@ class ProductTemplate(models.Model):
                 skipped += 1
                 continue
 
-            product.write({
+            product.with_context(tracking_disable=True).write({
                 'list_price': result['sale_price_egp'],
                 'diamond_total_gold_cost_usd':   result['total_gold_cost_usd'],
                 'diamond_total_stones_cost_usd':  result['total_stones_cost_usd'],
@@ -1633,7 +1637,7 @@ class ProductTemplate(models.Model):
                     and abs(min_sale_price - (product.silver_min_sale_price or 0.0)) < 0.005):
                 skipped += 1
                 continue
-            product.write({
+            product.with_context(tracking_disable=True).write({
                 'list_price': sale_price,
                 'silver_cost_price': cost_price,
                 'silver_min_sale_price': min_sale_price,
