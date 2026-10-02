@@ -114,6 +114,29 @@ def format_payment_summary(payments) -> str:
     return ' + '.join(f'{name} {amount:,.0f}' for name, amount in ordered)
 
 
+def invoice_print_units(display_type, quantity) -> int:
+    """How many rows an invoice line prints as: one per physical piece.
+
+    Marjaan never shows a quantity on an invoice. When the register rings up
+    three identical 1 g bars as ONE line (qty 3), printing it once read as
+    "1.00g ... 21,810 EGP" — one bar at three bars' price (MJ-1442). So a
+    product line with a whole quantity above 1 prints that many identical rows,
+    each with the unit value.
+
+    Anything else prints once: a fractional quantity is a weight (sold by the
+    gram), not a count of pieces, and section/note lines carry no product.
+    """
+    if display_type != 'product':
+        return 1
+    try:
+        q = float(quantity or 0)
+    except (TypeError, ValueError):
+        return 1
+    if q > 1 and q == int(q):
+        return int(q)
+    return 1
+
+
 def format_invoice_weight(jewellery_type, weight_g) -> str:
     """The Weight cell of an invoice line, as text so it can be genuinely empty.
 

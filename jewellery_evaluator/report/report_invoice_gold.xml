@@ -146,12 +146,22 @@
         <!-- Value cell -> "32,000 EGP" (hidden on the gift invoice) -->
         <xpath expr="//td[@name='td_subtotal']" position="replace">
             <td name="td_subtotal" class="text-end" t-if="not jew_gift">
-                <span t-out="line.price_subtotal" t-options="{'widget': 'float', 'precision': 0}"/> EGP
+                <span t-out="line.price_subtotal / (line.jewellery_print_units or 1)" t-options="{'widget': 'float', 'precision': 0}"/> EGP
             </td>
         </xpath>
         <!-- Remove Quantity + Unit Price cells -->
         <xpath expr="//td[@name='td_quantity']" position="replace"/>
         <xpath expr="//td[@name='td_price_unit']" position="replace"/>
+
+        <!-- ── One row per piece: never print a merged quantity. A line of
+             3 identical bars prints as 3 rows at the unit value (MJ-1442 had
+             printed one "1.00g / 21,810" row for three bars). The rule is
+             utils.invoice_print_units (tests/test_invoice_print_units.py);
+             weight-sold (fractional) lines still print once. ── -->
+        <xpath expr="//td[@name='account_invoice_line_name']/ancestor::tr[1]" position="attributes">
+            <attribute name="t-foreach">range(line.jewellery_print_units or 1)</attribute>
+            <attribute name="t-as">jew_unit</attribute>
+        </xpath>
 
         <!-- ── Stone rows: one per stone under a diamond line, detail in the
              Weight column; SKU/Desc/Karat/Value cells blank.

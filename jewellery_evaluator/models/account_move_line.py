@@ -5,7 +5,7 @@
 
 from odoo import api, fields, models
 
-from ..utils import format_invoice_weight
+from ..utils import format_invoice_weight, invoice_print_units
 
 # Same selections as product.template for display on invoice
 GOLD_PURITY_SELECTION = [
@@ -66,6 +66,15 @@ class AccountMoveLine(models.Model):
              'Stone (a loose diamond with no gold) can show a genuinely blank '
              'cell instead of 0.00.',
     )
+
+    # One printed row per physical piece, so an invoice never shows a merged
+    # quantity — see utils.invoice_print_units. Used by report_invoice_gold.
+    jewellery_print_units = fields.Integer(compute='_compute_jewellery_print_units')
+
+    @api.depends('display_type', 'quantity')
+    def _compute_jewellery_print_units(self):
+        for line in self:
+            line.jewellery_print_units = invoice_print_units(line.display_type, line.quantity)
 
     gold_purity = fields.Selection(
         selection=GOLD_PURITY_SELECTION,
