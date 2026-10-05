@@ -149,5 +149,40 @@ if GSC_TOKEN not in head:
     W.custom_code_head = f'<meta name="google-site-verification" content="{GSC_TOKEN}"/>\n' + head
     log('Search Console verification meta tag added (keeps the property verified after cutover)')
 
+# ── /refund-policy: the homepage links it; it 404'd ─────────────────────
+# Text = the owner's live Shopify policy (marjaanjewellery.com/policies/
+# refund-policy, 2026-10-06), unchanged. Platform-neutral, unlike Shopify's
+# generated privacy policy, which describes Shopify and needs the owner.
+REFUND_ARCH = '''<t name="Returns and Refunds Policy" t-name="website.refund_policy">
+    <t t-call="website.layout">
+        <div id="wrap" class="oe_structure">
+            <section class="pt8 pb48">
+                <div class="container">
+                    <h1 class="pt16 h2-fs">Returns and Refunds Policy</h1>
+                    <p>We want you to be completely satisfied with your purchase. If you need to return or exchange an item, please review our policy below:</p>
+                    <h2 class="h4 mt-4">Eligibility for Returns</h2>
+                    <p>To be eligible for a return or refund, products must be returned in their original condition, with the attached label and packaging. An order receipt (either soft or hard copy) must also be included.</p>
+                    <h2 class="h4 mt-4">Full Refund</h2>
+                    <p>A full refund is available if the return is initiated within 24 hours of receiving your order.</p>
+                    <h2 class="h4 mt-4">Refund Within 14 Days</h2>
+                    <p>If you wish to return the product within 14 days but after the initial 24 hours, a refund will be processed with a deduction of 10% of the product price.</p>
+                    <h2 class="h4 mt-4">Exchanges</h2>
+                    <p>Exchanges are available within 14 days from the date of purchase and do not incur any deductions from the product price.</p>
+                    <h2 class="h4 mt-4">How to Initiate a Return or Exchange</h2>
+                    <p>To initiate a return or exchange, please contact our customer service at <a href="mailto:info@marjaanjewellery.com">info@marjaanjewellery.com</a> with your order number and details regarding the product you wish to return or exchange.</p>
+                    <p>We appreciate your understanding and are here to help ensure your shopping experience is enjoyable!</p>
+                </div>
+            </section>
+        </div>
+    </t>
+</t>'''
+if not env['website.page'].search([('url', '=', '/refund-policy'), ('website_id', 'in', [W.id, False])]):
+    env['website.page'].create({
+        'name': 'Returns and Refunds Policy', 'url': '/refund-policy', 'website_id': W.id,
+        'type': 'qweb', 'key': 'website.refund_policy', 'arch': REFUND_ARCH,
+        'is_published': True, 'website_indexed': True,
+    })
+    log('page /refund-policy created from the live Shopify policy text')
+
 env.cr.commit()
 print('CFG done,', len(LOG), 'changes')

@@ -149,12 +149,22 @@ def public_category_keys(category_name, is_new=False):
     return keys
 
 
-def should_publish(active, sale_ok, has_image, price, on_hand, sellable_category):
+def should_publish(active, sale_ok, has_image, price, free_qty, sellable_category):
     """A piece is on the website exactly when a customer could actually buy it:
-    a sellable category, a photo, a real price, and at least one in stock.
-    Sold one-of-a-kind pieces (on hand 0) come off; nothing is shown without a
-    photo or at 0 EGP."""
+    a sellable category, a photo, a real price, and at least one free in stock.
+    Sold or reserved one-of-a-kind pieces (free 0) come off; nothing is shown
+    without a photo or at 0 EGP."""
     return bool(
         active and sale_ok and sellable_category and has_image
-        and (price or 0) > 0 and (on_hand or 0) >= 1
+        and (price or 0) > 0 and (free_qty or 0) >= 1
     )
+
+
+def web_order_summary(reference, total, currency, delivery, store, payment, skus, customer):
+    """One line telling the boutique a web order needs action, e.g.
+    "S00012 — 514,400 EGP · Pick up in store: Sway Mall · Pay on Site · DRL8-0149 · Sara".
+    Lists at most five pieces; empty parts are left out."""
+    pieces = ', '.join(skus[:5]) + (f' +{len(skus) - 5} more' if len(skus) > 5 else '')
+    where = f'{delivery}: {store}' if delivery and store else (delivery or store)
+    parts = [f'{reference} — {total:,.0f} {currency}', where, payment, pieces, customer]
+    return ' · '.join(part for part in parts if part)

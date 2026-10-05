@@ -100,3 +100,20 @@ class TestShouldPublish:
 
     def test_unmapped_category(self):
         assert not wu.should_publish(True, True, True, 1, 1, False)
+
+
+class TestWebOrderSummary:
+    def test_pickup_order(self):
+        assert wu.web_order_summary(
+            "S00012", 514400, "EGP", "Pick up in store", "Sway Mall", "Pay on Site", ["DRL8-0149"], "Sara",
+        ) == "S00012 — 514,400 EGP · Pick up in store: Sway Mall · Pay on Site · DRL8-0149 · Sara"
+
+    def test_delivery_without_store_or_payment(self):
+        assert wu.web_order_summary(
+            "S00013", 16000.4, "EGP", "Standard delivery", "", "", ["GNL8-0001", "GNL8-0002"], "",
+        ) == "S00013 — 16,000 EGP · Standard delivery · GNL8-0001, GNL8-0002"
+
+    def test_long_orders_list_five_pieces(self):
+        skus = [f"SKU-{i}" for i in range(7)]
+        line = wu.web_order_summary("S1", 1, "EGP", "", "", "", skus, "")
+        assert line.endswith("SKU-0, SKU-1, SKU-2, SKU-3, SKU-4 +2 more")

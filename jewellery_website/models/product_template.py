@@ -122,13 +122,15 @@ class ProductTemplate(models.Model):
         if not templates:
             return {}
 
-        on_hand = defaultdict(float)
-        for product, qty in self.env['stock.quant'].sudo()._read_group(
+        # Free stock, not on-hand: a piece reserved by a confirmed web order (or
+        # an inter-branch transfer) is already spoken for and must leave the shop.
+        free = defaultdict(float)
+        for product, qty, reserved in self.env['stock.quant'].sudo()._read_group(
             [('location_id.usage', '=', 'internal'),
              ('product_id.product_tmpl_id', 'in', templates.ids)],
-            ['product_id'], ['quantity:sum'],
+            ['product_id'], ['quantity:sum', 'reserved_quantity:sum'],
         ):
-            on_hand[product.product_tmpl_id.id] += qty
+            free[product.product_tmpl_id.id] += qty - reserved
 
         # Existence check only: reading image_1920 for every product would pull
         # the binaries off disk.
@@ -145,7 +147,7 @@ class ProductTemplate(models.Model):
             wanted = {nodes[k].id for k in keys}
             publish = should_publish(
                 tmpl.active, tmpl.sale_ok, tmpl.id in with_image,
-                tmpl.list_price, on_hand[tmpl.id], bool(keys),
+                tmpl.list_price, free[tmpl.id], bool(keys),
             )
             current = set(tmpl.public_categ_ids.ids)
             # Keep any category the owner added by hand; only ours are managed.
