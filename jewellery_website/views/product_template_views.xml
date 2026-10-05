@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Show the website title and the auto-publish switch next to the eCommerce
+         categories, so staff can see why a piece is (not) on the website. -->
+    <record id="product_template_form_website_catalog" model="ir.ui.view">
+        <field name="name">product.template.form.website.catalog</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="website_sale.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='public_categ_ids']" position="before">
+                <field name="website_title"/>
+                <field name="website_catalog_managed"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

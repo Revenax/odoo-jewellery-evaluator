@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Products are named by SKU for the till. Everywhere the shop prints a
+         product name, show the customer-facing website_title instead (it falls
+         back to the name, so non-jewellery products are unaffected). -->
+
+    <template id="products_item_title" inherit_id="website_sale.products_item">
+        <xpath expr="//a[@t-att-title='product.name']" position="attributes">
+            <attribute name="t-att-title">product.website_title or product.name</attribute>
+        </xpath>
+        <xpath expr="//h2[hasclass('o_wsale_products_item_title')]//span[@t-field='product.name']" position="replace">
+            <span t-out="product.website_title or product.name"/>
+        </xpath>
+    </template>
+
+    <template id="product_page_title" inherit_id="website_sale.product">
+        <xpath expr="//t[@t-set='additional_title']" position="attributes">
+            <attribute name="t-value">product.website_title or product.name</attribute>
+        </xpath>
+        <xpath expr="//li[hasclass('breadcrumb-item')]/span[@t-field='product.name']" position="replace">
+            <span t-out="product.website_title or product.name"/>
+        </xpath>
+    </template>
+
+    <template id="product_title_heading" inherit_id="website_sale.product_title">
+        <xpath expr="//h1[@t-field='product.name']" position="attributes">
+            <attribute name="t-field"/>
+            <attribute name="t-out">product.website_title or product.name</attribute>
+        </xpath>
+        <!-- Jewellery details under the title: what a customer asks before buying. -->
+        <xpath expr="//h1[@t-out='product.website_title or product.name']" position="after">
+            <ul t-if="product.jewellery_type" class="list-unstyled small mb-3 o_jewellery_specs">
+                <li t-if="product.default_code">
+                    <span class="text-muted">Reference</span>
+                    <span class="ms-1" t-out="product.default_code"/>
+                </li>
+                <li t-if="product.gold_purity and product.jewellery_type != 'center_stone'">
+                    <span class="text-muted">Karat</span>
+                    <span class="ms-1" t-out="product.gold_purity"/>
+                    <span t-if="product.jewellery_type == 'diamond_jewellery'"> gold</span>
+                </li>
+                <li t-if="product.jewellery_weight_g and product.jewellery_type != 'center_stone'">
+                    <span class="text-muted">Weight</span>
+                    <span class="ms-1" t-out="'%.2f g' % product.jewellery_weight_g"/>
+                </li>
+                <!-- sudo: visitors may not read jewellery.stone (it holds stone COST
+                     prices). Read server-side and print only shape, count, carat,
+                     colour and clarity; never grant the public an ACL on it. -->
+                <t t-foreach="product.sudo().stone_ids" t-as="stone">
+                    <li>
+                        <span class="text-muted">Stone</span>
+                        <span class="ms-1">
+                            <t t-out="stone.quantity"/> ×
+                            <span t-field="stone.shape"/> diamond,
+                            <t t-out="'%.2f ct' % stone.total_carat"/>
+                            <t t-if="stone.color or stone.clarity">
+                                (<t t-out="' / '.join(x for x in [stone.color or '', stone.clarity or ''] if x)"/>)
+                            </t>
+                        </span>
+                    </li>
+                </t>
+            </ul>
+        </xpath>
+    </template>
+</odoo>

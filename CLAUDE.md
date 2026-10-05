@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-This repo holds two Odoo 19 Community modules:
+This repo holds three Odoo 19 modules (prod runs Enterprise):
 
 - **`jewellery_evaluator`** (the main one): adds gold/silver/diamond pricing to `product.template`, auto-updates prices from live sources via cron, and enforces minimum sale prices in the POS. It is packaged using a trick — **the repo root itself is this module** (see Packaging below).
 - **`jewellery_inventory_management`** ([jewellery_inventory_management/](jewellery_inventory_management/)): a thin module that `depends` on `jewellery_evaluator` and reuses its security groups. Minimal so far — one model, `jewellery.inventory.count` (a stock-count entry linked to a `product.template`), plus a list/form view and menu. Unlike `jewellery_evaluator` it uses a **standard Odoo layout** (its own `__manifest__.py` + `__init__.py` at the module dir).
@@ -103,6 +103,15 @@ The ops side ([marjaan-operations-server/server.js](../marjaan/marjaan-operation
 ### Purchasing (bulk gold / bars-coins / scrap)
 
 [models/jewellery_purchase.py](jewellery_evaluator/models/jewellery_purchase.py) (extends `product.template`) adds `create_purchase_receipt(items, warehouse_code=None, origin=None, vendor_ref=None, settle_from_vault=False)` — **one PO + one validated receipt** for items matched by SKU (resolved up front, atomic; **idempotent per `origin`**; reuses the buy-back confirm/assign/pick/validate flow; returns `[{sku, product_id, name, qty}]`), and `jewellery_market_value(grams, purity='21K', gold_type='jewellery_local')` → `{base_21k, cost, sale, min_sale}` reference. Vendor = `partner_bulk_supplier` ([data/bulk_supplier_vendor.xml](jewellery_evaluator/data/bulk_supplier_vendor.xml)). Driven by the ops app's `/api/purchase/*` endpoints: **bars/coins/scrap** are pre-seeded SKUs → receipt only; **bulk** creates the pieces (Neon + Odoo) and their normal sync sets on-hand to 1 — it does **NOT** also run a receipt (that would double-count, since the sync already stocks them).
+
+### Website shop (`jewellery_website`, third module)
+
+[jewellery_website/](jewellery_website/) (standard layout, nested like `jewellery_inventory_management`, listed in `remote-deploy.sh` `SUBMODULES`) wires the eCommerce shop to the live catalogue. Kept separate so the POS/pricing module never depends on `website_sale`.
+- **Titles:** products are named by SKU for the till (the ops sync sets name = SKU). `product.template.website_title` (stored compute, rules in [website_utils.py](jewellery_website/website_utils.py), tested in `tests/test_website_catalog.py`) builds "18K Gold Ring · 4.45 g" / "Diamond Ring · 18K Gold · 0.52 ct" from **`categ_id.complete_name`** (categories are hierarchical: name is just "Ring"). Shown on shop cards, product page, breadcrumb, `<title>`, search, cart (`name_short`) and order lines; `seo_name` is set once from it for clean URLs.
+- **Catalogue sync** (`cron_sync_website_catalog`, every 15 min, 0.2 s when nothing changed): builds/adopts the eCommerce category tree (mirrors the Shopify collections; nodes get `jewellery_website.public_categ_*` xmlids), assigns categories from the internal category, and **publishes a piece exactly while it is in stock with a photo and a price** — a sold unique piece comes off within 15 min. Forces `allow_out_of_stock_order=False` (Odoo defaults it to True — a one-of-a-kind piece could otherwise sell twice). Owner-added categories and `website_catalog_managed=False` products are left alone.
+- **Product page specs** read stones via `product.sudo().stone_ids`: visitors have **no ACL on `jewellery.stone`** and must never get one — it holds stone **cost** prices (`unit_price_usd`/`total_price_usd`). Without sudo every diamond page 403s.
+- One-time shop config is [scripts/website/configure_shop.py](scripts/website/configure_shop.py) (signup, guest checkout, newest-first, no COD, free shipping Egypt-only, menus → real categories, 301s from the engineer's static mock-up URLs, theme demo categories removed). Open blockers are tracked in [docs/website-launch.md](docs/website-launch.md).
+- **Testing on a copy:** restore a nightly dump into a scratch DB and run Odoo with `--no-http --workers=0 --max-cron-threads=0`. `/etc/odoo.conf` pins `db_name = marjaan`; without it the production cron worker runs every job on any database it can see (it did, on 2026-10-05 — Pulse rejected the duplicate daily summary via its idempotency key).
 
 ## Packaging & deployment
 

@@ -13,7 +13,7 @@ fi
 
 # Modules that live as normal subdirectories of the repo (space-separated).
 # Unlike MODULE_NAME (the repo root itself), these are staged from $GIT_REPO_PATH/<name>.
-SUBMODULES="${SUBMODULES:-jewellery_inventory_management}"
+SUBMODULES="${SUBMODULES:-jewellery_inventory_management jewellery_website}"
 
 cd "$GIT_REPO_PATH" || exit 1
 [ -d .git ] || { echo "Error: not a git repo. Clone into $GIT_REPO_PATH first."; exit 1; }
