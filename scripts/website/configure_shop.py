@@ -184,5 +184,24 @@ if not env['website.page'].search([('url', '=', '/refund-policy'), ('website_id'
     })
     log('page /refund-policy created from the live Shopify policy text')
 
+# ── pickup stores: one contact per branch ───────────────────────────────
+# Click & Collect lists each store by its warehouse's contact. All branches
+# shared the company contact, so customers saw "Marjaan Jewellery" four times
+# with no address. Give each pickup branch its own contact, named after it.
+# Street/city/opening hours are the owner's to fill in (Inventory > Warehouses);
+# coordinates are parked at 1000 so Odoo doesn't geolocate a country-only
+# address and pin every store at the centre of Egypt. Reset them to 0 (or use
+# the contact's "Compute based on address") once the real address is in.
+company_partner = W.company_id.partner_id
+for carrier in env['delivery.carrier'].search([('delivery_type', '=', 'in_store')]):
+    for wh in carrier.warehouse_ids.filtered(lambda w: w.partner_id == company_partner):
+        contact = env['res.partner'].create({
+            'name': wh.name, 'parent_id': company_partner.id, 'type': 'other',
+            'country_id': egypt.id, 'phone': company_partner.phone, 'email': company_partner.email,
+            'partner_latitude': 1000, 'partner_longitude': 1000,
+        })
+        wh.partner_id = contact
+        log(f'pickup store "{wh.name}": own contact #{contact.id} (address to fill in)')
+
 env.cr.commit()
 print('CFG done,', len(LOG), 'changes')
