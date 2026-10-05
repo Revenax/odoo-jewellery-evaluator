@@ -4,7 +4,7 @@
 # Website: https://www.revenax.com
 {
     'name': 'Jewellery Website',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'summary': 'Wires the Marjaan eCommerce shop to the live jewellery catalogue',
     'description': """
 Keeps the website shop in step with the boutique's stock, so nobody curates it by hand:
@@ -15,6 +15,7 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
 * a piece is published while it is in stock with a photo and a price, and taken
   off the moment it sells (unique pieces are one of a kind)
 * a jewellery details block (SKU, karat, weight, stones) on the product page
+* the homepage featured grid fed from live, published pieces
 """,
     'author': 'Revenax Digital Services',
     'website': 'https://www.revenax.com',
@@ -24,6 +25,7 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
     'data': [
         'data/ir_cron.xml',
         'views/templates.xml',
+        'views/snippets.xml',
         'views/product_template_views.xml',
     ],
     'post_init_hook': 'post_init_hook',

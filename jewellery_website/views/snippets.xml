@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Card for the homepage "Featured products" grid. The homepage design
+         ships its own CSS for .product-item / .product-img-box / .product-name /
+         .product-price (website custom head code); this emits that markup from
+         live, published pieces so the grid is never a hand-kept static list.
+
+         Used through a dynamic snippet (data-template-key = this key). The key
+         must contain "dynamic_filter_template_product_product" or Odoo's
+         snippet filter refuses to render it for product.product filters. -->
+    <template id="dynamic_filter_template_product_product_featured_card"
+              name="Jewellery Featured Card">
+        <t t-foreach="records" t-as="data">
+            <t t-set="product" t-value="data['_record']"/>
+            <t t-set="title" t-value="product.website_title or product.display_name"/>
+            <a class="product-item text-decoration-none"
+               t-att-href="product.website_url" t-att-title="title">
+                <div class="product-img-box">
+                    <span t-if="data.get('has_discounted_price')"
+                          class="product-badge badge-sale">Sale</span>
+                    <img class="product-img" loading="lazy"
+                         t-att-src="data['image_512']" t-att-alt="title"/>
+                </div>
+                <h4 class="product-name" t-out="title"/>
+                <div t-if="not data.get('prevent_zero_price_sale') and not is_sample"
+                     class="product-price">
+                    <del t-if="data.get('has_discounted_price')"
+                         t-out="data['list_price']"
+                         t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                    <span t-out="data['price']"
+                          t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
+                </div>
+            </a>
+        </t>
+    </template>
+
+    <!-- The stock carousel card prints display_name (the SKU, since products
+         are named by SKU for the till). Show the customer-facing title. -->
+    <template id="dynamic_filter_products_item_title"
+              inherit_id="website_sale.dynamic_filter_template_product_product_products_item">
+        <xpath expr="//h6[hasclass('o_wsale_products_item_title')]/a" position="attributes">
+            <attribute name="t-out">product.website_title or data.get('display_name')</attribute>
+            <attribute name="t-att-title">product.website_title or data.get('display_name')</attribute>
+        </xpath>
+    </template>
+</odoo>

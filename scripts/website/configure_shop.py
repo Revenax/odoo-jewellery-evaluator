@@ -92,5 +92,34 @@ for name in ('Watches', 'Brooches', 'Anklets', 'Sets'):
         log(f'removed empty theme demo category "{name}"')
         c.unlink()
 
+# ── homepage: featured grid from live pieces, not 8 hand-typed mock cards ─
+# The homepage is a website-specific page view (the design's static grid had
+# fake names, fake prices and blank images). Swap only the grid for a dynamic
+# snippet; the section, its header and the design CSS stay as designed.
+FEATURED = (
+    '<div class="s_dynamic_snippet s_dynamic o_dynamic_snippet_empty o_jewellery_featured"'
+    ' data-snippet="s_dynamic_snippet" data-name="Featured products"'
+    ' data-filter-id="{filter_id}"'
+    ' data-template-key="jewellery_website.dynamic_filter_template_product_product_featured_card"'
+    ' data-number-of-records="8" data-number-of-elements="4" data-number-of-elements-small-devices="2"'
+    ' data-extra-classes="featured-grid" data-column-classes="d-flex flex-column px-0">'
+    '<div class="dynamic_snippet_template"/></div>'
+)
+home = env['ir.ui.view'].search([('key', '=', 'website.homepage'), ('website_id', '=', W.id)], limit=1)
+if home:
+    from lxml import etree
+    arch = etree.fromstring(home.arch_db)
+    static_grids = arch.xpath(
+        "//div[contains(concat(' ', normalize-space(@class), ' '), ' featured-grid ')]"
+        "[not(ancestor::*[contains(@class, 'o_jewellery_featured')])]")
+    newest = env.ref('website_sale.dynamic_filter_newest_products')
+    for grid in static_grids:
+        new = etree.fromstring(FEATURED.format(filter_id=newest.id))
+        new.tail = grid.tail
+        grid.getparent().replace(grid, new)
+    if static_grids:
+        home.arch_db = etree.tostring(arch, encoding='unicode')
+        log(f'homepage featured grid: {len(static_grids)} static mock grid(s) -> live "{newest.name}" (8 pieces)')
+
 env.cr.commit()
 print('CFG done,', len(LOG), 'changes')
