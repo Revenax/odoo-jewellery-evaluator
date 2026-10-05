@@ -121,5 +121,33 @@ if home:
         home.arch_db = etree.tostring(arch, encoding='unicode')
         log(f'homepage featured grid: {len(static_grids)} static mock grid(s) -> live "{newest.name}" (8 pieces)')
 
+# ── public URLs: https, the real host ───────────────────────────────────
+# nginx now sends X-Forwarded-Host, so Odoo sees https; fix the stored base URL
+# (canonical links, sitemap, emails, payment return URLs) and pin the domain.
+ICP = env['ir.config_parameter'].sudo()
+base = ICP.get_param('web.base.url') or ''
+if base.startswith('http://odoo.marjaanjewellery.com'):
+    ICP.set_param('web.base.url', base.replace('http://', 'https://', 1))
+    log(f'web.base.url: {base} -> https')
+if not W.domain:
+    W.domain = 'https://odoo.marjaanjewellery.com'
+    log(f'website domain set: {W.domain} (change at the domain cutover from Shopify)')
+
+# ── analytics: the same accounts the Shopify store reports to ───────────
+# Read off marjaanjewellery.com (2026-10-06). Both load only after the visitor
+# accepts optional cookies; filter reports by hostname to split Odoo/Shopify.
+GA4, META_PIXEL = 'G-1GP4YDWNEM', '3903840599865457'
+GSC_TOKEN = 'VvJlqkdrmwEuARJfeCuK4Pjlw0RK3lEoc1pQ2HYPAow'
+if not W.google_analytics_key:
+    W.google_analytics_key = GA4
+    log(f'Google Analytics: {GA4} (with ecommerce events)')
+if not W.meta_pixel_id:
+    W.meta_pixel_id = META_PIXEL
+    log(f'Meta pixel: {META_PIXEL} (page view, view content, add to cart, purchase)')
+head = W.custom_code_head or ''
+if GSC_TOKEN not in head:
+    W.custom_code_head = f'<meta name="google-site-verification" content="{GSC_TOKEN}"/>\n' + head
+    log('Search Console verification meta tag added (keeps the property verified after cutover)')
+
 env.cr.commit()
 print('CFG done,', len(LOG), 'changes')

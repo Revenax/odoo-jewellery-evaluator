@@ -4,7 +4,7 @@
 # Website: https://www.revenax.com
 {
     'name': 'Jewellery Website',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'summary': 'Wires the Marjaan eCommerce shop to the live jewellery catalogue',
     'description': """
 Keeps the website shop in step with the boutique's stock, so nobody curates it by hand:
@@ -16,6 +16,8 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
   off the moment it sells (unique pieces are one of a kind)
 * a jewellery details block (SKU, karat, weight, stones) on the product page
 * the homepage featured grid fed from live, published pieces
+* analytics: Google Analytics items named by title/SKU, and a consent-gated
+  Meta pixel (Website settings) fed by the shop's own ecommerce events
 """,
     'author': 'Revenax Digital Services',
     'website': 'https://www.revenax.com',
@@ -26,8 +28,15 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
         'data/ir_cron.xml',
         'views/templates.xml',
         'views/snippets.xml',
+        'views/tracking.xml',
+        'views/res_config_settings_views.xml',
         'views/product_template_views.xml',
     ],
+    'assets': {
+        'web.assets_frontend': [
+            'jewellery_website/static/src/js/meta_pixel_events.js',
+        ],
+    },
     'post_init_hook': 'post_init_hook',
     'installable': True,
     'application': False,

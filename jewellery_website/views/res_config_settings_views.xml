@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_meta_pixel" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.jewellery_website</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="website.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//setting[@id='google_analytics_setting']" position="after">
+                <setting id="meta_pixel_setting"
+                         help="Track visits, product views, add-to-cart and purchases for Facebook/Instagram ads. Loads only after the visitor accepts optional cookies.">
+                    <div class="row mt16">
+                        <label class="col-lg-3 o_light_label" string="Meta Pixel ID" for="website_meta_pixel_id"/>
+                        <field name="website_meta_pixel_id" placeholder="e.g. 1234567890123456"/>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

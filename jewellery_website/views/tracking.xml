@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Meta (Facebook/Instagram) pixel, set in Website settings. Same consent
+         rule as Odoo's Google Analytics tag: nothing loads until the visitor
+         accepts optional cookies (or there is no cookie bar). The shop's
+         ecommerce events are forwarded by static/src/js/meta_pixel_events.js. -->
+    <template id="meta_pixel" inherit_id="website.layout">
+        <xpath expr="//head" position="inside">
+            <t t-if="website.meta_pixel_id and not editable">
+                <script id="jewellery_meta_pixel">
+                    (function () {
+                        function loadMetaPixel() {
+                            if (window.fbq) {
+                                return;
+                            }
+                            !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                            n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+                            n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+                            t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+                            document,'script','https://connect.facebook.net/en_US/fbevents.js');
+                            fbq('init', '<t t-out="website.meta_pixel_id"/>');
+                            fbq('track', 'PageView');
+                            document.dispatchEvent(new Event('jewelleryMetaPixelLoaded'));
+                        }
+                        <t t-if="website._allConsentsGranted()">
+                            loadMetaPixel();
+                        </t>
+                        <t t-else="">
+                            document.addEventListener('optionalCookiesAccepted', loadMetaPixel, {once: true});
+                        </t>
+                    })();
+                </script>
+            </t>
+        </xpath>
+    </template>
+</odoo>

@@ -64,6 +64,15 @@ class ProductTemplate(models.Model):
         detail['mapping']['name'] = {'name': 'website_title', 'type': 'text', 'match': True}
         return detail
 
+    def _get_google_analytics_data(self, product, combination_info):
+        """Analytics item = what the customer saw (title, SKU, full category),
+        not the till name, so reports read "Diamond Ring · 18K Gold · 0.52 ct"."""
+        data = super()._get_google_analytics_data(product, combination_info)
+        data['item_id'] = product.default_code or data['item_id']
+        data['item_name'] = self.website_title or data['item_name']
+        data['item_category'] = self.categ_id.complete_name or data['item_category']
+        return data
+
     # ── catalogue sync ──────────────────────────────────────────────────
 
     @api.model
