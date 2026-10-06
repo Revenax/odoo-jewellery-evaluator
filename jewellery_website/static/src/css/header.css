@@ -1,0 +1,34 @@
+/*
+ * The designer's split header (website custom head code, "8. DESKTOP HEADER")
+ * centres the logo absolutely and reserves a fixed 380px gap for it. Between
+ * 992px (where the desktop header starts) and ~1280px the left-hand menu ran
+ * under the logo and Odoo folded Necklaces/Earrings/Bracelets into a "+" menu.
+ * Scale the header down in that range only; wider screens keep the design.
+ * "html body" outranks the designer's !important rules by specificity.
+ */
+@media (min-width: 992px) and (max-width: 1279.98px) {
+  html body header .navbar {
+    padding: 0 1.5rem !important;
+  }
+  html body header .navbar-brand img,
+  html body header .navbar-brand svg {
+    height: 56px !important;
+    max-height: 56px !important;
+  }
+  html body header #top_menu > li {
+    margin-right: 6px !important;
+  }
+  html body header #top_menu > li > .nav-link {
+    font-size: 0.7rem !important;
+    letter-spacing: 0.08em !important;
+    padding: 0.5rem 0.55rem !important;
+  }
+  html body header #top_menu > li:has(a[href*="necklaces"]),
+  html body header #top_menu > li:nth-child(4) {
+    margin-right: 16px !important;
+  }
+  html body header #top_menu > li:has(a[href*="earrings"]),
+  html body header #top_menu > li:nth-child(5) {
+    margin-left: 200px !important;
+  }
+}
