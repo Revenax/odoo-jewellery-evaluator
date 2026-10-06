@@ -25,6 +25,31 @@ Re-apply or audit the configuration at any time (idempotent):
 sudo -u odoo bash -c '/opt/odoo/ee-odoo-bin shell -c /etc/odoo.conf -d marjaan --no-http < scripts/website/configure_shop.py'
 ```
 
+## Status after the 2026-10-06 owner decisions
+
+| # | Item | State |
+|---|---|---|
+| 1 | Payment gateway | **Kashier** module `payment_kashier` built and rehearsed on a copy of prod; installs at the 02:00 Cairo deploy (disabled). Waiting for the owner's keys. |
+| 2 | DMARC | Owner: Cloudflare TXT `_dmarc` = `v=DMARC1; p=none; rua=mailto:info@marjaanjewellery.com` |
+| 3 | Outgoing email | Done (Zoho, verified 2026-10-06). |
+| 4 | Pickup | Sway Mall only, address "Sway Mall, Mohamed Naguib St., New Cairo". |
+| 5 | Company address / tax ID | Owner decision: go without. |
+| 6 | Photos | Owner to choose: review-based background removal, reshoot, or leave. |
+| 7 | Privacy / About | Written (Law 151/2020, Kashier, consent-gated analytics); owner to read once. |
+| 8 | Bullion | Banned online (legal): bars, ingots and coins are never mapped or published; their categories are deleted. |
+| 9 | SM/INT/00010 | Skipped (owner). |
+| 10–11 | Invoice deletion, phantom-piece count | Later (owner). |
+| 12 | Indexing | robots.txt `Disallow: /` until the domain cutover. |
+| - | POS vs web reservations | Not a gap: the POS check (Pay + server) already uses on-hand minus reserved, so a web-reserved piece needs a manager override. |
+| - | Header 992–1280px | CSS fix ships at the 02:00 deploy. |
+
+### Turning Kashier on (owner)
+Enter the keys in Odoo, never in chat: Website › Configuration › Payment Providers › Kashier.
+1. Merchant ID, Test Payment API Key, Test Secret Key (Kashier dashboard › Integrations). Set State to **Test** and leave it **unpublished**. In Test mode only logged-in staff see it, and Kashier's test cards work.
+2. Place one order on the website while logged in, pay with a Kashier test card, and check that the order becomes paid.
+3. Enter the Live Payment API Key + Live Secret Key, set State to **Enabled**, and **Publish**.
+The webhook (`/payment/kashier/webhook`) is sent with every payment; nothing to set in Kashier's dashboard.
+
 ## Blockers (need the owner or an outside account)
 
 1. **Payment gateway.** Only Pay on Site exists, and Odoo allows it only with in-store pickup. A customer who picks delivery reaches payment with no method and cannot finish. Needs a merchant account (Paymob, Fawry, Kashier, Stripe…) and its API keys.
