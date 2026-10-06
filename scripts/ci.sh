@@ -9,6 +9,6 @@ for cmd in ruff pytest mypy; do
   command -v "$cmd" &>/dev/null || { echo "Error: $cmd not found. pip install -r requirements-dev.txt"; exit 1; }
 done
 
-ruff check jewellery_evaluator/ jewellery_inventory_management/ jewellery_website/ tests/
+ruff check jewellery_evaluator/ jewellery_inventory_management/ jewellery_website/ payment_kashier/ tests/
 pytest tests/ -v
 mypy jewellery_evaluator/utils.py --ignore-missing-imports

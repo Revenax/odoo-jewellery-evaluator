@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="payment_provider_form" model="ir.ui.view">
+        <field name="name">Kashier Provider Form</field>
+        <field name="model">payment.provider</field>
+        <field name="inherit_id" ref="payment.payment_provider_form"/>
+        <field name="arch" type="xml">
+            <group name="provider_credentials" position="inside">
+                <group invisible="code != 'kashier'">
+                    <field name="kashier_merchant_id" required="code == 'kashier' and state != 'disabled'"/>
+                    <field name="kashier_test_api_key" password="True" required="code == 'kashier' and state == 'test'"/>
+                    <field name="kashier_test_secret_key" password="True" required="code == 'kashier' and state == 'test'"/>
+                    <field name="kashier_live_api_key" password="True" required="code == 'kashier' and state == 'enabled'"/>
+                    <field name="kashier_live_secret_key" password="True" required="code == 'kashier' and state == 'enabled'"/>
+                    <div colspan="2" class="text-muted small">
+                        Kashier dashboard › Integrations. "Payment API Key" signs and verifies payments; "Secret Key" authorises API calls.
+                        State Test uses the test pair, Enabled the live pair. Webhook URL: /payment/kashier/webhook (sent with every payment).
+                    </div>
+                </group>
+            </group>
+        </field>
+    </record>
+</odoo>
