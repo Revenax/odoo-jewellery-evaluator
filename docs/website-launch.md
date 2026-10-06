@@ -36,7 +36,8 @@ sudo -u odoo bash -c '/opt/odoo/ee-odoo-bin shell -c /etc/odoo.conf -d marjaan -
    After that, customers get order confirmations, invoices, sign-up and password-reset emails. Replies land in the info@ inbox. Abandoned-cart emails stay off until you turn them on (Website › Settings).
 3. **Store addresses and opening hours.** The four pickup contacts have no street, city or hours (Inventory › Configuration › Warehouses › contact; hours via Opening Hours). After entering an address, reset the contact's latitude/longitude to 0 (or press "Compute based on address") so the map shows the right pin. Also: should Black Closet and Abbassi Sagha be pickup points at all?
 4. **Company address and tax ID** are empty (Settings › Companies). They print on order confirmations and invoices.
-5. **Photos.** 153 in-stock pieces stay hidden only because they have no photo: 57 Diamond Twin Rings, 51 Center Stones, 17 Diamond Bracelets, 9 Diamond Necklaces, 9 Diamond Rings, 7 Diamond Bands, 2 Gold Earrings, 1 Diamond Earrings. The live photos are phone shots on mixed backgrounds; the design's white cards look best with clean studio shots.
+5. **Photos.** Automatic background removal was tested on 6 live photos (2026-10-06, rembg `isnet-general-use`, run locally). Flat-laid bracelets came out like studio shots. Thin chains partly faded, and a ring held in the hand kept the hand. So it would need a per-piece before/after review, not a blind batch. Reshooting on a plain background is still the best fix.
+    153 in-stock pieces stay hidden only because they have no photo: 57 Diamond Twin Rings, 51 Center Stones, 17 Diamond Bracelets, 9 Diamond Necklaces, 9 Diamond Rings, 7 Diamond Bands, 2 Gold Earrings, 1 Diamond Earrings. The live photos are phone shots on mixed backgrounds; the design's white cards look best with clean studio shots.
 6. **Gold bars and coins** never appear: none have been received into stock in Odoo, and they have no photos.
 7. **Privacy policy and About us.** Visitors see only a heading on `/privacy` and `/about-us`. The Shopify privacy policy is Shopify's generated template (it describes Shopify's processing), so it cannot be copied as-is; it needs rewriting for Odoo. There is no About text on Shopify to reuse. Each URL also has two hidden theme-demo copies ("consulting, product development…") that can be deleted.
 8. **Domain cutover.** When marjaanjewellery.com moves from Shopify: point DNS here, add the domain to nginx and certbot, set Website › Settings › Domain, set `web.base.url`, and update the Shopify-URL redirects you want to keep (Shopify product handles do not exist here).
@@ -51,5 +52,4 @@ sudo -u odoo bash -c '/opt/odoo/ee-odoo-bin shell -c /etc/odoo.conf -d marjaan -
 ## Engineering follow-ups
 
 - POS: treat a piece reserved by a confirmed web order as sold (manager override), like the existing re-sale block.
-- Shop prices print with `.00` and the `LE` symbol (company currency settings; changing them affects accounting documents too).
 - The header menu overlaps the logo at tablet widths (designer CSS in Website › custom head code).
