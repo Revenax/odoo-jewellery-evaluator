@@ -168,6 +168,16 @@ for tag in env['product.tag'].search([('name', 'in', ['Lented', 'Bought from Cus
         tag.visible_to_customers = False
         log(f'product tag "{tag.name}" hidden from the shop (internal provenance)')
 
+# ── no "Sign in" button in the header (owner, 2026-10-06) ───────────────
+# Same as the editor's Header > "Show Sign In" toggle: deactivating the view
+# in website context makes a website-specific copy (survives module updates).
+# Customers can still sign in at checkout or via /web/login.
+signin = env['ir.ui.view'].with_context(website_id=W.id, active_test=False).search(
+    [('key', '=', 'portal.user_sign_in')]).filter_duplicate()
+if signin.active:
+    signin.write({'active': False})
+    log('header "Sign in" button removed')
+
 # ── brand colours instead of the theme's lilac preset ───────────────────
 # The theme palette (preset "default-light-4": #CDB4DB / #FFDAE8 / #765378)
 # drives buttons, links, the cookie bar and the footer, so they came out
