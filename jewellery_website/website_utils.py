@@ -168,3 +168,17 @@ def web_order_summary(reference, total, currency, delivery, store, payment, skus
     where = f'{delivery}: {store}' if delivery and store else (delivery or store)
     parts = [f'{reference} — {total:,.0f} {currency}', where, payment, pieces, customer]
     return ' · '.join(part for part in parts if part)
+
+
+# How the shop labels a currency, where it differs from the accounting symbol
+# ("LE" on invoices and receipts; the storefront says "EGP", as on Shopify).
+WEBSITE_CURRENCY_LABEL = {'EGP': 'EGP'}
+
+
+def website_price_display(value, decimal_places, iso_code, symbol):
+    """(decimal places, label) for a price shown on the website.
+
+    Jewellery prices are rounded to the nearest 50, so "37,500.00 LE" is noise:
+    whole amounts drop the decimals, anything with piastres keeps them."""
+    whole = abs(float(value) - round(float(value))) < 0.005
+    return (0 if whole else decimal_places), WEBSITE_CURRENCY_LABEL.get(iso_code, symbol)

@@ -13,6 +13,7 @@ from ..website_utils import (
     PUBLIC_TREE,
     public_category_keys,
     should_publish,
+    website_price_display,
     website_title,
 )
 
@@ -63,6 +64,18 @@ class ProductTemplate(models.Model):
         detail['fetch_fields'] = list(detail['fetch_fields']) + ['website_title']
         detail['mapping']['name'] = {'name': 'website_title', 'type': 'text', 'match': True}
         return detail
+
+    def _get_additionnal_combination_info(self, product_or_template, quantity, uom, date, website):
+        """The product page re-renders its price in JS on load; give it the
+        same precision as the server-rendered price (no ".00" on whole EGP)."""
+        info = super()._get_additionnal_combination_info(product_or_template, quantity, uom, date, website)
+        currency = website.currency_id
+        places = {
+            website_price_display(info.get(key) or 0, currency.decimal_places, currency.name, currency.symbol)[0]
+            for key in ('price', 'list_price')
+        }
+        info['currency_precision'] = max(places)
+        return info
 
     def _get_google_analytics_data(self, product, combination_info):
         """Analytics item = what the customer saw (title, SKU, full category),

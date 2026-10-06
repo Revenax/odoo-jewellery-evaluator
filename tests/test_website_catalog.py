@@ -117,3 +117,17 @@ class TestWebOrderSummary:
         skus = [f"SKU-{i}" for i in range(7)]
         line = wu.web_order_summary("S1", 1, "EGP", "", "", "", skus, "")
         assert line.endswith("SKU-0, SKU-1, SKU-2, SKU-3, SKU-4 +2 more")
+
+
+class TestWebsitePriceDisplay:
+    def test_whole_egp_drops_decimals_and_says_egp(self):
+        assert wu.website_price_display(37500.0, 2, "EGP", "LE") == (0, "EGP")
+
+    def test_piastres_keep_the_decimals(self):
+        assert wu.website_price_display(37500.25, 2, "EGP", "LE") == (2, "EGP")
+
+    def test_float_noise_still_counts_as_whole(self):
+        assert wu.website_price_display(0.1 + 0.2 + 37499.7, 2, "EGP", "LE") == (0, "EGP")
+
+    def test_other_currencies_keep_their_symbol(self):
+        assert wu.website_price_display(1200.0, 2, "USD", "$") == (0, "$")

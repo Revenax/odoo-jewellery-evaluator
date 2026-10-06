@@ -11,6 +11,8 @@ Owner decisions baked in (2026-10-06): no cash on delivery; free standard shippi
 is fine (limited to Egypt); in-store pickup + pay in store is the safe default
 until a payment gateway exists.
 """
+from markupsafe import Markup
+
 LOG = []
 
 
@@ -144,10 +146,38 @@ if not W.google_analytics_key:
 if not W.meta_pixel_id:
     W.meta_pixel_id = META_PIXEL
     log(f'Meta pixel: {META_PIXEL} (page view, view content, add to cart, purchase)')
-head = W.custom_code_head or ''
-if GSC_TOKEN not in head:
-    W.custom_code_head = f'<meta name="google-site-verification" content="{GSC_TOKEN}"/>\n' + head
+# custom_code_head is an Html field: its value is Markup, and str + Markup
+# HTML-escapes the str half. The first run of this block did exactly that and
+# printed the tag as text at the top of every page; repair it, then write Markup.
+GSC_TAG = Markup(f'<meta name="google-site-verification" content="{GSC_TOKEN}"/>')
+head = W.custom_code_head or Markup('')
+escaped = Markup.escape(str(GSC_TAG))
+if escaped in head:
+    head = Markup(str(head).replace(str(escaped) + '\n', '').replace(str(escaped), ''))
+    W.custom_code_head = head
+    log('Search Console tag un-escaped (it was showing as text on every page)')
+if str(GSC_TAG) not in str(head):
+    W.custom_code_head = GSC_TAG + Markup('\n') + head
     log('Search Console verification meta tag added (keeps the property verified after cutover)')
+
+# ── brand colours instead of the theme's lilac preset ───────────────────
+# The theme palette (preset "default-light-4": #CDB4DB / #FFDAE8 / #765378)
+# drives buttons, links, the cookie bar and the footer, so they came out
+# purple next to the designer's ink/rose/cream page. Same mechanism as the
+# editor's colour picker: Theme > Colors writes these keys.
+BRAND = {
+    'o-color-1': '#1A1A24',  # primary: buttons, links (designer's ink)
+    'o-color-2': '#E99894',  # secondary: the designer's rose accent
+    'o-color-3': '#FAF5F0',  # light sections and footer = page cream
+    'o-color-4': '#FFFFFF',  # card / body white
+    'o-color-5': '#1A1A24',  # dark sections and text
+}
+palette_url = '/website/static/src/scss/options/colors/user_color_palette.scss'
+current = env['website.assets'].with_context(website_id=W.id)._get_content_from_url(palette_url) or b''
+current = current.decode() if isinstance(current, bytes) else current
+if any(f"'{k}': {v}" not in current for k, v in BRAND.items()):
+    env['website.assets'].with_context(website_id=W.id).make_scss_customization(palette_url, BRAND)
+    log(f'theme colours: lilac preset -> brand {BRAND}')
 
 # ── /refund-policy: the homepage links it; it 404'd ─────────────────────
 # Text = the owner's live Shopify policy (marjaanjewellery.com/policies/
