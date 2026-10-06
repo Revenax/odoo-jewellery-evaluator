@@ -160,6 +160,14 @@ if str(GSC_TAG) not in str(head):
     W.custom_code_head = GSC_TAG + Markup('\n') + head
     log('Search Console verification meta tag added (keeps the property verified after cutover)')
 
+# ── internal provenance tags are not shop filters ───────────────────────
+# "Lented" (consignment) and "Bought from Customer" (buy-backs) are how the
+# boutique tracks where a piece came from; customers saw them as filters.
+for tag in env['product.tag'].search([('name', 'in', ['Lented', 'Bought from Customer'])]):
+    if tag.visible_to_customers:
+        tag.visible_to_customers = False
+        log(f'product tag "{tag.name}" hidden from the shop (internal provenance)')
+
 # ── brand colours instead of the theme's lilac preset ───────────────────
 # The theme palette (preset "default-light-4": #CDB4DB / #FFDAE8 / #765378)
 # drives buttons, links, the cookie bar and the footer, so they came out
@@ -173,10 +181,16 @@ BRAND = {
     'o-color-5': '#1A1A24',  # dark sections and text
 }
 palette_url = '/website/static/src/scss/options/colors/user_color_palette.scss'
-current = env['website.assets'].with_context(website_id=W.id)._get_content_from_url(palette_url) or b''
-current = current.decode() if isinstance(current, bytes) else current
-if any(f"'{k}': {v}" not in current for k, v in BRAND.items()):
-    env['website.assets'].with_context(website_id=W.id).make_scss_customization(palette_url, BRAND)
+assets = env['website.assets'].with_context(website_id=W.id)
+
+
+def custom_palette():
+    att = assets._get_custom_attachment(assets._make_custom_asset_url(palette_url, 'web.assets_frontend'))
+    return (att[:1].raw or b'').decode()
+
+
+if any(f"'{k}': {v}" not in custom_palette() for k, v in BRAND.items()):
+    assets.make_scss_customization(palette_url, BRAND)
     log(f'theme colours: lilac preset -> brand {BRAND}')
 
 # ── /refund-policy: the homepage links it; it 404'd ─────────────────────
@@ -234,4 +248,10 @@ for carrier in env['delivery.carrier'].search([('delivery_type', '=', 'in_store'
         log(f'pickup store "{wh.name}": own contact #{contact.id} (address to fill in)')
 
 env.cr.commit()
+# A shell run does not tell the running workers their caches are stale (an
+# HTTP request does, at its end): without this they keep serving the old
+# compiled CSS/JS bundle and cached views.
+env.registry.clear_cache('assets')
+env.registry.clear_cache('templates')
+env.registry.signal_changes()
 print('CFG done,', len(LOG), 'changes')

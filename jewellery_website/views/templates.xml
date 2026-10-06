@@ -62,4 +62,20 @@
             </ul>
         </xpath>
     </template>
+
+    <!-- Price-range filter: "3,500 EGP" like the product cards, not "3,500.00 LE".
+         The filter has two copies of the input (collapsible or not); the
+         second xpath matches whichever still carries the stock attribute. -->
+    <template id="filter_products_price_label" inherit_id="website_sale.filter_products_price">
+        <xpath expr="//input[@t-att-data-currency='website.currency_id.symbol']" position="attributes">
+            <attribute name="t-att-data-currency">website._shop_currency_label()</attribute>
+            <attribute name="t-att-step">1</attribute>
+            <attribute name="data-whole-prices">1</attribute>
+        </xpath>
+        <xpath expr="//input[@t-att-data-currency='website.currency_id.symbol']" position="attributes">
+            <attribute name="t-att-data-currency">website._shop_currency_label()</attribute>
+            <attribute name="t-att-step">1</attribute>
+            <attribute name="data-whole-prices">1</attribute>
+        </xpath>
+    </template>
 </odoo>

@@ -5,6 +5,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
+from ..website_utils import WEBSITE_CURRENCY_LABEL
+
 
 class Website(models.Model):
     _inherit = 'website'
@@ -21,3 +23,8 @@ class Website(models.Model):
         for website in self:
             if website.meta_pixel_id and not website.meta_pixel_id.isdigit():
                 raise ValidationError(_('The Meta Pixel ID is a number, e.g. 1234567890123456.'))
+
+    def _shop_currency_label(self):
+        """"EGP" on the storefront, the accounting symbol ("LE") elsewhere."""
+        self.ensure_one()
+        return WEBSITE_CURRENCY_LABEL.get(self.currency_id.name, self.currency_id.symbol)

@@ -4,7 +4,7 @@
 # Website: https://www.revenax.com
 {
     'name': 'Jewellery Website',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'summary': 'Wires the Marjaan eCommerce shop to the live jewellery catalogue',
     'description': """
 Keeps the website shop in step with the boutique's stock, so nobody curates it by hand:
@@ -35,6 +35,7 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
     'assets': {
         'web.assets_frontend': [
             'jewellery_website/static/src/js/meta_pixel_events.js',
+            'jewellery_website/static/src/js/price_range.js',
         ],
     },
     'post_init_hook': 'post_init_hook',
