@@ -178,6 +178,91 @@ if signin.active:
     signin.write({'active': False})
     log('header "Sign in" button removed')
 
+# ── bullion is banned online (owner, legal, 2026-10-06) ─────────────────
+for key in ('gold_bars', 'gold_coins', 'bars_coins'):
+    cat = env.ref(f'jewellery_website.public_categ_{key}', raise_if_not_found=False)
+    if cat:
+        cat.product_tmpl_ids.write({'is_published': False})
+        log(f'eCommerce category "{cat.name}" deleted (bullion may not be sold online)')
+        cat.unlink()
+for m in env['website.menu'].search([('website_id', '=', W.id), '|', ('name', 'ilike', 'bar'), ('name', 'ilike', 'coin')]):
+    log(f'menu "{m.name}" removed (bullion)')
+    m.unlink()
+
+# ── pickup: Sway Mall only (owner, 2026-10-06) ──────────────────────────
+sm = env['stock.warehouse'].search([('code', '=', 'SM')], limit=1)
+company_partner = W.company_id.partner_id
+for carrier in env['delivery.carrier'].search([('delivery_type', '=', 'in_store')]):
+    if carrier.warehouse_ids != sm:
+        log(f'pickup stores: {carrier.warehouse_ids.mapped("code")} -> [SM]')
+        carrier.warehouse_ids = [(6, 0, sm.ids)]
+sm_addr = {'street': 'Sway Mall, Mohamed Naguib St.', 'city': 'New Cairo', 'country_id': egypt.id}
+if sm.partner_id != company_partner and sm.partner_id.street != sm_addr['street']:
+    # 0/0 makes Click & Collect geolocate the address on first use.
+    sm.partner_id.write({**sm_addr, 'partner_latitude': 0, 'partner_longitude': 0})
+    log('Sway Mall pickup address set')
+
+# ── keep search engines out until the domain moves from Shopify ─────────
+ROBOTS = Markup('User-agent: *\nDisallow: /')
+if str(W.robots_txt or '').strip() != str(ROBOTS):
+    W.robots_txt = ROBOTS
+    log('robots.txt: Disallow all (pre-launch; remove at the cutover)')
+
+# ── /privacy and /about-us: real text instead of an empty heading ───────
+PAGE_TEXT = {
+    '/privacy': ('Privacy Policy', """
+<p>This policy explains what personal information Marjaan Jewellery collects through this website, why, and what we do with it. It is written to comply with Egypt's Personal Data Protection Law (Law No. 151 of 2020).</p>
+<h2 class="h4 mt-4">What we collect</h2>
+<ul>
+<li><b>Orders and accounts:</b> your name, email address, phone number and, for delivery, your address. We need these to process, deliver and support your order.</li>
+<li><b>Payments:</b> card payments are handled by our payment provider, Kashier. Your card details go directly to them; we never see or store your full card number.</li>
+<li><b>Messages:</b> what you send us through the contact form or by email.</li>
+<li><b>Browsing:</b> essential cookies keep your session and cart working. Only if you accept optional cookies do we use Google Analytics and the Meta (Facebook/Instagram) pixel, to understand how the site is used and to measure our advertising.</li>
+</ul>
+<h2 class="h4 mt-4">How we use it</h2>
+<p>To fulfil and support your orders, issue invoices, answer your questions, keep the site secure, and improve the shop. We send marketing messages only if you have agreed to receive them, and you can unsubscribe at any time.</p>
+<h2 class="h4 mt-4">Who we share it with</h2>
+<p>Only the service providers needed to run the shop: our payment provider, our email provider, delivery partners for delivered orders, and the analytics services above when you have consented. We do not sell your personal information.</p>
+<h2 class="h4 mt-4">How long we keep it</h2>
+<p>Order and invoice records are kept as long as the law requires. Other information is kept only as long as needed for the purposes above.</p>
+<h2 class="h4 mt-4">Your rights</h2>
+<p>You may ask to see, correct or delete your personal information, or withdraw your consent, at any time. You can change your cookie choice from the cookie banner.</p>
+<h2 class="h4 mt-4">Contact</h2>
+<p>Marjaan Jewellery, Sway Mall, Mohamed Naguib St., New Cairo, Egypt. Email <a href="mailto:info@marjaanjewellery.com">info@marjaanjewellery.com</a>.</p>
+"""),
+    '/about-us': ('About Marjaan', """
+<p class="lead">Marjaan is an Egyptian jewellery house creating fine gold and diamond jewellery.</p>
+<p>Each piece is designed as a modern heirloom: refined, wearable, and made to last. Our collections span 18K and 21K gold and diamond jewellery, from everyday rings, bracelets and necklaces to statement pieces and loose diamonds.</p>
+<p>Every piece in our shop is one of a kind and listed with its exact weight, karat and stones, so you know precisely what you are buying.</p>
+<h2 class="h4 mt-4">Visit us</h2>
+<p>Sway Mall, Mohamed Naguib St., New Cairo. Orders placed online can be collected and paid for in store.</p>
+<p>Questions? Write to <a href="mailto:info@marjaanjewellery.com">info@marjaanjewellery.com</a>.</p>
+"""),
+}
+for url, (title, body) in PAGE_TEXT.items():
+    pages = env['website.page'].search([('url', '=', url), ('website_id', 'in', [W.id, False])], order='id')
+    if not pages:
+        continue
+    served, demo = pages[0], pages[1:]
+    if demo:
+        log(f'{url}: {len(demo)} hidden theme-demo copies deleted')
+        demo.unlink()
+    marker = 'o_jewellery_page_text'
+    if marker not in (served.arch or ''):
+        served.arch = f"""<t name="{title}" t-name="{served.key}">
+    <t t-call="website.layout">
+        <div id="wrap" class="oe_structure">
+            <section class="pt8 pb48 {marker}">
+                <div class="container">
+                    <h1 class="pt16 h2-fs">{title}</h1>
+{body}
+                </div>
+            </section>
+        </div>
+    </t>
+</t>"""
+        log(f'{url}: content written ("{title}")')
+
 # ── brand colours instead of the theme's lilac preset ───────────────────
 # The theme palette (preset "default-light-4": #CDB4DB / #FFDAE8 / #765378)
 # drives buttons, links, the cookie bar and the footer, so they came out

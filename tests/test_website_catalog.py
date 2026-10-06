@@ -56,9 +56,15 @@ class TestPublicCategories:
         assert wu.public_category_keys("Diamond / Ring", is_new=True) == [
             "diamond_rings", "diamond_collection", "new_arrivals"]
 
-    def test_bars_coins_and_loose_stones_are_not_collections(self):
-        assert wu.public_category_keys("Gold / Bar") == ["gold_bars"]
-        assert wu.public_category_keys("Gold / Coin") == ["gold_coins"]
+    def test_bullion_is_never_sold_online(self):
+        assert wu.public_category_keys("Gold / Bar") == []
+        assert wu.public_category_keys("Gold / Coin") == []
+        assert wu.public_category_keys("Gold / Ingot") == []
+        assert wu.is_banned_online("Gold / Bar")
+        assert wu.is_banned_online("Gold / Coins")
+        assert wu.is_banned_online("Gold / Ring", "gold_bars")
+        assert not wu.is_banned_online("Gold / Bracelet", "gold_foreign")
+        assert not wu.is_banned_online("Gold / Bands")
         assert wu.public_category_keys("Diamond / Center Stone") == ["loose_diamonds"]
 
     def test_unmapped_category_is_never_sold_online(self):

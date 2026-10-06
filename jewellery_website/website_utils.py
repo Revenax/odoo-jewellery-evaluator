@@ -33,9 +33,6 @@ PUBLIC_TREE = (
     ('bracelets', 'Bracelets', None, 40),
     ('gold_bracelets', 'Gold Bracelets', 'bracelets', 1),
     ('diamond_bracelets', 'Diamond Bracelets', 'bracelets', 2),
-    ('bars_coins', 'Gold Bars & Coins', None, 50),
-    ('gold_bars', 'Gold Bars', 'bars_coins', 1),
-    ('gold_coins', 'Gold Coins', 'bars_coins', 2),
     ('loose_diamonds', 'Loose Diamonds', None, 60),
     ('collections', 'Collections', None, 70),
     ('gold_collection', 'Gold Collection', 'collections', 1),
@@ -60,14 +57,24 @@ CATEGORY_LEAF = {
     'Gold / Piercing': 'piercings',
     'Gold / Bracelet': 'gold_bracelets',
     'Diamond / Bracelet': 'diamond_bracelets',
-    'Gold / Bar': 'gold_bars',
-    'Gold / Ingot': 'gold_bars',
-    'Gold / Coin': 'gold_coins',
     'Diamond / Center Stone': 'loose_diamonds',
 }
 
-# Investment gold and loose stones are not "jewellery collections".
-_NOT_IN_COLLECTIONS = {'gold_bars', 'gold_coins', 'loose_diamonds'}
+# Loose stones are not "jewellery collections".
+_NOT_IN_COLLECTIONS = {'loose_diamonds'}
+
+# Bullion (bars, ingots, coins) may not be sold online, for legal reasons
+# (owner, 2026-10-06): never mapped, never published, whatever the category.
+BANNED_JEWELLERY_TYPES = {'gold_bars'}
+_BANNED_WORDS = ('bar', 'ingot', 'coin', 'bullion')
+
+
+def is_banned_online(category_name, jewellery_type=None):
+    """True for bullion, which must never appear on the website."""
+    if jewellery_type in BANNED_JEWELLERY_TYPES:
+        return True
+    leaf = (category_name or '').split('/')[-1].strip().lower()
+    return any(leaf == w or leaf.startswith(w) for w in _BANNED_WORDS)
 
 
 def _split_category(category_name):

@@ -11,6 +11,7 @@ from odoo import api, fields, models
 from ..website_utils import (
     NEW_ARRIVAL_DAYS,
     PUBLIC_TREE,
+    is_banned_online,
     public_category_keys,
     should_publish,
     website_price_display,
@@ -156,7 +157,8 @@ class ProductTemplate(models.Model):
         new_since = fields.Datetime.now() - timedelta(days=NEW_ARRIVAL_DAYS)
         stats = defaultdict(int)
         for tmpl in templates:
-            keys = public_category_keys(tmpl.categ_id.complete_name, is_new=tmpl.create_date >= new_since)
+            keys = [] if is_banned_online(tmpl.categ_id.complete_name, tmpl.jewellery_type) else \
+                public_category_keys(tmpl.categ_id.complete_name, is_new=tmpl.create_date >= new_since)
             wanted = {nodes[k].id for k in keys}
             publish = should_publish(
                 tmpl.active, tmpl.sale_ok, tmpl.id in with_image,
