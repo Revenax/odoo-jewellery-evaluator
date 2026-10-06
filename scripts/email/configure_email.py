@@ -12,6 +12,7 @@ zohomail.com, DKIM selector "zmail"). Odoo sends as info@ through Zoho's
 SMTP, so every message is signed and passes SPF like mail sent from Zoho
 itself. The password is NOT set here: the owner pastes a Zoho app password
 into Settings > Technical > Outgoing Mail Servers and presses Test Connection.
+Port 465 (SSL): AWS blocks outbound port 25 from EC2.
 
 Odoo has no incoming mail server, so replies must reach a human inbox:
 Reply-To (catchall) is info@ too. The CRM team alias "info" (leads by email,
@@ -21,7 +22,10 @@ Old failed emails (state exception) are never re-sent by Odoo.
 COMMIT = True
 DOMAIN = 'marjaanjewellery.com'
 SENDER = 'info'                      # info@marjaanjewellery.com, the Zoho mailbox
-SMTP_HOST = 'smtppro.zoho.com'       # Zoho organisation accounts, US data centre (mx.zoho.com)
+# Zoho US data centre (mx.zoho.com). Free plans (personal and organisation)
+# must use smtp.zoho.com; smtppro.zoho.com is for paid plans only and answers
+# a free account with "554 5.7.8 Access Restricted" (seen 2026-10-06).
+SMTP_HOST = 'smtp.zoho.com'
 LOG = []
 
 
@@ -58,26 +62,29 @@ for company in env['res.company'].sudo().with_context(active_test=False).search(
 
 # ── the SMTP server ─────────────────────────────────────────────────────
 Server = env['ir.mail_server'].sudo().with_context(active_test=False)
-server = Server.search([('smtp_host', '=', SMTP_HOST), ('smtp_user', '=', address)], limit=1)
+# Found by what it sends as: the login may be another mailbox that is
+# allowed to send as info@ (on 2026-10-06 the owner logged in as their own
+# account with its app password), so smtp_user is only set on creation.
+server = Server.search([('from_filter', '=', address)], limit=1)
 vals = {
     'name': f'Zoho ({address})',
     'smtp_host': SMTP_HOST, 'smtp_port': 465, 'smtp_encryption': 'ssl',
-    'smtp_authentication': 'login', 'smtp_user': address,
+    'smtp_authentication': 'login',
     # Only info@ may be sent from: any other From (a salesperson's address)
     # is rewritten to "Name" <info@...>, and the envelope sender is info@,
     # which Zoho requires.
     'from_filter': address, 'sequence': 1, 'active': True,
 }
 if not server:
-    server = Server.create(vals)
-    log(f'mail server "{server.name}" created ({SMTP_HOST}:465 SSL) — password still to be set')
+    server = Server.create({**vals, 'smtp_user': address})
+    log(f'mail server "{server.name}" created ({SMTP_HOST}:465 SSL)')
 else:
     diff = {k: v for k, v in vals.items() if server[k] != v}
     if diff:
         server.write(diff)
         log(f'mail server "{server.name}" updated: {sorted(diff)}')
 if not server.smtp_pass:
-    print('MAIL TODO: paste the Zoho app password for', address, 'into', server.name, 'and press Test Connection')
+    print('MAIL TODO: paste a Zoho app password for', server.smtp_user, 'into', server.name, 'and press Test Connection')
 
 if COMMIT:
     env.cr.commit()
