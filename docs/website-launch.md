@@ -28,7 +28,12 @@ sudo -u odoo bash -c '/opt/odoo/ee-odoo-bin shell -c /etc/odoo.conf -d marjaan -
 ## Blockers (need the owner or an outside account)
 
 1. **Payment gateway.** Only Pay on Site exists, and Odoo allows it only with in-store pickup. A customer who picks delivery reaches payment with no method and cannot finish. Needs a merchant account (Paymob, Fawry, Kashier, Stripe…) and its API keys.
-2. **Outgoing email (SMTP).** No mail server is configured: customers get no order confirmation, sign-up or password-reset email, and abandoned-cart emails are off. Needs SMTP credentials for a sending domain (e.g. Google Workspace or Amazon SES for marjaanjewellery.com, with SPF/DKIM).
+2. **Outgoing email: one password away.** Odoo now sends as `info@marjaanjewellery.com` through Zoho (`scripts/email/configure_email.py`; SPF and DKIM were already set up at Zoho). To switch it on:
+   - In Zoho (accounts.zoho.com › Security › App Passwords), create an app password for info@. Zoho's free plan has no SMTP; a paid plan is needed.
+   - In Odoo, open Settings › Technical › Outgoing Mail Servers › "Zoho (info@marjaanjewellery.com)", paste the password, and press Test Connection.
+   - In Cloudflare DNS, add a TXT record named `_dmarc` with the value `v=DMARC1; p=none; rua=mailto:info@marjaanjewellery.com`. The domain has none, and Gmail/Yahoo treat mail from domains without DMARC as less trustworthy.
+
+   After that, customers get order confirmations, invoices, sign-up and password-reset emails. Replies land in the info@ inbox. Abandoned-cart emails stay off until you turn them on (Website › Settings).
 3. **Store addresses and opening hours.** The four pickup contacts have no street, city or hours (Inventory › Configuration › Warehouses › contact; hours via Opening Hours). After entering an address, reset the contact's latitude/longitude to 0 (or press "Compute based on address") so the map shows the right pin. Also: should Black Closet and Abbassi Sagha be pickup points at all?
 4. **Company address and tax ID** are empty (Settings › Companies). They print on order confirmations and invoices.
 5. **Photos.** 153 in-stock pieces stay hidden only because they have no photo: 57 Diamond Twin Rings, 51 Center Stones, 17 Diamond Bracelets, 9 Diamond Necklaces, 9 Diamond Rings, 7 Diamond Bands, 2 Gold Earrings, 1 Diamond Earrings. The live photos are phone shots on mixed backgrounds; the design's white cards look best with clean studio shots.
