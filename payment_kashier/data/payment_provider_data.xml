@@ -6,5 +6,8 @@
         <field name="state">disabled</field>
         <field name="redirect_form_view_id" ref="redirect_form"/>
         <field name="available_currency_ids" eval="[(6, 0, [ref('base.EGP')])]"/>
+        <!-- Odoo lists one method; Kashier's own checkout then offers card and
+             mobile wallets (the session asks for allowedMethods card,wallet). -->
+        <field name="payment_method_ids" eval="[(6, 0, [ref('payment.payment_method_card')])]"/>
     </record>
 </odoo>
