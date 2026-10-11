@@ -78,4 +78,13 @@
             <attribute name="data-whole-prices">1</attribute>
         </xpath>
     </template>
+
+    <!-- Cart / checkout totals: prices already include tax (0% today), so the
+         "Taxes 0 EGP" row only confused customers. One small note instead. -->
+    <template id="total_tax_inclusive" inherit_id="website_sale.total">
+        <xpath expr="//tr[@name='o_order_total_taxes']" position="replace"/>
+        <xpath expr="//table" position="after">
+            <p class="o_jewellery_tax_note small text-muted mb-0 mt-2">All prices are tax inclusive</p>
+        </xpath>
+    </template>
 </odoo>
