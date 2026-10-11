@@ -195,19 +195,6 @@ class ResConfigSettings(models.TransientModel):
 
     # ── Silver Pricing ──────────────────────────────────────────────────────────
 
-    silver_page_url = fields.Char(
-        string='Silver Page URL',
-        config_parameter='jewellery_evaluator.silver_page_url',
-        help='URL of the page containing the silver 999 price. Loaded with a headless '
-             'browser so JS-rendered prices are visible.',
-    )
-
-    silver_xpath_selector = fields.Char(
-        string='Silver 999 XPath Selector',
-        config_parameter='jewellery_evaluator.silver_xpath_selector',
-        help='XPath of the cell containing the silver 999 price on the configured page. '
-             'The first numeric value in the cell text is used as the price per gram.',
-    )
 
     silver_fallback_price = fields.Float(
         string='Fallback Silver Price',

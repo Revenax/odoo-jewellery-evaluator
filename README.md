@@ -188,9 +188,9 @@ Current implementation uses a placeholder USD→EGP rate of `50.0` in
 
 ### Silver Pricing
 
-Silver 999 price is set by the Selenium script (no regex). The script renders dahabmasr.com and reads the price from the XPath element.
+Silver 999 price comes from the local price feed (`price_feed/edahab_feed.py`, http://127.0.0.1:8075/prices), read by the silver cron.
 
-- **Silver 999 Price (EGP/g)**: Set by `scripts/selenium_automation.py`. Run with ODOO_URL, ODOO_DB, ODOO_USER, ODOO_PASSWORD to push to Odoo.
+- **Silver 999 Price (EGP/g)**: The last good price from the local price feed (also settable by hand).
 - **Silver Markup per Gram (EGP/g)**: Markup per gram for silver products.
 
 Formulas (same as gold structure):
@@ -205,7 +205,7 @@ Prices are automatically updated every 10 minutes via cron job:
 
 - **Gold**: Fetches latest gold price from configured API; updates all gold products in batches of 100.
 - **Diamond**: Updates diamond product prices from USD and exchange rate.
-- **Silver**: Uses stored price (set by Selenium script); updates all silver products.
+- **Silver**: Reads the local price feed (stored price when it is down); updates all silver products.
 - Logs execution details to Odoo logs.
 
 **Manual Update** (if needed):

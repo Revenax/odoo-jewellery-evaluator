@@ -9,331 +9,9 @@ import time
 from odoo import api, fields, models
 
 from .. import pulse
-from ..utils import parse_silver_price_text, price_from_feed  # noqa: E402
+from ..utils import price_from_feed  # noqa: E402
 
 _logger = logging.getLogger(__name__)
-
-_PAGE_LOAD_TIMEOUT = 30
-
-
-_SYSTEM_CHROME_CANDIDATES = (
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/chromium",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-)
-
-
-def _find_system_chrome():
-    import os
-    for path in _SYSTEM_CHROME_CANDIDATES:
-        if os.path.exists(path) and os.access(path, os.X_OK):
-            return path
-    return None
-
-
-def _detect_chrome_version(browser_path: str) -> str | None:
-    """Return the major version string of the Chrome at *browser_path*, e.g. '147'."""
-    import re
-    import subprocess
-    try:
-        out = subprocess.run(
-            [browser_path, '--version'],
-            capture_output=True, text=True, timeout=10, check=True,
-        )
-    except (subprocess.SubprocessError, OSError):
-        return None
-    m = re.search(r'(\d+)\.\d+\.\d+', out.stdout) or re.search(r'(\d+)\.\d+\.\d+', out.stderr)
-    return m.group(1) if m else None
-
-
-def _resolve_chromedriver(browser_path: str) -> str | None:
-    """
-    Resolve a chromedriver matching the system Chrome's *major* version.
-
-    Strategy:
-      1. Detect the system Chrome's major version (e.g. '147').
-      2. Scan selenium's on-disk cache (~/.cache/selenium/chromedriver/<arch>/<ver>/)
-         for a directory whose version starts with that major. This is the same
-         cache selenium-manager populates, so any previously-downloaded matching
-         chromedriver is reused without going through selenium-manager again.
-      3. Fall back to selenium-manager with --browser-version to download a
-         matching chromedriver if the cache has none.
-
-    We avoid calling selenium-manager without --browser-version because its
-    se-metadata.json cache can serve a stale "latest" entry (e.g. 148) and
-    return a mismatched chromedriver that crashes with SIGTRAP at startup.
-    """
-    import glob
-    import json
-    import os
-    import subprocess
-
-    major = _detect_chrome_version(browser_path)
-
-    # 1. Look in the on-disk cache for a chromedriver matching the system Chrome
-    if major:
-        home = os.path.expanduser('~')
-        cache_root = os.path.join(home, '.cache', 'selenium', 'chromedriver')
-        for arch_dir in glob.glob(os.path.join(cache_root, '*')):
-            for ver_dir in glob.glob(os.path.join(arch_dir, f'{major}.*')):
-                candidate = os.path.join(ver_dir, 'chromedriver')
-                if os.path.exists(candidate) and os.access(candidate, os.X_OK):
-                    return candidate
-
-    # 2. Fall back to selenium-manager with explicit --browser-version
-    import selenium
-    sel_root = os.path.dirname(selenium.__file__)
-    sm_candidates = [
-        os.path.join(sel_root, 'webdriver', 'common', 'linux', 'selenium-manager'),
-        os.path.join(sel_root, 'webdriver', 'common', 'macos', 'selenium-manager'),
-    ]
-    sm_bin = next((p for p in sm_candidates if os.path.exists(p) and os.access(p, os.X_OK)), None)
-    if not sm_bin:
-        return None
-    args = [sm_bin, '--browser', 'chrome', '--browser-path', browser_path,
-            '--output', 'JSON']
-    if major:
-        args.extend(['--browser-version', major])
-    try:
-        out = subprocess.run(
-            args, capture_output=True, text=True, timeout=120, check=True,
-        )
-        driver_path = json.loads(out.stdout).get('result', {}).get('driver_path')
-        return driver_path if isinstance(driver_path, str) else None
-    except (subprocess.SubprocessError, json.JSONDecodeError, OSError):
-        return None
-
-
-def _ensure_chrome_address_space():
-    """
-    Chrome needs a large virtual address space at startup (typically > 4 GB).
-    The Odoo systemd service inherits the distro's default LimitAS (~2.5 GB),
-    so Chrome and chromedriver crash immediately with SIGTRAP. Raise the soft
-    limit on RLIMIT_AS up to the hard limit (which is unlimited) before
-    spawning chromedriver. Hard-limit raises require privilege so we leave
-    it alone — only the soft limit is bumped.
-    """
-    try:
-        import resource
-        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-        if soft != resource.RLIM_INFINITY and (hard == resource.RLIM_INFINITY or hard > soft):
-            resource.setrlimit(resource.RLIMIT_AS, (hard, hard))
-    except (ImportError, ValueError, OSError) as e:
-        _logger.warning('Could not raise RLIMIT_AS for Chrome: %s', e)
-
-
-def pids_for_profile(profile_dir, proc_root="/proc"):
-    """PIDs of processes still holding ``profile_dir`` as their Chrome profile.
-
-    Matched on the scrape's OWN ``--user-data-dir``, which is a unique mkdtemp
-    path. Deliberately narrow: a blanket "pkill chrome" would kill a concurrent
-    scrape or a human's browser, and Chrome is used by other tooling on this
-    host. A blank profile matches nothing rather than everything.
-    """
-    import glob
-    import os
-
-    if not profile_dir:
-        return []
-    found = []
-    for entry in glob.glob(os.path.join(proc_root, "[0-9]*")):
-        try:
-            with open(os.path.join(entry, "cmdline"), "rb") as fh:
-                cmdline = fh.read().replace(b"\0", b" ").decode("utf-8", "replace")
-        except OSError:
-            continue
-        if profile_dir in cmdline:
-            try:
-                found.append(int(os.path.basename(entry)))
-            except ValueError:
-                continue
-    return sorted(found)
-
-
-def _kill_profile_processes(profile_dir, grace_s=3.0):
-    """Make sure nothing survives holding ``profile_dir``. Never raises.
-
-    ``driver.quit()`` is the only thing that stops headless Chrome, and it is
-    not dependable: when the page errors (this scraper sees repeated SSL
-    failures) quit() can raise or hang and the browser lives on. Two such runs
-    once left 22 orphans holding 1.7 GB.
-    """
-    import os
-    import signal
-    import time
-
-    pids = pids_for_profile(profile_dir)
-    if not pids:
-        return 0
-    for pid in pids:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
-    deadline = time.time() + grace_s
-    while time.time() < deadline and pids_for_profile(profile_dir):
-        time.sleep(0.2)
-    # Anything ignoring SIGTERM is already wedged; SIGKILL is the point.
-    stubborn = pids_for_profile(profile_dir)
-    for pid in stubborn:
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except OSError:
-            pass
-    _logger.warning(
-        "silver scrape: killed %d leftover Chrome process(es) for %s%s",
-        len(pids), profile_dir,
-        f" ({len(stubborn)} needed SIGKILL)" if stubborn else "",
-    )
-    return len(pids)
-
-
-def _reap_stale_chrome_profiles(max_age_s=3600):
-    """Backstop against the disk-fill outage: remove leftover chrome-silver-*
-    profile dirs older than *max_age_s*. Each scrape cleans up its own dir, but
-    a crash between mkdtemp and cleanup would otherwise leak one every 10 min —
-    which once filled the disk and took Postgres (and Odoo) down."""
-    import glob
-    import os
-    import shutil
-    import signal
-    import tempfile
-    import time
-
-    now = time.time()
-    pattern = os.path.join(tempfile.gettempdir(), "chrome-silver-*")
-    for path in glob.glob(pattern):
-        try:
-            if now - os.path.getmtime(path) > max_age_s:
-                # Kill the browser BEFORE removing its profile: deleting the
-                # directory out from under a live Chrome leaves the process
-                # running and unkillable-by-path.
-                _kill_profile_processes(path)
-                shutil.rmtree(path, ignore_errors=True)
-        except OSError:
-            pass
-
-    # Orphans whose profile dir is already gone keep running forever otherwise
-    # — that is exactly how 22 of them accumulated. Match on the prefix, and
-    # only for processes older than max_age_s so a live scrape is never hit.
-    try:
-        for pid in pids_for_profile(os.path.join(tempfile.gettempdir(),
-                                                 "chrome-silver-")):
-            try:
-                if now - os.path.getmtime(f"/proc/{pid}") > max_age_s:
-                    os.kill(pid, signal.SIGKILL)
-                    _logger.warning(
-                        "silver scrape: reaped orphaned Chrome pid %d", pid)
-            except OSError:
-                pass
-    except Exception:
-        pass
-
-
-def _create_driver():
-    """Create a headless Chrome WebDriver (requires selenium + chromium).
-
-    Returns ``(driver, profile_dir)`` — the caller must delete ``profile_dir``
-    after ``driver.quit()`` (Chrome does not remove it)."""
-    import shutil
-    import tempfile
-
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
-
-    _ensure_chrome_address_space()
-    _reap_stale_chrome_profiles()
-    profile_dir = tempfile.mkdtemp(prefix="chrome-silver-")
-
-    opts = Options()
-    # Force the locally installed system Chrome — without this Selenium Manager
-    # may download its own (incomplete) "Chrome for Testing" binary that often
-    # crashes at startup with SIGTRAP because it lacks system libs the .deb
-    # would have pulled in.
-    chrome_bin = _find_system_chrome()
-    if chrome_bin:
-        opts.binary_location = chrome_bin
-    opts.add_argument("--headless=new")
-    opts.add_argument("--no-sandbox")
-    opts.add_argument("--disable-dev-shm-usage")
-    opts.add_argument("--disable-gpu")
-    # Unique writable profile dir — avoids "DevToolsActivePort file doesn't exist"
-    # when Chrome runs as root or when several drivers share /tmp. Deleted by the
-    # caller after quit() (see _scrape_silver_price); Chrome never removes it.
-    opts.add_argument(f"--user-data-dir={profile_dir}")
-    opts.add_argument("--remote-debugging-pipe")
-    opts.add_experimental_option(
-        "prefs",
-        {
-            "profile.managed_default_content_settings.images": 2,
-            "profile.default_content_setting_values.images": 2,
-        },
-    )
-    for a in (
-        "--disable-extensions",
-        "--disable-plugins",
-        "--disable-sync",
-        "--disable-translate",
-        "--disable-background-networking",
-        "--no-first-run",
-        "--log-level=3",
-    ):
-        opts.add_argument(a)
-
-    # Resolve chromedriver against the actual binary so versions match.
-    service = None
-    if chrome_bin:
-        driver_path = _resolve_chromedriver(chrome_bin)
-        if driver_path:
-            service = Service(executable_path=driver_path)
-    try:
-        driver = webdriver.Chrome(options=opts, service=service) if service else webdriver.Chrome(options=opts)
-    except Exception:
-        # Chrome failed to start — don't leak the profile dir it never used.
-        shutil.rmtree(profile_dir, ignore_errors=True)
-        raise
-    driver.implicitly_wait(10)
-    return driver, profile_dir
-
-
-def _scrape_silver_price(page_url: str, xpath_selector: str) -> float:
-    """
-    Launch headless Chrome, load *page_url*, wait for the element at
-    *xpath_selector* to render a non-placeholder value, then return its first
-    numeric token as a float.
-    """
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-
-    driver, profile_dir = _create_driver()
-    try:
-        driver.get(page_url)
-
-        def _text_ready(drv):
-            element = drv.find_element(By.XPATH, xpath_selector)
-            text = element.text.strip() if element.text else ""
-            return element if text and text != "--" else False
-
-        element = WebDriverWait(driver, _PAGE_LOAD_TIMEOUT).until(_text_ready)
-        return parse_silver_price_text(element.text)
-    finally:
-        import shutil
-
-        # quit() must never be able to skip the cleanup below it. When the page
-        # errors it can raise or hang, and previously that left both the Chrome
-        # processes AND the profile dir behind.
-        try:
-            driver.quit()
-        except Exception as exc:
-            _logger.warning("silver scrape: driver.quit() failed: %s", exc)
-        # Belt and braces: kill anything still holding this profile.
-        _kill_profile_processes(profile_dir)
-        # Chrome leaves the profile dir behind; remove it so it can't accumulate
-        # and fill the disk (the outage root cause). Backstopped by the reaper.
-        shutil.rmtree(profile_dir, ignore_errors=True)
 
 
 class SilverPriceService(models.Model):
@@ -344,11 +22,9 @@ class SilverPriceService(models.Model):
         """
         Get current silver 999 price per gram.
 
-        Reads the cached fallback (the last successfully scraped value). The
-        live headless-browser scrape runs only on the cron path
-        (``update_all_silver_product_prices``) so opening a product form does
-        not spawn Chrome. If you need a fresh value immediately, run the
-        scheduled action "Update Silver Prices" manually.
+        Reads the stored value (the last good price from the local feed). The
+        feed is read only on the cron path (``update_all_silver_product_prices``);
+        run the scheduled action "Update Silver Prices" for a fresh value.
 
         :return: float - Silver 999 price per gram (0.0 if not yet scraped)
         """
@@ -356,17 +32,14 @@ class SilverPriceService(models.Model):
 
     def _fetch_silver_price_from_web(self):
         """
-        Fetch silver 999 price by loading the configured page in a headless
-        browser and reading the cell at the configured XPath selector.
-
-        On success, the parsed price is written to the silver fallback parameter
-        (mirrors the gold fetch flow).
+        Silver 999 price from the local price feed. On success it becomes the
+        stored fallback price (mirrors the gold fetch flow).
 
         :return: float - Silver 999 price per gram
         """
         ICP = self.env['ir.config_parameter'].sudo()
-        # Preferred source: the local price feed (no headless Chrome). The
-        # Selenium scrape below only runs when the feed is switched off.
+        # The only live source: the local price feed (price_feed/edahab_feed.py).
+        # The old headless-Chrome scrape was removed on 2026-10-11.
         gold_service = self.env['gold.price.service']
         feed_url = gold_service._price_feed_url()
         if feed_url:
@@ -376,57 +49,10 @@ class SilverPriceService(models.Model):
             _logger.info('Silver price from local feed: %s; fallback price updated', price)
             return price
 
-        page_url = ICP.get_param('jewellery_evaluator.silver_page_url', '')
-        xpath_selector = ICP.get_param(
-            'jewellery_evaluator.silver_xpath_selector', ''
+        raise ValueError(
+            'Local price feed is switched off (jewellery_evaluator.price_feed_url); '
+            'silver is priced from the stored value.'
         )
-
-        if not page_url or not page_url.strip():
-            raise ValueError(
-                'Silver page URL is not configured. '
-                'Please set the "jewellery_evaluator.silver_page_url" system parameter in '
-                'Settings → Technical → Parameters → System Parameters'
-            )
-
-        if not xpath_selector or not xpath_selector.strip():
-            raise ValueError(
-                'Silver 999 XPath selector is not configured. '
-                'Please set the "jewellery_evaluator.silver_xpath_selector" system parameter in '
-                'Settings → Technical → Parameters → System Parameters'
-            )
-
-        # Validate URL is HTTP/HTTPS (mirrors gold endpoint validation)
-        has_http = page_url.startswith('http://')
-        has_https = page_url.startswith('https://')
-        if not (has_http or has_https):
-            raise ValueError(
-                'Silver page URL must be a valid HTTP/HTTPS URL. '
-                f'Current value: {page_url[:50]}...'
-            )
-
-        try:
-            price = _scrape_silver_price(page_url, xpath_selector)
-        except ImportError as e:
-            _logger.error(
-                'Selenium is not installed — cannot auto-fetch silver price. '
-                'Install with: pip install selenium'
-            )
-            raise ValueError(
-                'Silver scrape requires selenium. Install it on the Odoo host.'
-            ) from e
-        except ValueError:
-            # parse_silver_price_text already produced a useful message
-            raise
-        except Exception as e:
-            _logger.error(
-                'Selenium silver price scrape failed: %s', e, exc_info=True)
-            raise ValueError(
-                f'Silver scrape failed: {type(e).__name__}'
-            ) from e
-
-        ICP.set_param('jewellery_evaluator.silver_fallback_price', str(price))
-        _logger.info('Silver price fetched: %s; fallback price updated', price)
-        return price
 
     def _get_fallback_silver_price(self):
         """
@@ -503,18 +129,17 @@ class SilverPriceService(models.Model):
                 base_silver_price = self._fetch_silver_price_from_web()
             except Exception as e:
                 _logger.warning(
-                    'Live silver scrape failed (%s); falling back to stored value.',
+                    'Silver price feed failed (%s); falling back to stored value.',
                     str(e),
                 )
-                # Not fatal — we still price from the cache — but the scrape is
-                # a headless Chrome against a third-party page and is the most
-                # fragile input we have. Hourly idempotency: the cron is frequent.
+                # Not fatal — we still price from the cache. Hourly idempotency:
+                # the cron is frequent.
                 pulse.notify_in_background(
                     'vendor-down',
-                    'Silver price scrape failed',
-                    f'The silver scrape (dahabmasr.com) failed: {e}. Silver is '
+                    'Silver price feed failed',
+                    f'The local price feed gave no silver price: {e}. Silver is '
                     f'being priced from the last stored value.',
-                    {'vendor': 'dahabmasr-silver', 'error': str(e)[:500]},
+                    {'vendor': 'price-feed-silver', 'error': str(e)[:500]},
                     pulse.make_idempotency_key(
                         'silver-vendor-down', started_at[:13]),
                     env=self.env,

@@ -231,31 +231,7 @@
                             <div class="o_setting_right_pane">
                                 <span class="o_form_label">Silver Pricing</span>
                                 <div class="text-muted">
-                                    Configure the scrape source and pricing rules for silver products.
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane"/>
-                            <div class="o_setting_right_pane">
-                                <label for="silver_page_url"/>
-                                <div class="text-muted">
-                                    URL of the page containing the silver 999 price (loaded with a headless browser)
-                                </div>
-                                <div class="content-group">
-                                    <field name="silver_page_url"/>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane"/>
-                            <div class="o_setting_right_pane">
-                                <label for="silver_xpath_selector"/>
-                                <div class="text-muted">
-                                    XPath of the cell that holds the silver 999 price. The first numeric value in its text is used.
-                                </div>
-                                <div class="content-group">
-                                    <field name="silver_xpath_selector"/>
+                                    Silver 999 comes from the local price feed (127.0.0.1:8075); set the pricing rules here.
                                 </div>
                             </div>
                         </div>
