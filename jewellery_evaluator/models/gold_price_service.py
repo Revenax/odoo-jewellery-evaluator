@@ -8,9 +8,15 @@ import time
 
 import requests
 from odoo import api, fields, models
+from odoo.tools import str2bool  # noqa: E402
 
 from .. import pulse  # noqa: E402
-from ..utils import gold_price_for_purity, parse_gold_price_with_regex  # noqa: E402
+from ..utils import (  # noqa: E402
+    DEFAULT_PRICE_FEED_URL,
+    gold_price_for_purity,
+    parse_gold_price_with_regex,
+    price_from_feed,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -88,6 +94,10 @@ class GoldPriceService(models.Model):
 
         :return: float - Gold price per gram (21K price)
         """
+        feed_url = self._price_feed_url()
+        if feed_url:
+            return self._accept_gold_price(self._gold_price_from_feed(feed_url))
+
         api_endpoint = self.env['ir.config_parameter'].sudo().get_param(
             'jewellery_evaluator.gold_api_endpoint',
             ''
@@ -137,49 +147,7 @@ class GoldPriceService(models.Model):
             text = response.text
             price = parse_gold_price_with_regex(text, regex_formula)
 
-            # Plausibility guard: a source-site layout change can make the regex
-            # match a WRONG-but-positive number, which would silently reprice the
-            # whole catalog (including the POS floor). Reject a fetched price that
-            # jumps more than the configured fraction off the last known-good
-            # value; keep the old price and fail the run loudly. The first-ever
-            # fetch (no prior value) bootstraps without a bound.
-            last_good = self._last_good_gold_price()
-            max_jump = self._gold_max_jump_pct()
-            if last_good > 0 and max_jump > 0:
-                jump = abs(price - last_good) / last_good
-                if jump > max_jump:
-                    # Its own topic, and the most urgent one here: this almost
-                    # always means the source site changed and the regex is now
-                    # matching the wrong number. Prices are safe (we keep the
-                    # old value) but they are FROZEN until a human looks.
-                    pulse.notify_in_background(
-                        'price-guard-tripped',
-                        'Gold price rejected as implausible',
-                        f'Fetched {price:.2f} EGP/g — a {jump * 100:.0f}% jump '
-                        f'from {last_good:.2f} (max {max_jump * 100:.0f}%). '
-                        f'Kept the old price; the feed may have changed shape.',
-                        {
-                            'fetched': price, 'lastGood': last_good,
-                            'jumpPct': round(jump * 100, 1),
-                            'maxJumpPct': round(max_jump * 100, 1),
-                        },
-                        pulse.make_idempotency_key(
-                            'gold-guard', round(price, 2), round(last_good, 2)),
-                        env=self.env,
-                    )
-                    raise ValueError(
-                        f'Rejected implausible gold price {price:.2f}: '
-                        f'{jump * 100:.0f}% jump from last good {last_good:.2f} '
-                        f'(max {max_jump * 100:.0f}%). Kept previous price.'
-                    )
-
-            self.env['ir.config_parameter'].sudo().set_param(
-                'jewellery_evaluator.fallback_price',
-                str(price),
-            )
-            _logger.info(
-                'Gold price fetched: %s; fallback price updated', price)
-            return price
+            return self._accept_gold_price(price)
 
         except requests.exceptions.Timeout as e:
             _logger.error('API request timed out after %d seconds', timeout)
@@ -209,6 +177,90 @@ class GoldPriceService(models.Model):
                 'Unexpected error parsing API response: %s', type(e).__name__)
             raise ValueError(
                 'Unexpected error while parsing gold API response.') from e
+
+
+    # === LOCAL PRICE FEED (price_feed/edahab_feed.py, 127.0.0.1:8075) === #
+
+    def _price_feed_url(self):
+        """The local feed URL, or '' when switched off (parameter set to "off"),
+        in which case the legacy website + regex scrape below is used."""
+        url = (self.env['ir.config_parameter'].sudo().get_param(
+            'jewellery_evaluator.price_feed_url', DEFAULT_PRICE_FEED_URL) or '').strip()
+        return '' if url.lower() in ('', 'off', 'false', '0') else url
+
+    def _read_price_feed(self, feed_url):
+        try:
+            response = requests.get(feed_url, timeout=5)
+            response.raise_for_status()
+            return response.json()
+        except (requests.exceptions.RequestException, ValueError) as e:
+            self._pulse_vendor_down(f'local price feed: {type(e).__name__}')
+            raise ValueError(f'Local price feed unavailable ({type(e).__name__}).') from e
+
+    def _gold_price_from_feed(self, feed_url):
+        """21K selling price from the feed; also records the live USD/EGP and,
+        only when jewellery_evaluator.diamond_rate_from_feed is on, makes it the
+        diamond exchange rate (it reprices every diamond piece)."""
+        icp = self.env['ir.config_parameter'].sudo()
+        snapshot = self._read_price_feed(feed_url)
+        side = icp.get_param('jewellery_evaluator.price_feed_side', 'ask')
+        price = price_from_feed(snapshot, 'gold_21k', side=side)
+        try:
+            usd = price_from_feed(snapshot, 'usd_egp')
+        except ValueError:
+            usd = None
+        if usd:
+            icp.set_param('jewellery_evaluator.feed_usd_egp', str(usd))
+            if str2bool(icp.get_param('jewellery_evaluator.diamond_rate_from_feed', 'False')):
+                icp.set_param('jewellery_evaluator.diamond_exchange_rate_usd', str(usd))
+        return price
+
+    def _accept_gold_price(self, price):
+        """Plausibility-check a fetched 21K price and store it as the new
+        known-good value (fallback). Raises ValueError when rejected."""
+        # Plausibility guard: a source-site layout change can make the regex
+        # match a WRONG-but-positive number, which would silently reprice the
+        # whole catalog (including the POS floor). Reject a fetched price that
+        # jumps more than the configured fraction off the last known-good
+        # value; keep the old price and fail the run loudly. The first-ever
+        # fetch (no prior value) bootstraps without a bound.
+        last_good = self._last_good_gold_price()
+        max_jump = self._gold_max_jump_pct()
+        if last_good > 0 and max_jump > 0:
+            jump = abs(price - last_good) / last_good
+            if jump > max_jump:
+                # Its own topic, and the most urgent one here: this almost
+                # always means the source site changed and the regex is now
+                # matching the wrong number. Prices are safe (we keep the
+                # old value) but they are FROZEN until a human looks.
+                pulse.notify_in_background(
+                    'price-guard-tripped',
+                    'Gold price rejected as implausible',
+                    f'Fetched {price:.2f} EGP/g — a {jump * 100:.0f}% jump '
+                    f'from {last_good:.2f} (max {max_jump * 100:.0f}%). '
+                    f'Kept the old price; the feed may have changed shape.',
+                    {
+                        'fetched': price, 'lastGood': last_good,
+                        'jumpPct': round(jump * 100, 1),
+                        'maxJumpPct': round(max_jump * 100, 1),
+                    },
+                    pulse.make_idempotency_key(
+                        'gold-guard', round(price, 2), round(last_good, 2)),
+                    env=self.env,
+                )
+                raise ValueError(
+                    f'Rejected implausible gold price {price:.2f}: '
+                    f'{jump * 100:.0f}% jump from last good {last_good:.2f} '
+                    f'(max {max_jump * 100:.0f}%). Kept previous price.'
+                )
+
+        self.env['ir.config_parameter'].sudo().set_param(
+            'jewellery_evaluator.fallback_price',
+            str(price),
+        )
+        _logger.info(
+            'Gold price fetched: %s; fallback price updated', price)
+        return price
 
     def _pulse_vendor_down(self, reason):
         """The gold feed is unreachable. Prices fall back to the cached value.

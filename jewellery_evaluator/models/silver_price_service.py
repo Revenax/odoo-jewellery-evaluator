@@ -9,7 +9,7 @@ import time
 from odoo import api, fields, models
 
 from .. import pulse
-from ..utils import parse_silver_price_text  # noqa: E402
+from ..utils import parse_silver_price_text, price_from_feed  # noqa: E402
 
 _logger = logging.getLogger(__name__)
 
@@ -365,6 +365,17 @@ class SilverPriceService(models.Model):
         :return: float - Silver 999 price per gram
         """
         ICP = self.env['ir.config_parameter'].sudo()
+        # Preferred source: the local price feed (no headless Chrome). The
+        # Selenium scrape below only runs when the feed is switched off.
+        gold_service = self.env['gold.price.service']
+        feed_url = gold_service._price_feed_url()
+        if feed_url:
+            side = ICP.get_param('jewellery_evaluator.price_feed_side', 'ask')
+            price = price_from_feed(gold_service._read_price_feed(feed_url), 'silver_999', side=side)
+            ICP.set_param('jewellery_evaluator.silver_fallback_price', str(price))
+            _logger.info('Silver price from local feed: %s; fallback price updated', price)
+            return price
+
         page_url = ICP.get_param('jewellery_evaluator.silver_page_url', '')
         xpath_selector = ICP.get_param(
             'jewellery_evaluator.silver_xpath_selector', ''

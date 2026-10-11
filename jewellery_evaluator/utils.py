@@ -1024,3 +1024,40 @@ def format_diamond_note(stones: list[dict]) -> str:
         code = STONE_SHAPE_CODES.get((stone.get("shape") or "").strip(), "")
         parts.append(f"{qty} D{code} {format_carat(total)}CT")
     return " + ".join(parts)
+
+
+# Local price feed (price_feed/edahab_feed.py, served on 127.0.0.1:8075).
+DEFAULT_PRICE_FEED_URL = 'http://127.0.0.1:8075/prices'
+FEED_MAX_AGE_SECONDS = 1800  # older than this, the feed is down: use the stored price
+
+
+def price_from_feed(snapshot: dict, key: str, side: str = 'ask',
+                    max_age_seconds: float = FEED_MAX_AGE_SECONDS) -> float:
+    """Read one price from a price-feed snapshot.
+
+    ``key`` is a metal block (``gold_21k``, ``silver_999`` …) read at ``side``
+    ('ask' = the shop's selling price, 'bid' = buying), or ``usd_egp`` (read
+    from ``global_market``). Raises ValueError on a missing, non-positive or
+    stale value, so callers fall back to the last good price instead of
+    pricing the catalogue from a dead feed.
+    """
+    if not isinstance(snapshot, dict):
+        raise ValueError('Price feed returned no snapshot')
+    age = snapshot.get('age_seconds')
+    if age is None or float(age) > max_age_seconds:
+        raise ValueError(f'Price feed is stale (age {age}s, max {int(max_age_seconds)}s)')
+    if key == 'usd_egp':
+        raw = (snapshot.get('global_market') or {}).get('usd_egp')
+    else:
+        if side not in ('ask', 'bid'):
+            raise ValueError(f'Unknown price side {side!r}')
+        raw = (snapshot.get(key) or {}).get(side)
+    if raw is None:
+        raise ValueError(f'Price feed has no {key} {side}')
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f'Price feed has no {key} {side}') from None
+    if value <= 0:
+        raise ValueError(f'Price feed {key} {side} is not positive: {value}')
+    return value
