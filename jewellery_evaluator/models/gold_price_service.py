@@ -160,11 +160,11 @@ class GoldPriceService(models.Model):
             raise ValueError(
                 'Failed to connect to gold API. Please check endpoint configuration.') from e
         except requests.exceptions.HTTPError as e:
-            _logger.error('API returned HTTP error: %d',
-                          e.response.status_code)
-            self._pulse_vendor_down(f'HTTP {e.response.status_code}')
+            status = e.response.status_code if e.response is not None else '?'
+            _logger.error('API returned HTTP error: %s', status)
+            self._pulse_vendor_down(f'HTTP {status}')
             raise ValueError(
-                f'Gold API returned error status {e.response.status_code}') from e
+                f'Gold API returned error status {status}') from e
         except requests.exceptions.RequestException as e:
             _logger.error('API request failed: %s', type(e).__name__)
             raise ValueError(
