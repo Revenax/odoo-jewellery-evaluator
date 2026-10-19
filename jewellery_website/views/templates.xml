@@ -80,9 +80,15 @@
     </template>
 
     <!-- Cart / checkout totals: prices already include tax (0% today), so the
-         "Taxes 0 EGP" row only confused customers. One small note instead. -->
+         "Taxes 0 EGP" row only confused customers. One small note instead.
+         HIDE the row, never remove it: checkout.js writes the tax amount into
+         tr[name=o_order_total_taxes] after a delivery method is picked, and a
+         missing row throws, so the Confirm button never enables (checkout was
+         broken 2026-10-14..19 by removing it). -->
     <template id="total_tax_inclusive" inherit_id="website_sale.total">
-        <xpath expr="//tr[@name='o_order_total_taxes']" position="replace"/>
+        <xpath expr="//tr[@name='o_order_total_taxes']" position="attributes">
+            <attribute name="class" add="d-none" separator=" "/>
+        </xpath>
         <xpath expr="//table" position="after">
             <p class="o_jewellery_tax_note small text-muted mb-0 mt-2">All prices are tax inclusive</p>
         </xpath>
