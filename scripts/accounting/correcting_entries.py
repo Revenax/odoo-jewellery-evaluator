@@ -19,6 +19,10 @@ Run through the Odoo shell (dry run unless COMMIT=1):
    new Inventory accounts at today's metal value, against Owners' Capital,
    then the stock valuation is closed (it should find nothing left to post).
 
+5. Historical cost of goods sold: an estimate for every sale before
+   perpetual valuation, at the metal price of the sale date, one entry per
+   month against Owners' Capital.
+
 The open POS shift is not touched.
 """
 import os
@@ -135,6 +139,101 @@ if not Move.search([('ref', '=', key), ('state', '=', 'posted')], limit=1):
     log(f'opening inventory {total:,.2f} against {capital.code} in {move.name}')
     left = company._action_close_stock_valuation()
     log(f'stock valuation closing after opening: {len(left)} lines left to post (expected 0)')
+
+# ── 5. historical cost of goods sold (estimate) ─────────────────────────
+# Sales before perpetual valuation posted no COGS. Estimate it per sold piece
+# at the metal price of its sale date (gold/silver price history from the
+# price crons' ir.logging lines; stones at the feed USD rate), one entry per
+# month against Owners' Capital (the pieces were never on the books).
+import bisect
+import re
+from collections import defaultdict
+
+from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import gold_price_for_purity, inventory_cost_egp
+
+HIST = 'Historical cost of goods sold (estimate)'
+if not Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], limit=1):
+    def series(logger, patterns):
+        env.cr.execute("SELECT create_date, message FROM ir_logging WHERE name = %s ORDER BY create_date", (logger,))
+        points = []
+        for when, msg in env.cr.fetchall():
+            for pat in patterns:
+                m = re.search(pat, msg or '')
+                if m:
+                    points.append((when, float(m.group(1))))
+                    break
+        return points
+
+    gold = series('jewellery_evaluator.gold_price_cron', [r'-> ([\d.]+) EGP/g', r'base ([\d.]+)/g'])
+    silver = series('jewellery_evaluator.silver_price_cron', [r'-> ([\d.]+) EGP/g', r'base ([\d.]+)/g'])
+    gold_times = [t for t, _ in gold]
+    silver_times = [t for t, _ in silver]
+
+    def price_at(points, times, when):
+        if not points:
+            return 0.0
+        i = bisect.bisect_right(times, when) - 1
+        return points[max(i, 0)][1]
+
+    usd_rate = float(env['ir.config_parameter'].sudo().get_param('jewellery_evaluator.feed_usd_egp') or 0)
+    # Every sale and return so far: POS lines, then manual (non-POS) invoices.
+    env.cr.execute("""
+        SELECT o.date_order, l.product_id, l.qty FROM pos_order_line l
+          JOIN pos_order o ON o.id = l.order_id
+         WHERE o.state IN ('paid', 'done', 'invoiced')
+        UNION ALL
+        SELECT m.create_date, aml.product_id,
+               CASE WHEN m.move_type = 'out_refund' THEN -aml.quantity ELSE aml.quantity END
+          FROM account_move_line aml JOIN account_move m ON m.id = aml.move_id
+         WHERE m.state = 'posted' AND m.move_type IN ('out_invoice', 'out_refund')
+           AND aml.display_type = 'product' AND aml.product_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM pos_order po WHERE po.account_move = m.id)
+    """)
+    sales = env.cr.fetchall()
+    Product = env['product.product'].sudo().with_context(active_test=False)
+    by_month = defaultdict(lambda: defaultdict(float))
+    unknown = defaultdict(int)
+    for when, product_id, qty in sales:
+        tmpl = Product.browse(product_id).product_tmpl_id
+        jtype = tmpl.jewellery_type
+        if not jtype or not qty:
+            continue
+        if jtype == 'silver':
+            metal = price_at(silver, silver_times, when) * (tmpl.jewellery_weight_g or 0)
+        else:
+            metal = gold_price_for_purity(price_at(gold, gold_times, when), tmpl.gold_purity or '') * (tmpl.jewellery_weight_g or 0)
+        cost = inventory_cost_egp(
+            jtype, metal_cost_egp=metal, base_gold_price_21k=price_at(gold, gold_times, when),
+            gold_purity=tmpl.gold_purity, gold_weight_g=tmpl.jewellery_weight_g,
+            stones_cost_usd=sum(st.total_price_usd for st in tmpl.stone_ids if st.total_price_usd > 0),
+            usd_rate=usd_rate)
+        if cost is None:
+            unknown[jtype] += 1
+            continue
+        material = 'Silver' if jtype == 'silver' else 'Diamond' if jtype in ('diamond_jewellery', 'center_stone') else 'Gold'
+        by_month[when.strftime('%Y-%m')][material] += cost * qty
+    COGS = {'Gold': '400201', 'Diamond': '400202', 'Silver': '400203'}
+    today = fields.Date.context_today(Move)
+    for month in sorted(by_month):
+        amounts = {m: round(v, 2) for m, v in by_month[month].items() if round(v, 2)}
+        if not amounts:
+            continue
+        end = fields.Date.end_of(fields.Date.to_date(month + '-01'), 'month')
+        total = sum(amounts.values())
+        move = Move.create({
+            'journal_id': misc.id,
+            'date': min(end, today),
+            'ref': f'{HIST} {month}',
+            'line_ids': [(0, 0, {'account_id': acc(COGS[m]).id, 'name': f'{HIST}: {m}', 'debit': v} if v > 0 else
+                          {'account_id': acc(COGS[m]).id, 'name': f'{HIST}: {m}', 'credit': -v})
+                         for m, v in amounts.items()]
+            + [(0, 0, {'account_id': capital.id, 'name': HIST, 'credit': total} if total > 0 else
+                {'account_id': capital.id, 'name': HIST, 'debit': -total})],
+        })
+        move.action_post()
+        log(f'{HIST} {month}: ' + ', '.join(f'{m} {v:,.2f}' for m, v in amounts.items()) + f' in {move.name}')
+    log(f'historical COGS: {len(sales)} sale/return lines, gold price points {len(gold)}, '
+        f'USD rate {usd_rate}; cost unknown (no weight/price): {dict(unknown) or "none"}')
 
 if COMMIT:
     env.cr.commit()

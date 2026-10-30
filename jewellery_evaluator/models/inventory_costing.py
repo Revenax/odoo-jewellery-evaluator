@@ -38,7 +38,11 @@ class ProductTemplate(models.Model):
             base_21k = self.env['gold.price.service'].get_current_gold_price()
         except Exception:
             base_21k = 0.0
-        usd_rate = self._diamond_pricing_config()[0]
+        # Stones are carried at the market USD rate from the price feed (owner
+        # decision 2026-10-31), not the diamond pricing rate; the pricing rate
+        # is only the fallback when the feed has no quote.
+        usd_rate = float(self.env['ir.config_parameter'].sudo().get_param(
+            'jewellery_evaluator.feed_usd_egp') or 0) or self._diamond_pricing_config()[0]
         return {'base_21k': base_21k, 'usd_rate': usd_rate}
 
     def _jewellery_inventory_cost(self, prices):
