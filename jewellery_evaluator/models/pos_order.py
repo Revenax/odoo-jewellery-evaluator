@@ -133,6 +133,9 @@ class PosOrder(models.Model):
             self.browse(order_id)._pulse_notify_sale()
         except Exception as exc:
             _logger.warning('[pulse] could not notify order %s: %s', order_id, exc)
+        # Sales and returns both change whether a piece is sold.
+        self.env['jewellery.ops.sold.sync'].push_after_commit(
+            self.browse(order_id).lines.product_id)
         return order_id
 
     def _pulse_notify_sale(self):

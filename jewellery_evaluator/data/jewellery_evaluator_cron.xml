@@ -48,4 +48,17 @@
         <field name="user_id" ref="base.user_root"/>
     </record>
 
+    <!-- Sold state of every piece to the operations app (nightly backstop
+         for the live push on each sale; see models/ops_sold_sync.py). -->
+    <record id="ir_cron_ops_sold_reconcile" model="ir.cron">
+        <field name="name">Ops app: Sold State Reconcile</field>
+        <field name="model_id" search="[('model', '=', 'jewellery.ops.sold.sync')]" model="ir.model"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_reconcile()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+        <field name="user_id" ref="base.user_root"/>
+    </record>
+
 </odoo>

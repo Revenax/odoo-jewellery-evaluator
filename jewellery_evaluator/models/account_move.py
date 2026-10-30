@@ -48,6 +48,10 @@ class AccountMove(models.Model):
         posted = super()._post(soft=soft)
         for move in posted:
             move._deduct_jewellery_stock()
+        sales = posted.filtered(lambda m: m.move_type in ('out_invoice', 'out_refund'))
+        if sales:
+            self.env['jewellery.ops.sold.sync'].push_after_commit(
+                sales.invoice_line_ids.product_id)
         return posted
 
     def _deduct_jewellery_stock(self):

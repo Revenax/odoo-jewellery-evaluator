@@ -1061,3 +1061,24 @@ def price_from_feed(snapshot: dict, key: str, side: str = 'ask',
     if value <= 0:
         raise ValueError(f'Price feed {key} {side} is not positive: {value}')
     return value
+
+
+def fold_sold_state(movements: list) -> dict:
+    """Whether a unique piece is sold, from its sale and return lines.
+
+    ``movements`` is ``[(qty, when, ref), ...]``: a POS line or customer
+    invoice line (qty > 0 sells, qty < 0 returns). The piece is sold while
+    more was sold than returned. ``sold_at``/``sold_ref`` are those of the
+    latest sale, and are None when the piece is not sold. ``when`` values only
+    need to be comparable with each other.
+    """
+    net = 0.0
+    last_sale = None
+    for qty, when, ref in movements:
+        qty = float(qty or 0)
+        net += qty
+        if qty > 0 and (last_sale is None or (when is not None and when >= last_sale[0])):
+            last_sale = (when, ref)
+    if net > 0 and last_sale is not None:
+        return {'sold': True, 'sold_at': last_sale[0], 'sold_ref': last_sale[1]}
+    return {'sold': False, 'sold_at': None, 'sold_ref': None}

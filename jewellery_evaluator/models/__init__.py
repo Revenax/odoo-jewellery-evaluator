@@ -12,6 +12,7 @@ from . import (
     jewellery_ledger,  # noqa: F401
     jewellery_purchase,  # noqa: F401
     jewellery_stone,  # noqa: F401
+    ops_sold_sync,  # noqa: F401
     pos_cash_ops,  # noqa: F401
     pos_config,  # noqa: F401
     pos_make_payment,  # noqa: F401
