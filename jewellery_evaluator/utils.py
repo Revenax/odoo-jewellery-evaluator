@@ -1082,3 +1082,68 @@ def fold_sold_state(movements: list) -> dict:
     if net > 0 and last_sale is not None:
         return {'sold': True, 'sold_at': last_sale[0], 'sold_ref': last_sale[1]}
     return {'sold': False, 'sold_at': None, 'sold_ref': None}
+
+
+GOLD_JEWELLERY_TYPES = ('gold_local', 'gold_foreign', 'gold_bars')
+
+
+def inventory_cost_egp(
+    jewellery_type: str | None,
+    metal_cost_egp: float = 0.0,
+    base_gold_price_21k: float = 0.0,
+    gold_purity: str | None = None,
+    gold_weight_g: float = 0.0,
+    stones_cost_usd: float = 0.0,
+    usd_rate: float = 0.0,
+) -> float | None:
+    """Inventory cost (EGP) of one piece: its metal at today's price, plus stones.
+
+    This is what the books carry a piece at and what a sale posts as cost of
+    goods sold. No making fee or markup is included.
+
+    - gold and silver pieces: ``metal_cost_egp`` (the stored cost price, which
+      is weight x today's price for the purity);
+    - diamond jewellery: gold weight x today's price for its purity, plus the
+      stones (USD) x ``usd_rate``;
+    - center stone (loose diamond): the stone only.
+
+    Returns None when the cost cannot be known (unknown type, or a zero gold
+    price or USD rate where one is needed), so the caller keeps the old cost
+    rather than writing a wrong 0.
+    """
+    two_dp = Decimal('0.01')
+    if jewellery_type in GOLD_JEWELLERY_TYPES or jewellery_type == 'silver':
+        cost = Decimal(str(metal_cost_egp or 0))
+        return float(cost.quantize(two_dp, rounding=ROUND_HALF_UP)) if cost > 0 else None
+    if jewellery_type not in ('diamond_jewellery', 'center_stone'):
+        return None
+    rate = Decimal(str(usd_rate or 0))
+    stones = Decimal(str(stones_cost_usd or 0))
+    if stones > 0 and rate <= 0:
+        return None
+    total = stones * rate
+    if jewellery_type == 'diamond_jewellery' and (gold_weight_g or 0) > 0:
+        per_gram = gold_price_for_purity(base_gold_price_21k, gold_purity or '')
+        if per_gram <= 0:
+            return None
+        total += Decimal(str(per_gram)) * Decimal(str(gold_weight_g))
+    if total <= 0:
+        return None
+    return float(total.quantize(two_dp, rounding=ROUND_HALF_UP))
+
+
+# Gulf currencies pegged to the US dollar: units of the currency per 1 USD.
+USD_PEGS = {'USD': Decimal('1'), 'SAR': Decimal('3.75'), 'AED': Decimal('3.6725')}
+
+
+def pegged_currency_rates(usd_egp: float) -> dict:
+    """Odoo currency rates (units of currency per 1 EGP) from the USD/EGP price.
+
+    Odoo stores a rate as how many units of the currency one unit of the
+    company currency (EGP) buys. SAR and AED are fixed to the dollar, so all
+    three follow from one USD/EGP quote. Raises on a non-positive quote.
+    """
+    usd = Decimal(str(usd_egp or 0))
+    if usd <= 0:
+        raise ValueError(f'USD/EGP must be positive, got: {usd_egp}')
+    return {code: float(peg / usd) for code, peg in USD_PEGS.items()}
