@@ -23,9 +23,12 @@ What it sets up:
   would have taken Sway Mall stock).
 - Today's USD/SAR/AED rates from the price feed (SAR/AED were 1.0).
 - The duplicate "Gold / Coin" category merged into the one in use.
-- Gold bullion (bars, coins, ingots) gets its own sales and cost of goods
-  sold accounts: it sells close to spot, so its margin hides the jewellery
-  margin when both share one account. Stock stays on Inventory - Gold.
+- Gold by karat (24K, 21K, 18K): inventory, metal sales and cost of gold
+  sold, used for every gold piece (jewellery, bars, coins) through
+  models/karat_accounts.py, plus making-fee accounts (gold jewellery, gold
+  bullion premium, silver) for what a sale earns above the metal value.
+  The category accounts (Gold / Gold Bullion "karat not set", Diamond,
+  Silver) only catch what has no karat accounts.
 - Chart tidy-up: the Egyptian template's unused accounts are archived
   (only accounts with no entries and no live reference; the ones a
   4-branch retailer will need are kept), owners' accounts and the legal
@@ -69,21 +72,57 @@ def account(code, name, account_type, old_names=(), **extra):
 # ── accounts ────────────────────────────────────────────────────────────
 revaluation = account('500102', 'Metal Price Revaluation', 'income_other')
 capital = account('300001', "Owners' Capital", 'equity')
-MATERIALS = {}
-for i, material in enumerate(('Gold', 'Diamond', 'Silver'), start=1):
-    label = 'Gold Jewellery' if material == 'Gold' else material
-    MATERIALS[material] = {
-        'income': account(f'50010{2 + i}', f'Sales - {label}', 'income', old_names=(f'Sales - {material}',)),
-        'cogs': account(f'40020{i}', f'Cost of Goods Sold - {label}', 'expense_direct_cost',
-                        old_names=(f'Cost of Goods Sold - {material}',)),
-        'stock': account(f'13210{i}', f'Inventory - {material}', 'asset_current',
+from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import (
+    GOLD_KARAT_ACCOUNTS, MAKING_FEE_ACCOUNTS, SILVER_ACCOUNTS)
+
+# Category accounts. Gold and silver pieces are booked on their karat's
+# accounts below (models/karat_accounts.py); these only catch a gold piece
+# whose karat is not set. Diamonds and center stones stay on Diamond.
+MATERIALS = {
+    'Gold': {
+        'income': account('500103', 'Sales - Gold (karat not set)', 'income',
+                          old_names=('Sales - Gold', 'Sales - Gold Jewellery')),
+        'cogs': account('400201', 'Cost of Gold Sold - karat not set', 'expense_direct_cost',
+                        old_names=('Cost of Goods Sold - Gold', 'Cost of Goods Sold - Gold Jewellery')),
+        'stock': account('132101', 'Inventory - Gold (karat not set)', 'asset_current',
+                         old_names=('Inventory - Gold',), account_stock_variation_id=revaluation.id),
+    },
+    'Diamond': {
+        'income': account('500104', 'Sales - Diamond', 'income'),
+        'cogs': account('400202', 'Cost of Goods Sold - Diamond', 'expense_direct_cost'),
+        'stock': account('132102', 'Inventory - Diamond', 'asset_current',
                          account_stock_variation_id=revaluation.id),
-    }
+    },
+    'Silver': {
+        'income': account(SILVER_ACCOUNTS['income'], 'Sales - Silver (metal value)', 'income',
+                          old_names=('Sales - Silver',)),
+        'cogs': account(SILVER_ACCOUNTS['expense'], 'Cost of Silver Sold', 'expense_direct_cost',
+                        old_names=('Cost of Goods Sold - Silver',)),
+        'stock': account(SILVER_ACCOUNTS['stock'], 'Inventory - Silver', 'asset_current',
+                         account_stock_variation_id=revaluation.id),
+    },
+}
 MATERIALS['Bullion'] = {
-    'income': account('500106', 'Sales - Gold Bullion', 'income'),
-    'cogs': account('400204', 'Cost of Goods Sold - Gold Bullion', 'expense_direct_cost'),
+    'income': account('500106', 'Sales - Gold Bullion (karat not set)', 'income',
+                      old_names=('Sales - Gold Bullion',)),
+    'cogs': account('400204', 'Cost of Gold Bullion Sold - karat not set', 'expense_direct_cost',
+                    old_names=('Cost of Goods Sold - Gold Bullion',)),
     'stock': MATERIALS['Gold']['stock'],
 }
+
+# Gold by karat: what is in stock, metal sales, cost of gold sold.
+for karat, codes in GOLD_KARAT_ACCOUNTS.items():
+    account(codes['stock'], f'Inventory - Gold {karat}', 'asset_current',
+            account_stock_variation_id=revaluation.id)
+    account(codes['income'], f'Sales - Gold {karat} (metal value)', 'income')
+    account(codes['expense'], f'Cost of Gold Sold - {karat}', 'expense_direct_cost')
+# What the customer pays above the metal value.
+FEE_NAMES = {'500121': 'Making Fee - Gold Jewellery', '500122': 'Making Fee - Gold Bullion (premium)',
+             '500123': 'Making Fee - Silver'}
+for code in sorted(set(MAKING_FEE_ACCOUNTS.values())):
+    account(code, FEE_NAMES[code], 'income')
+KARAT_CODES = {c for codes in GOLD_KARAT_ACCOUNTS.values() for c in codes.values()} \
+    | set(SILVER_ACCOUNTS.values()) | set(MAKING_FEE_ACCOUNTS.values())
 
 # ── company ─────────────────────────────────────────────────────────────
 wanted = {
@@ -251,7 +290,7 @@ KEEP = {
     '400044', '400045', '400046', '400047', '400048', '400050', '400051', '400058', '400067',
     '400086', '400088', '400089',
     '500001', '500013', '500102', '500104', '500105', '500106', '400202', '400203', '400204',
-}
+} | KARAT_CODES
 # Zero-balance accounts with old entries that no longer mean anything (no taxes).
 RETIRE = {'100103'}
 # References that do not keep an account alive: the archived taxes.
@@ -300,6 +339,7 @@ GROUPS = [
     ('105', '105', 'Vaults (Cash)'),
     ('106', '106', 'Fixed Assets'),
     ('132', '132', 'Inventory'),
+    ('13211', '13211', 'Gold in Stock by Karat'),
     ('2', '2', 'Liabilities'),
     ('201', '201', 'Current Liabilities'),
     ('202', '202', 'Non-current Liabilities'),
@@ -308,9 +348,12 @@ GROUPS = [
     ('4', '4', 'Expenses'),
     ('4000', '4001', 'Operating Expenses'),
     ('4002', '4002', 'Cost of Goods Sold'),
+    ('40021', '40021', 'Cost of Gold Sold by Karat'),
     ('5', '5', 'Income'),
     ('5000', '5000', 'Other Income'),
     ('5001', '5001', 'Jewellery Sales & Metal Revaluation'),
+    ('50011', '50011', 'Gold Sales by Karat (metal value)'),
+    ('50012', '50012', 'Making Fees'),
     ('9', '9', 'Cash Differences & Closing'),
 ]
 Group = env['account.group'].sudo()

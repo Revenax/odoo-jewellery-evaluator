@@ -1147,3 +1147,54 @@ def pegged_currency_rates(usd_egp: float) -> dict:
     if usd <= 0:
         raise ValueError(f'USD/EGP must be positive, got: {usd_egp}')
     return {code: float(peg / usd) for code, peg in USD_PEGS.items()}
+
+
+# Chart of accounts by karat (codes created by scripts/accounting/configure_accounting.py).
+# Gold metal is tracked per karat whatever the piece is (jewellery, bar or
+# coin): inventory ("gold in stock"), metal sales and cost of gold sold. What
+# the customer pays above the metal value is the making fee (the premium, for
+# bullion), kept apart per kind so its margin is visible on its own.
+GOLD_KARAT_ACCOUNTS = {
+    '24K': {'stock': '132111', 'income': '500111', 'expense': '400211'},
+    '21K': {'stock': '132112', 'income': '500112', 'expense': '400212'},
+    '18K': {'stock': '132113', 'income': '500113', 'expense': '400213'},
+}
+SILVER_ACCOUNTS = {'stock': '132103', 'income': '500105', 'expense': '400203'}
+MAKING_FEE_ACCOUNTS = {
+    'gold_local': '500121',
+    'gold_foreign': '500121',
+    'gold_bars': '500122',
+    'silver': '500123',
+}
+
+
+def jewellery_account_codes(jewellery_type: str | None, gold_purity: str | None) -> dict | None:
+    """Account codes for a piece: stock, income (metal), expense (cost), making_fee.
+
+    None when the piece is not booked by karat (diamonds, center stones,
+    non-jewellery, or a gold piece whose karat has no accounts): the product
+    category's accounts apply then.
+    """
+    if jewellery_type == 'silver':
+        codes = dict(SILVER_ACCOUNTS)
+    elif jewellery_type in GOLD_JEWELLERY_TYPES and gold_purity in GOLD_KARAT_ACCOUNTS:
+        codes = dict(GOLD_KARAT_ACCOUNTS[gold_purity])
+    else:
+        return None
+    codes['making_fee'] = MAKING_FEE_ACCOUNTS[jewellery_type]
+    return codes
+
+
+def making_fee_split(revenue: float, metal_cost: float) -> tuple[float, float]:
+    """Split a sale line's revenue into (metal value, making fee).
+
+    The metal value is what the piece's metal costs on the day of sale (its
+    cost of goods sold), the making fee is the rest; a sale below the metal
+    value gives a negative making fee. Refunds carry negative amounts. With no
+    known metal cost nothing is split: the whole revenue stays metal value.
+    """
+    rev = Decimal(str(revenue or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    cost = Decimal(str(metal_cost or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if cost == 0:
+        return float(rev), 0.0
+    return float(cost), float(rev - cost)

@@ -43,6 +43,16 @@ Run through the Odoo shell (dry run unless COMMIT=1):
    are booked as bought with the owners' money. From then on the nightly
    cron does this itself (_jewellery_settle_negative_bullion).
 
+10. Gold by karat and making fee: every gold and silver sale so far is
+    re-booked the way models/karat_accounts.py books new ones: the metal
+    value (its cost of goods sold) on its karat's sales account, the rest on
+    the making fee account of its kind, and its cost on its karat's cost
+    account. Before go-live the cost is the per-piece estimate of section 5;
+    lines that estimate missed (free-text lines named by SKU) are added to it
+    against Owners' Capital.
+11. Inventory by karat: the gold stock moves from the single gold inventory
+    account to its karat's account (needs models/karat_accounts.py deployed).
+
 Sections 6-8 post only the difference between what should have moved and
 what earlier runs moved, so a re-run never moves anything twice.
 
@@ -185,8 +195,12 @@ def material_of(jtype, bullion=True):
     return 'Bullion' if bullion and jtype == 'gold_bars' else 'Gold'
 
 
-def historical_cost_by_month(before=None, bullion=False):
-    """{month: {material: cost}} for every sale and return (before ``before``)."""
+def unit_cost_estimator():
+    """cost(template, when): one piece's cost at the metal price of ``when``.
+
+    Gold/silver price history comes from the price crons' ir.logging lines,
+    stones are at the feed USD rate. None when the cost is unknown.
+    """
     def series(logger, patterns):
         env.cr.execute("SELECT create_date, message FROM ir_logging WHERE name = %s ORDER BY create_date", (logger,))
         points = []
@@ -210,6 +224,28 @@ def historical_cost_by_month(before=None, bullion=False):
         return points[max(i, 0)][1]
 
     usd_rate = float(env['ir.config_parameter'].sudo().get_param('jewellery_evaluator.feed_usd_egp') or 0)
+
+    def cost(tmpl, when):
+        jtype = tmpl.jewellery_type
+        if not jtype:
+            return None
+        if jtype == 'silver':
+            metal = price_at(silver, silver_times, when) * (tmpl.jewellery_weight_g or 0)
+        else:
+            metal = gold_price_for_purity(price_at(gold, gold_times, when), tmpl.gold_purity or '') * (tmpl.jewellery_weight_g or 0)
+        return inventory_cost_egp(
+            jtype, metal_cost_egp=metal, base_gold_price_21k=price_at(gold, gold_times, when),
+            gold_purity=tmpl.gold_purity, gold_weight_g=tmpl.jewellery_weight_g,
+            stones_cost_usd=sum(st.total_price_usd for st in tmpl.stone_ids if st.total_price_usd > 0),
+            usd_rate=usd_rate)
+    cost.points = len(gold)
+    cost.usd_rate = usd_rate
+    return cost
+
+
+def historical_cost_by_month(before=None, bullion=False):
+    """{month: {material: cost}} for every sale and return (before ``before``)."""
+    estimate = unit_cost_estimator()
     # Every sale and return so far: POS lines, then manual (non-POS) invoices.
     env.cr.execute("""
         SELECT o.date_order, l.product_id, l.qty FROM pos_order_line l
@@ -234,21 +270,13 @@ def historical_cost_by_month(before=None, bullion=False):
         jtype = tmpl.jewellery_type
         if not jtype or not qty:
             continue
-        if jtype == 'silver':
-            metal = price_at(silver, silver_times, when) * (tmpl.jewellery_weight_g or 0)
-        else:
-            metal = gold_price_for_purity(price_at(gold, gold_times, when), tmpl.gold_purity or '') * (tmpl.jewellery_weight_g or 0)
-        cost = inventory_cost_egp(
-            jtype, metal_cost_egp=metal, base_gold_price_21k=price_at(gold, gold_times, when),
-            gold_purity=tmpl.gold_purity, gold_weight_g=tmpl.jewellery_weight_g,
-            stones_cost_usd=sum(st.total_price_usd for st in tmpl.stone_ids if st.total_price_usd > 0),
-            usd_rate=usd_rate)
+        cost = estimate(tmpl, when)
         if cost is None:
             unknown[jtype] += 1
             continue
         material = material_of(jtype, bullion)
         by_month[when.strftime('%Y-%m')][material] += cost * qty
-    return by_month, len(sales), len(gold), usd_rate, unknown
+    return by_month, len(sales), estimate.points, estimate.usd_rate, unknown
 
 
 if not Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], limit=1):
@@ -416,6 +444,125 @@ if quants and hist and not Move.search([('ref', '=', LABEL + ' since go-live'), 
         company._save_closing_id(closing.id)
         log(f'stock closing after the fix in {closing.name}: ' + ', '.join(
             f'{l.account_id.code} {l.balance:,.2f}' for l in closing.line_ids))
+
+# 10. gold by karat and making fee (target state per month)
+from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import (
+    GOLD_KARAT_ACCOUNTS, MAKING_FEE_ACCOUNTS, SILVER_ACCOUNTS, jewellery_account_codes, making_fee_split)
+
+KARAT_SALES = {c['income'] for c in GOLD_KARAT_ACCOUNTS.values()} | {SILVER_ACCOUNTS['income']} \
+    | set(MAKING_FEE_ACCOUNTS.values())
+KARAT_COST = {c['expense'] for c in GOLD_KARAT_ACCOUNTS.values()} | {SILVER_ACCOUNTS['expense']}
+SALES_SET = KARAT_SALES | {SALES['Gold'], SALES['Bullion']}
+COST_SET = KARAT_COST | {COST['Gold'], COST['Bullion']}
+METAL_TYPES = ('gold_local', 'gold_foreign', 'gold_bars', 'silver')
+if hist and all(Account.search_count([('code', '=', c)]) for c in SALES_SET | COST_SET):
+    cutoff = hist[0].create_date
+    estimate = unit_cost_estimator()
+
+    def tmpl_of_text(text):
+        sku = (text or '').strip().split()[0] if (text or '').strip() else ''
+        return Tmpl.search(['|', ('default_code', '=', sku), ('name', '=', sku)], limit=1) if sku else Tmpl
+
+    env.cr.execute("""
+        SELECT l.id, l.date, l.balance, l.name, l.quantity, l.product_id, m.move_type, m.create_date
+          FROM account_move_line l JOIN account_move m ON m.id = l.move_id
+         WHERE m.state = 'posted' AND m.move_type IN ('out_invoice', 'out_refund')
+           AND l.display_type = 'product'
+    """)
+    sales_target = defaultdict(lambda: defaultdict(float))
+    cost_target = defaultdict(lambda: defaultdict(float))
+    Product = env['product.product'].sudo().with_context(active_test=False)
+    estimated_missing = 0.0
+    for line_id, date, balance, name, qty, product_id, move_type, created in env.cr.fetchall():
+        tmpl = Product.browse(product_id).product_tmpl_id if product_id else tmpl_of_text(name)
+        if tmpl.jewellery_type not in METAL_TYPES:
+            continue
+        month = date.strftime('%Y-%m')
+        revenue = -float(balance)
+        signed_qty = -qty if move_type == 'out_refund' else qty
+        if created >= cutoff:
+            cost = sum(env['account.move.line'].sudo().search([
+                ('cogs_origin_id', '=', line_id), ('account_id.account_type', '=', 'expense_direct_cost')]).mapped('balance'))
+        else:
+            unit = estimate(tmpl, created)
+            cost = (unit or 0.0) * signed_qty
+            if not product_id:
+                estimated_missing += cost
+        codes = jewellery_account_codes(tmpl.jewellery_type, tmpl.gold_purity)
+        if codes:
+            metal, fee = making_fee_split(revenue, cost)
+            sales_target[month][codes['income']] -= metal
+            sales_target[month][codes['making_fee']] -= fee
+            cost_target[month][codes['expense']] += round(cost, 2)
+        else:
+            material = material_of(tmpl.jewellery_type)
+            sales_target[month][SALES[material]] -= revenue
+            cost_target[month][COST[material]] += round(cost, 2)
+    env.cr.execute("""
+        SELECT to_char(l.date, 'YYYY-MM'), a.code_store->>%s, SUM(l.balance)
+          FROM account_move_line l JOIN account_move m ON m.id = l.move_id JOIN account_account a ON a.id = l.account_id
+         WHERE m.state = 'posted' AND a.code_store->>%s IN %s GROUP BY 1, 2
+    """, (str(company.id), str(company.id), tuple(SALES_SET | COST_SET)))
+    current = defaultdict(lambda: defaultdict(float))
+    for month, code, bal in env.cr.fetchall():
+        current[month][code] = float(bal)
+    KEY = 'gold by karat and making fee'
+    for month in sorted(set(sales_target) | set(cost_target) | set(current)):
+        diffs = {}
+        for code in SALES_SET:
+            diffs[code] = round(sales_target[month][code] - current[month][code], 2)
+        residual = round(sum(diffs.values()), 2)
+        if residual:
+            # Revenue on these accounts that no sale line explains stays put.
+            diffs[SALES['Gold']] = round(diffs[SALES['Gold']] - residual, 2)
+            log(f'{month}: {residual:,.2f} of gold/silver sales not matched to a sale line, left in {SALES["Gold"]}')
+        cost_diffs = {code: round(cost_target[month][code] - current[month][code], 2) for code in COST_SET}
+        to_capital = round(sum(cost_diffs.values()), 2)
+        ref = f'{RECLASS}: {KEY} {month}'
+        lines = []
+        for code, value in sorted({**diffs, **cost_diffs}.items()):
+            if not company.currency_id.is_zero(value):
+                lines.append((0, 0, {'account_id': acc(code).id, 'name': ref,
+                                     'debit': max(value, 0), 'credit': max(-value, 0)}))
+        if not company.currency_id.is_zero(to_capital):
+            lines.append((0, 0, {'account_id': capital.id, 'name': f'{HIST}: lines it missed and rounding',
+                                 'debit': max(-to_capital, 0), 'credit': max(to_capital, 0)}))
+        if not lines:
+            continue
+        end = fields.Date.end_of(fields.Date.to_date(month + '-01'), 'month')
+        move = Move.create({'journal_id': misc.id, 'date': min(end, today), 'ref': ref, 'line_ids': lines})
+        move.action_post()
+        log(f'{ref}: ' + ', '.join(f'{l.account_id.code} {l.balance:,.2f}' for l in move.line_ids) + f' in {move.name}')
+    if estimated_missing:
+        log(f'cost of free-text sale lines the first estimate missed: {estimated_missing:,.2f}')
+
+# 11. inventory by karat
+KEY = f'{RECLASS}: inventory by karat'
+probe = Tmpl.search([('jewellery_type', '=', 'gold_foreign'), ('gold_purity', '=', '18K')], limit=1)
+karat_live = probe and probe.get_product_accounts()['stock_valuation'].code == GOLD_KARAT_ACCOUNTS['18K']['stock']
+if not karat_live:
+    log('inventory by karat skipped: models/karat_accounts.py is not deployed yet')
+elif not Move.search([('ref', '=', KEY), ('state', '=', 'posted')], limit=1):
+    value = company.stock_value()
+    booked = company.stock_accounting_value()
+    old = acc('132101')
+    lines, moved = [], 0.0
+    for account, v in value.items():
+        if account == old:
+            continue
+        delta = round(v - booked.get(account, 0.0), 2)
+        if account.code in {c['stock'] for c in GOLD_KARAT_ACCOUNTS.values()} and not company.currency_id.is_zero(delta):
+            lines.append((0, 0, {'account_id': account.id, 'name': KEY, 'debit': max(delta, 0), 'credit': max(-delta, 0)}))
+            moved += delta
+    if lines:
+        lines.append((0, 0, {'account_id': old.id, 'name': KEY, 'debit': max(-moved, 0), 'credit': max(moved, 0)}))
+        move = Move.create({'journal_id': company.account_stock_journal_id.id, 'date': today, 'ref': KEY,
+                            'line_ids': lines})
+        move.action_post()
+        left = sum(env['account.move.line'].sudo().search(
+            [('account_id', '=', old.id), ('parent_state', '=', 'posted')]).mapped('balance'))
+        log(f'{KEY}: ' + ', '.join(f'{l.account_id.code} {l.balance:,.2f}' for l in move.line_ids)
+            + f' in {move.name}; left on 132101: {left:,.2f} (stock without karat: {value.get(old, 0.0):,.2f})')
 
 if COMMIT:
     env.cr.commit()
