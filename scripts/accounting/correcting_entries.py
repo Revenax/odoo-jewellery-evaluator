@@ -34,6 +34,15 @@ Run through the Odoo shell (dry run unless COMMIT=1):
    estimate, both credited to Owners' Capital, so the cash the shop paid for
    them comes off the capital instead.
 
+9. Negative bullion stock: bars and coins were sold without ever being
+   received in Odoo, so their on-hand went negative (GB-BTC-10G at -73).
+   Once a sale re-marked their cost, the first nightly closing valued that
+   negative stock and booked a 5.2M phantom revaluation loss. The negative
+   on-hand is set to zero (the closing reverses the phantom loss), and the
+   bars sold since go-live, whose cost of goods sold was posted for real,
+   are booked as bought with the owners' money. From then on the nightly
+   cron does this itself (_jewellery_settle_negative_bullion).
+
 Sections 6-8 post only the difference between what should have moved and
 what earlier runs moved, so a re-run never moves anything twice.
 
@@ -373,6 +382,40 @@ for date, balance, name, jtype, move_type, partner_id in source_lines('400028'):
     if move_type in ('in_invoice', 'in_refund') and partner_id == buyback.id:
         amounts[(date.strftime('%Y-%m'), capital.code)] += balance
 reclass("buy-back bills to Owners' Capital", '400028', amounts)
+
+# 9. negative bullion stock
+LABEL = 'Bullion sold before it was received in Odoo (bought outside Odoo)'
+quants = env['stock.quant'].sudo().search([
+    ('company_id', '=', company.id), ('location_id.usage', '=', 'internal'),
+    ('quantity', '<', 0), ('product_id.product_tmpl_id.jewellery_type', '=', 'gold_bars')])
+if quants and hist and not Move.search([('ref', '=', LABEL + ' since go-live'), ('state', '=', 'posted')], limit=1):
+    env.cr.execute("""
+        SELECT COALESCE(SUM(l.balance), 0) FROM account_move_line l
+          JOIN account_move m ON m.id = l.move_id
+          JOIN product_product pp ON pp.id = l.product_id
+          JOIN product_template pt ON pt.id = pp.product_tmpl_id
+         WHERE m.state = 'posted' AND pt.jewellery_type = 'gold_bars' AND m.create_date >= %s
+           AND l.account_id IN %s AND COALESCE(m.ref, '') NOT LIKE %s
+    """, (hist[0].create_date, (acc(COST['Gold']).id, acc(COST['Bullion']).id), RECLASS + ':%'))
+    sold = round(float(env.cr.fetchone()[0]), 2)
+    log(f'{len(quants)} negative bullion quants ({-sum(quants.mapped("quantity")):g} units) set to 0')
+    quants.with_context(inventory_mode=True).write({'inventory_quantity': 0})
+    quants.with_context(inventory_mode=True).action_apply_inventory()
+    if sold:
+        move = Move.create({
+            'journal_id': company.account_stock_journal_id.id, 'date': today, 'ref': LABEL + ' since go-live',
+            'line_ids': [(0, 0, {'account_id': acc('132101').id, 'name': LABEL, 'debit': sold}),
+                         (0, 0, {'account_id': capital.id, 'name': LABEL, 'credit': sold})]})
+        move.action_post()
+        log(f'bullion sold since go-live from unrecorded stock: {sold:,.2f} against {capital.code} in {move.name}')
+    left = company._action_close_stock_valuation()
+    if left:
+        closing = Move.create({'journal_id': company.account_stock_journal_id.id, 'date': today,
+                               'ref': 'Stock Closing', 'line_ids': [(0, 0, v) for v in left]})
+        closing.action_post()
+        company._save_closing_id(closing.id)
+        log(f'stock closing after the fix in {closing.name}: ' + ', '.join(
+            f'{l.account_id.code} {l.balance:,.2f}' for l in closing.line_ids))
 
 if COMMIT:
     env.cr.commit()

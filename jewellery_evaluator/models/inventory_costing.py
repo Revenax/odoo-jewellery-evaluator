@@ -21,12 +21,16 @@ sale: a failure is logged and the sale goes ahead at the previous cost.
 """
 
 import logging
+from collections import defaultdict
 
 from odoo import api, fields, models
 
 from ..utils import inventory_cost_egp, pegged_currency_rates
 
 _logger = logging.getLogger(__name__)
+
+# Owners' Capital, created by scripts/accounting/configure_accounting.py.
+CAPITAL_ACCOUNT_CODE = '300001'
 
 
 class ProductTemplate(models.Model):
@@ -119,6 +123,52 @@ class ProductTemplate(models.Model):
                                  'company_id': company.id, 'rate': rate})
 
     @api.model
+    def _jewellery_settle_negative_bullion(self):
+        """Bullion sold before it was received in Odoo: book it as bought.
+
+        Bars and coins are pre-seeded SKUs that the shop sells from stock
+        bought outside Odoo, so a sale can take on-hand below zero. A negative
+        on-hand is valued negative, and every price change would then revalue
+        bars the shop no longer has. Each night, before the closing, such
+        stock is set back to zero and its value (today's cost) is booked as
+        bought with the owners' money (Dr Inventory / Cr Owners' Capital), the
+        same funding as the opening stock. Record the purchase instead
+        (``create_purchase_receipt``) and nothing is left for this to do.
+        """
+        company = self.env.company
+        quants = self.env['stock.quant'].sudo().search([
+            ('company_id', '=', company.id), ('location_id.usage', '=', 'internal'),
+            ('quantity', '<', 0), ('product_id.product_tmpl_id.jewellery_type', '=', 'gold_bars')])
+        if not quants:
+            return 0.0
+        capital = self.env['account.account'].sudo().search(
+            [('code', '=', CAPITAL_ACCOUNT_CODE), ('company_ids', 'in', company.id)], limit=1)
+        if not capital:
+            _logger.warning('[costing] %s negative bullion quants left: no account %s',
+                            len(quants), CAPITAL_ACCOUNT_CODE)
+            return 0.0
+        by_account: defaultdict = defaultdict(float)
+        for quant in quants:
+            account = quant.product_id.product_tmpl_id.get_product_accounts()['stock_valuation']
+            by_account[account] += -quant.quantity * quant.product_id.standard_price
+        quants.with_context(inventory_mode=True).write({'inventory_quantity': 0})
+        quants.with_context(inventory_mode=True).action_apply_inventory()
+        total = company.currency_id.round(sum(by_account.values()))
+        if not company.currency_id.is_zero(total):
+            label = 'Bullion sold before it was received in Odoo (bought outside Odoo)'
+            move = self.env['account.move'].sudo().create({
+                'journal_id': company.account_stock_journal_id.id,
+                'ref': label,
+                'line_ids': [(0, 0, {'account_id': a.id, 'name': label, 'debit': company.currency_id.round(v)})
+                             for a, v in by_account.items()]
+                + [(0, 0, {'account_id': capital.id, 'name': label, 'credit': total})],
+            })
+            move._post()
+        _logger.info('[costing] %s negative bullion quants set to 0, %s booked against %s',
+                     len(quants), total, CAPITAL_ACCOUNT_CODE)
+        return total
+
+    @api.model
     def cron_mark_inventory_cost(self):
         """Nightly: today's currency rates, re-mark every piece in stock, then
         close the stock valuation."""
@@ -138,6 +188,11 @@ class ProductTemplate(models.Model):
             self.env.cr.commit()
         _logger.info('[costing] re-marked %s of %s pieces in stock', changed, len(tmpl_ids))
         for company in self.env['res.company'].search([]):
+            try:
+                with self.env.cr.savepoint():
+                    self.with_company(company)._jewellery_settle_negative_bullion()
+            except Exception:
+                _logger.exception('[costing] negative bullion stock not settled for %s', company.name)
             try:
                 company.with_context(closing_cron=True).action_close_stock_valuation(auto_post=True)
             except Exception:
