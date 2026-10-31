@@ -23,7 +23,7 @@ The two POS cash-ops popups (added 2026-07-11) are each **one-directional** and
 | Vault Foreign USD | USD | 105002 |
 | Vault Foreign SAR | SAR | 105004 |
 | Vault Foreign AED | AED | 105005 |
-| Owner - Anas / Omar / Mohamed / Ahmed Abbassi | EGP | 105006–105009 |
+| Owner - Anas / Omar / Mohamed / Ahmed Abbassi | EGP | 105006–105009 (recoded 300101–300104, equity, 2026-10-31) |
 
 Journals resolve **by convention, company-scoped** (unchanged): Vault Foreign =
 cash journals in a non-company currency; Owner = cash journals named `Owner%`.

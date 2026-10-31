@@ -23,6 +23,14 @@ What it sets up:
   would have taken Sway Mall stock).
 - Today's USD/SAR/AED rates from the price feed (SAR/AED were 1.0).
 - The duplicate "Gold / Coin" category merged into the one in use.
+- Gold bullion (bars, coins, ingots) gets its own sales and cost of goods
+  sold accounts: it sells close to spot, so its margin hides the jewellery
+  margin when both share one account. Stock stays on Inventory - Gold.
+- Chart tidy-up: the Egyptian template's unused accounts are archived
+  (only accounts with no entries and no live reference; the ones a
+  4-branch retailer will need are kept), owners' accounts and the legal
+  reserve move to equity, gains to other income, and account groups give
+  the chart and the trial balance one subtotal per section.
 """
 import os
 
@@ -39,8 +47,11 @@ company = env.company
 Account = env['account.account'].sudo()
 
 
-def account(code, name, account_type, **extra):
+def account(code, name, account_type, old_names=(), **extra):
     acc = Account.search([('code', '=', code), ('company_ids', 'in', company.id)], limit=1)
+    if acc and acc.name != name and acc.name in old_names:
+        log(f'account {code} renamed "{acc.name}" -> "{name}"')
+        acc.name = name
     if acc and acc.name != name:
         raise ValueError(f'account code {code} is already used by "{acc.name}"; pick another code')
     if not acc:
@@ -60,12 +71,19 @@ revaluation = account('500102', 'Metal Price Revaluation', 'income_other')
 capital = account('300001', "Owners' Capital", 'equity')
 MATERIALS = {}
 for i, material in enumerate(('Gold', 'Diamond', 'Silver'), start=1):
+    label = 'Gold Jewellery' if material == 'Gold' else material
     MATERIALS[material] = {
-        'income': account(f'50010{2 + i}', f'Sales - {material}', 'income'),
-        'cogs': account(f'40020{i}', f'Cost of Goods Sold - {material}', 'expense_direct_cost'),
+        'income': account(f'50010{2 + i}', f'Sales - {label}', 'income', old_names=(f'Sales - {material}',)),
+        'cogs': account(f'40020{i}', f'Cost of Goods Sold - {label}', 'expense_direct_cost',
+                        old_names=(f'Cost of Goods Sold - {material}',)),
         'stock': account(f'13210{i}', f'Inventory - {material}', 'asset_current',
                          account_stock_variation_id=revaluation.id),
     }
+MATERIALS['Bullion'] = {
+    'income': account('500106', 'Sales - Gold Bullion', 'income'),
+    'cogs': account('400204', 'Cost of Goods Sold - Gold Bullion', 'expense_direct_cost'),
+    'stock': MATERIALS['Gold']['stock'],
+}
 
 # ── company ─────────────────────────────────────────────────────────────
 wanted = {
@@ -93,8 +111,11 @@ if len(coins) > 1:
         dup.unlink()
 
 ROOTS = {'Gold': 'Gold', 'Jewellery': 'Gold', 'Diamond': 'Diamond', 'Silver': 'Silver'}
+BULLION = ('Gold / Bar', 'Gold / Coin', 'Gold / Ingot')
 for categ in Categ.search([]):
     material = ROOTS.get(categ.complete_name.split(' / ')[0])
+    if any(categ.complete_name == b or categ.complete_name.startswith(b + ' / ') for b in BULLION):
+        material = 'Bullion'
     if not material:
         continue
     acc = MATERIALS[material]
@@ -165,6 +186,142 @@ for wh_code, branch, jcode, acode in BRANCHES:
     if warehouse.pos_type_id and config.picking_type_id != warehouse.pos_type_id:
         config.picking_type_id = warehouse.pos_type_id
         log(f'POS {branch}: ships from its own warehouse {wh_code}')
+
+# ── chart tidy-up ───────────────────────────────────────────────────────
+# Owners' accounts are what each owner took out of (or put into) the
+# Vaults: equity, not cash. Their journals stay cash journals named
+# "Owner - ..." (that is how the POS cash-ops find them).
+RECODES = {
+    '105006': ('300101', 'Owner Current Account - Anas Abbassi', 'equity'),
+    '105007': ('300102', 'Owner Current Account - Omar Abbassi', 'equity'),
+    '105008': ('300103', 'Owner Current Account - Mohamed Abbassi', 'equity'),
+    '105009': ('300104', 'Owner Current Account - Ahmed Abbassi', 'equity'),
+    '201021': ('300002', 'Legal Reserve', 'equity'),
+}
+for old, (new, name, account_type) in RECODES.items():
+    acc = Account.search([('code', '=', old), ('company_ids', 'in', company.id)], limit=1)
+    if acc:
+        acc.write({'code': new, 'name': name, 'account_type': account_type})
+        log(f'account {old} -> {new} {name} ({account_type})')
+
+# Sales from free-text invoice lines (no product) and non-jewellery products.
+RENAMES = {'500001': 'Sales - Other'}
+for code, name in RENAMES.items():
+    acc = Account.search([('code', '=', code), ('company_ids', 'in', company.id)], limit=1)
+    if acc and acc.name != name:
+        log(f'account {code} renamed "{acc.name}" -> "{name}"')
+        acc.name = name
+
+TYPES = {'500009': 'income_other', '500010': 'income_other', '500011': 'income_other',
+         '500013': 'income_other', '999002': 'income_other',
+         '106001': 'asset_non_current', '106006': 'asset_non_current'}
+for code, account_type in TYPES.items():
+    acc = Account.search([('code', '=', code), ('company_ids', 'in', company.id)], limit=1)
+    if acc and acc.account_type != account_type:
+        log(f'account {code} {acc.name}: {acc.account_type} -> {account_type}')
+        acc.account_type = account_type
+
+# The template pointed deferred expenses at a duplicate "Outstanding
+# Receipts" and deferred revenue at "Credit Notes to Customers".
+for field, code in (('deferred_expense_account_id', '104035'), ('deferred_revenue_account_id', '201018')):
+    acc = Account.search([('code', '=', code), ('company_ids', 'in', company.id)], limit=1)
+    if acc and company[field] != acc:
+        company[field] = acc
+        log(f'company {field} -> {code} {acc.name}')
+
+# Unused journals from the template.
+for code in ('BNK1', 'IFRS'):
+    journal = env['account.journal'].sudo().search([('code', '=', code)], limit=1)
+    if journal and not env['account.move'].sudo().search_count([('journal_id', '=', journal.id)]):
+        journal.active = False
+        log(f'journal {code} {journal.name} archived (never used)')
+
+# Unused template accounts are archived; archiving is reversible and keeps
+# them out of every list and report. Never archived: an account with an
+# entry, one a live record points at (journals, company defaults,
+# categories, payment methods, payroll rules, asset models...), and the
+# ones below that a 4-branch jeweller will use.
+KEEP = {
+    '100001', '101002', '101003', '101008', '102014', '104023', '104035', '104037', '104040',
+    '106001', '106002', '106003', '106004', '106006', '106007', '106008', '106009', '132103',
+    '201001', '201002', '201004', '201007', '201011', '201015', '201016', '201018', '202001',
+    '300002', '999999',
+    '400003', '400011', '400012', '400015', '400016', '400018', '400020', '400021', '400022',
+    '400028', '400029', '400031', '400032', '400034', '400036', '400040', '400042', '400043',
+    '400044', '400045', '400046', '400047', '400048', '400050', '400051', '400058', '400067',
+    '400086', '400088', '400089',
+    '500001', '500013', '500102', '500104', '500105', '500106', '400202', '400203', '400204',
+}
+# Zero-balance accounts with old entries that no longer mean anything (no taxes).
+RETIRE = {'100103'}
+# References that do not keep an account alive: the archived taxes.
+DEAD_REFS = {'account.tax.repartition.line', 'account.tax.group'}
+env.flush_all()
+live = set()
+for mname, model in env.registry.items():
+    if model._abstract or not model._auto or mname in ('account.move.line', 'account.account') + tuple(DEAD_REFS):
+        continue
+    for fname, f in model._fields.items():
+        if f.comodel_name != 'account.account' or not f.store and not f.company_dependent:
+            continue
+        where = ' AND active' if mname == 'account.journal' else ''
+        if f.company_dependent:
+            env.cr.execute(f'SELECT DISTINCT (jsonb_each_text("{fname}")).value FROM "{model._table}" WHERE "{fname}" IS NOT NULL')
+            live |= {int(v) for (v,) in env.cr.fetchall() if v}
+        elif f.type == 'many2one':
+            env.cr.execute(f'SELECT DISTINCT "{fname}" FROM "{model._table}" WHERE "{fname}" IS NOT NULL{where}')
+            live |= {v for (v,) in env.cr.fetchall()}
+        elif f.type == 'many2many':
+            env.cr.execute(f'SELECT DISTINCT "{f.column2}" FROM "{f.relation}"')
+            live |= {v for (v,) in env.cr.fetchall()}
+env.cr.execute("""SELECT account_id, COUNT(*), COALESCE(SUM(balance), 0) FROM account_move_line
+                   WHERE parent_state = 'posted' GROUP BY account_id""")
+used = {aid: (n, bal) for aid, n, bal in env.cr.fetchall()}
+archived = []
+for acc in Account.search([('company_ids', 'in', company.id)]):
+    n, bal = used.get(acc.id, (0, 0))
+    if acc.code in KEEP or acc.id in live:
+        continue
+    if n and not (acc.code in RETIRE and company.currency_id.is_zero(bal)):
+        continue
+    acc.active = False
+    archived.append(acc.code)
+if archived:
+    log(f'{len(archived)} unused accounts archived: {", ".join(sorted(archived))}')
+
+# Account groups: the chart and the trial balance get one subtotal per
+# section. Odoo files each account under the narrowest matching prefix.
+GROUPS = [
+    ('1', '1', 'Assets'),
+    ('100', '100', 'Other Current Assets'),
+    ('101', '101', 'Bank & Payment Channels'),
+    ('102', '102', 'Receivables'),
+    ('104', '104', 'Prepayments & Deposits'),
+    ('105', '105', 'Vaults (Cash)'),
+    ('106', '106', 'Fixed Assets'),
+    ('132', '132', 'Inventory'),
+    ('2', '2', 'Liabilities'),
+    ('201', '201', 'Current Liabilities'),
+    ('202', '202', 'Non-current Liabilities'),
+    ('3', '3', 'Equity'),
+    ('3001', '3001', "Owners' Current Accounts"),
+    ('4', '4', 'Expenses'),
+    ('4000', '4001', 'Operating Expenses'),
+    ('4002', '4002', 'Cost of Goods Sold'),
+    ('5', '5', 'Income'),
+    ('5000', '5000', 'Other Income'),
+    ('5001', '5001', 'Jewellery Sales & Metal Revaluation'),
+    ('9', '9', 'Cash Differences & Closing'),
+]
+Group = env['account.group'].sudo()
+for start, end, name in GROUPS:
+    group = Group.search([('code_prefix_start', '=', start), ('company_id', '=', company.id)], limit=1)
+    if not group:
+        Group.create({'name': name, 'code_prefix_start': start, 'code_prefix_end': end, 'company_id': company.id})
+        log(f'account group {start} {name} created')
+    elif (group.name, group.code_prefix_end) != (name, end):
+        group.write({'name': name, 'code_prefix_end': end})
+        log(f'account group {start} -> {name}')
 
 # ── currency rates ──────────────────────────────────────────────────────
 env['product.template']._update_currency_rates()

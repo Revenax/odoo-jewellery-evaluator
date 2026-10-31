@@ -22,6 +22,20 @@ Run through the Odoo shell (dry run unless COMMIT=1):
 5. Historical cost of goods sold: an estimate for every sale before
    perpetual valuation, at the metal price of the sale date, one entry per
    month against Owners' Capital.
+6. Sales before go-live all sat in one "Sales Account" (500001). They are
+   moved, per month, to the sales account of each piece's material (Gold
+   Jewellery, Gold Bullion, Diamond, Silver), so margins compare like with
+   like. Free-text lines are matched by the SKU they name.
+7. Gold bullion split: bullion sold since go-live (and its share of the
+   historical cost estimate) moves from the Gold Jewellery accounts to the
+   Gold Bullion ones.
+8. Buy-back bills before go-live were booked as an expense ("Others"). The
+   pieces are already in the opening inventory or the historical cost
+   estimate, both credited to Owners' Capital, so the cash the shop paid for
+   them comes off the capital instead.
+
+Sections 6-8 post only the difference between what should have moved and
+what earlier runs moved, so a re-run never moves anything twice.
 
 The open POS shift is not touched.
 """
@@ -152,7 +166,18 @@ from collections import defaultdict
 from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import gold_price_for_purity, inventory_cost_egp
 
 HIST = 'Historical cost of goods sold (estimate)'
-if not Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], limit=1):
+
+
+def material_of(jtype, bullion=True):
+    if jtype == 'silver':
+        return 'Silver'
+    if jtype in ('diamond_jewellery', 'center_stone'):
+        return 'Diamond'
+    return 'Bullion' if bullion and jtype == 'gold_bars' else 'Gold'
+
+
+def historical_cost_by_month(before=None, bullion=False):
+    """{month: {material: cost}} for every sale and return (before ``before``)."""
     def series(logger, patterns):
         env.cr.execute("SELECT create_date, message FROM ir_logging WHERE name = %s ORDER BY create_date", (logger,))
         points = []
@@ -194,6 +219,8 @@ if not Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], lim
     by_month = defaultdict(lambda: defaultdict(float))
     unknown = defaultdict(int)
     for when, product_id, qty in sales:
+        if before and when >= before:
+            continue
         tmpl = Product.browse(product_id).product_tmpl_id
         jtype = tmpl.jewellery_type
         if not jtype or not qty:
@@ -210,8 +237,13 @@ if not Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], lim
         if cost is None:
             unknown[jtype] += 1
             continue
-        material = 'Silver' if jtype == 'silver' else 'Diamond' if jtype in ('diamond_jewellery', 'center_stone') else 'Gold'
+        material = material_of(jtype, bullion)
         by_month[when.strftime('%Y-%m')][material] += cost * qty
+    return by_month, len(sales), len(gold), usd_rate, unknown
+
+
+if not Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], limit=1):
+    by_month, n_sales, n_gold, usd_rate, unknown = historical_cost_by_month()
     COGS = {'Gold': '400201', 'Diamond': '400202', 'Silver': '400203'}
     today = fields.Date.context_today(Move)
     for month in sorted(by_month):
@@ -232,8 +264,115 @@ if not Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], lim
         })
         move.action_post()
         log(f'{HIST} {month}: ' + ', '.join(f'{m} {v:,.2f}' for m, v in amounts.items()) + f' in {move.name}')
-    log(f'historical COGS: {len(sales)} sale/return lines, gold price points {len(gold)}, '
+    log(f'historical COGS: {n_sales} sale/return lines, gold price points {n_gold}, '
         f'USD rate {usd_rate}; cost unknown (no weight/price): {dict(unknown) or "none"}')
+
+# ── 6-8. reclassifications ──────────────────────────────────────────────
+SALES = {'Gold': '500103', 'Bullion': '500106', 'Diamond': '500104', 'Silver': '500105'}
+COST = {'Gold': '400201', 'Bullion': '400204', 'Diamond': '400202', 'Silver': '400203'}
+RECLASS = 'Reclass'
+today = fields.Date.context_today(Move)
+
+
+def reclass(key, source, amounts):
+    """Move ``amounts`` {(month, target code): balance} out of ``source``.
+
+    Posts, per month, only what earlier ``key`` entries have not moved yet.
+    """
+    src = acc(source)
+    by_month = defaultdict(dict)
+    for (month, target), balance in amounts.items():
+        by_month[month][target] = balance
+    for month in sorted(by_month):
+        ref = f'{RECLASS}: {key} {month}'
+        done = env['account.move.line'].sudo().search([
+            ('move_id.ref', '=', ref), ('parent_state', '=', 'posted'), ('account_id', '!=', src.id)])
+        lines = []
+        for target, balance in sorted(by_month[month].items()):
+            todo = round(balance - sum(done.filtered(lambda l: l.account_id.code == target).mapped('balance')), 2)
+            if company.currency_id.is_zero(todo):
+                continue
+            for account_id, value in ((acc(target).id, todo), (src.id, -todo)):
+                lines.append((0, 0, {'account_id': account_id, 'name': ref,
+                                     'debit': max(value, 0), 'credit': max(-value, 0)}))
+        if not lines:
+            continue
+        end = fields.Date.end_of(fields.Date.to_date(month + '-01'), 'month')
+        move = Move.create({'journal_id': misc.id, 'date': min(end, today), 'ref': ref, 'line_ids': lines})
+        move.action_post()
+        moved = ', '.join(f'{Account.browse(v["account_id"]).code} {v["debit"] - v["credit"]:,.2f}'
+                          for _, _, v in lines)
+        log(f'{ref}: {moved} in {move.name}')
+
+
+def source_lines(code, extra=''):
+    """Posted lines on ``code`` (not from a reclass entry) with their product's type."""
+    env.cr.execute(f"""
+        SELECT l.date, l.balance, l.name, pt.jewellery_type, m.move_type, m.partner_id
+          FROM account_move_line l JOIN account_move m ON m.id = l.move_id
+          LEFT JOIN product_product pp ON pp.id = l.product_id
+          LEFT JOIN product_template pt ON pt.id = pp.product_tmpl_id
+         WHERE l.account_id = %s AND m.state = 'posted' AND COALESCE(m.ref, '') NOT LIKE %s {extra}
+    """, (acc(code).id, RECLASS + ':%'))
+    return env.cr.fetchall()
+
+
+Tmpl = env['product.template'].sudo().with_context(active_test=False)
+
+
+def material_of_text(text):
+    """Material of a free-text invoice line, from the SKU it names."""
+    sku = (text or '').strip().split()[0] if (text or '').strip() else ''
+    tmpl = Tmpl.search(['|', ('default_code', '=', sku), ('name', '=', sku)], limit=1) if sku else Tmpl
+    if tmpl.jewellery_type:
+        return material_of(tmpl.jewellery_type)
+    if re.match(r'^G[BCI]-', sku):
+        return 'Bullion'
+    return {'G': 'Gold', 'D': 'Diamond', 'S': 'Silver'}.get(sku[:1])
+
+
+# 6. legacy sales by material
+amounts = defaultdict(float)
+left = 0.0
+for date, balance, name, jtype, *_ in source_lines('500001'):
+    material = material_of(jtype) if jtype else material_of_text(name)
+    if not material:
+        left += balance
+        continue
+    amounts[(date.strftime('%Y-%m'), SALES[material])] += balance
+reclass('legacy sales by material', '500001', amounts)
+if not company.currency_id.is_zero(left):
+    log(f'left in 500001 Sales - Other (no jewellery product): {left:,.2f}')
+
+# 7. gold bullion out of the Gold Jewellery accounts
+for key, source, target in (('gold bullion sales', SALES['Gold'], SALES['Bullion']),
+                            ('gold bullion cost', COST['Gold'], COST['Bullion'])):
+    amounts = defaultdict(float)
+    for date, balance, name, jtype, *_ in source_lines(source, "AND l.product_id IS NOT NULL"):
+        if jtype == 'gold_bars':
+            amounts[(date.strftime('%Y-%m'), target)] += balance
+    reclass(key, source, amounts)
+
+hist = Move.search([('ref', '=like', HIST + '%'), ('state', '=', 'posted')], order='create_date')
+if hist:
+    by_month, *_ = historical_cost_by_month(before=hist[0].create_date, bullion=True)
+    posted = defaultdict(float)
+    for line in hist.line_ids.filtered(lambda l: l.account_id.code == COST['Gold']):
+        posted[line.move_id.ref[len(HIST) + 1:]] += line.balance
+    off = {m: round(posted[m] - (by_month[m]['Gold'] + by_month[m]['Bullion']), 2) for m in posted}
+    if any(abs(v) > 1 for v in off.values()):
+        log(f'SKIPPED historical bullion split: the estimate no longer reproduces {off}')
+    else:
+        reclass('historical cost estimate, gold bullion', COST['Gold'],
+                {(m, COST['Bullion']): round(by_month[m]['Bullion'], 2) for m in posted})
+
+# 8. buy-back bills to Owners' Capital
+buyback = env.ref('jewellery_evaluator.partner_bought_from_customer')
+amounts = defaultdict(float)
+for date, balance, name, jtype, move_type, partner_id in source_lines('400028'):
+    if move_type in ('in_invoice', 'in_refund') and partner_id == buyback.id:
+        amounts[(date.strftime('%Y-%m'), capital.code)] += balance
+reclass("buy-back bills to Owners' Capital", '400028', amounts)
 
 if COMMIT:
     env.cr.commit()
