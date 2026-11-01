@@ -52,6 +52,16 @@ Run through the Odoo shell (dry run unless COMMIT=1):
     against Owners' Capital.
 11. Inventory by karat: the gold stock moves from the single gold inventory
     account to its karat's account (needs models/karat_accounts.py deployed).
+12. 18K at 6/7 (2026-11-01): 18K was priced at 7/8 of 21K (that is 21/24)
+    instead of 18/21 = 6/7, so its metal was 2.1 % too high. Section 10
+    re-books gold history itself (its estimate reads the factor); the
+    diamond part of the historical estimate (section 5) is posted once, so the
+    18K gold in diamond pieces sold before go-live is corrected here against
+    Owners' Capital. Target state per month.
+13. Stock at 6/7: the factor's share of the 18K stock's book value comes
+    off the inventory accounts against Owners' Capital (an opening-balance
+    error, not a metal price movement), so the nightly closing does not book
+    it as a revaluation loss. Run it on the day of the deploy, before 21:30 UTC.
 
 Sections 6-8 post only the difference between what should have moved and
 what earlier runs moved, so a re-run never moves anything twice.
@@ -563,6 +573,97 @@ elif not Move.search([('ref', '=', KEY), ('state', '=', 'posted')], limit=1):
             [('account_id', '=', old.id), ('parent_state', '=', 'posted')]).mapped('balance'))
         log(f'{KEY}: ' + ', '.join(f'{l.account_id.code} {l.balance:,.2f}' for l in move.line_ids)
             + f' in {move.name}; left on 132101: {left:,.2f} (stock without karat: {value.get(old, 0.0):,.2f})')
+
+# 12. 18K diamond settings in the historical estimate
+from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import GOLD_PURITY_FACTORS  # noqa: E402
+
+OLD_18K = 7 / 8
+NEW_18K = float(GOLD_PURITY_FACTORS['18K'])
+if hist and abs(NEW_18K - OLD_18K) > 1e-9:
+    cutoff = hist[0].create_date
+    env.cr.execute("SELECT create_date, message FROM ir_logging WHERE name = %s ORDER BY create_date",
+                   ('jewellery_evaluator.gold_price_cron',))
+    gold = []
+    for when, msg in env.cr.fetchall():
+        for pat in (r'-> ([\d.]+) EGP/g', r'base ([\d.]+)/g'):
+            m = re.search(pat, msg or '')
+            if m:
+                gold.append((when, float(m.group(1))))
+                break
+    times = [t for t, _ in gold]
+
+    def base_at(when):
+        i = bisect.bisect_right(times, when) - 1
+        return gold[max(i, 0)][1] if gold else 0.0
+
+    env.cr.execute("""
+        SELECT o.date_order, l.product_id, l.qty FROM pos_order_line l
+          JOIN pos_order o ON o.id = l.order_id
+         WHERE o.state IN ('paid', 'done', 'invoiced')
+        UNION ALL
+        SELECT m.create_date, aml.product_id,
+               CASE WHEN m.move_type = 'out_refund' THEN -aml.quantity ELSE aml.quantity END
+          FROM account_move_line aml JOIN account_move m ON m.id = aml.move_id
+         WHERE m.state = 'posted' AND m.move_type IN ('out_invoice', 'out_refund')
+           AND aml.display_type = 'product' AND aml.product_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM pos_order po WHERE po.account_move = m.id)
+    """)
+    Product = env['product.product'].sudo().with_context(active_test=False)
+    target = defaultdict(float)
+    for when, product_id, qty in env.cr.fetchall():
+        if when >= cutoff or not qty:
+            continue
+        tmpl = Product.browse(product_id).product_tmpl_id
+        if tmpl.jewellery_type != 'diamond_jewellery' or tmpl.gold_purity != '18K':
+            continue
+        target[when.strftime('%Y-%m')] += (tmpl.jewellery_weight_g or 0) * base_at(when) * (NEW_18K - OLD_18K) * qty
+    KEY12 = f'{RECLASS}: 18K at 6/7 diamond history'
+    dia = acc(COST['Diamond'])
+    for month in sorted(target):
+        ref = f'{KEY12} {month}'
+        done = sum(env['account.move.line'].sudo().search([
+            ('move_id.ref', '=', ref), ('parent_state', '=', 'posted'), ('account_id', '=', dia.id)]).mapped('balance'))
+        todo = round(target[month] - done, 2)
+        if company.currency_id.is_zero(todo):
+            continue
+        end = fields.Date.end_of(fields.Date.to_date(month + '-01'), 'month')
+        move = Move.create({'journal_id': misc.id, 'date': min(end, today), 'ref': ref, 'line_ids': [
+            (0, 0, {'account_id': dia.id, 'name': ref, 'debit': max(todo, 0), 'credit': max(-todo, 0)}),
+            (0, 0, {'account_id': capital.id, 'name': ref, 'debit': max(-todo, 0), 'credit': max(todo, 0)}),
+        ]})
+        move.action_post()
+        log(f'{ref}: diamond cost {todo:,.2f} in {move.name}')
+
+# 13. 18K stock: the factor's share of its book value, against capital
+KEY13 = f'{RECLASS}: 18K at 6/7 stock'
+if abs(NEW_18K - OLD_18K) > 1e-9 and not Move.search([('ref', '=', KEY13), ('state', '=', 'posted')], limit=1):
+    # Only the factor's effect (weight x 21K x (6/7 - 7/8) per piece in stock):
+    # today's gold price movement stays for the nightly closing to book as
+    # revaluation. The closing re-marks the costs itself.
+    base = env['gold.price.service'].get_current_gold_price()
+    quants = env['stock.quant'].sudo().search([
+        ('location_id.usage', '=', 'internal'), ('quantity', '>', 0),
+        ('product_id.product_tmpl_id.gold_purity', '=', '18K'),
+        ('product_id.product_tmpl_id.jewellery_type', 'in', ('gold_local', 'gold_foreign', 'gold_bars', 'diamond_jewellery'))])
+    by_account = defaultdict(float)
+    for q in quants:
+        tmpl = q.product_id.product_tmpl_id
+        by_account[tmpl.get_product_accounts()['stock_valuation']] += \
+            q.quantity * (tmpl.jewellery_weight_g or 0) * base * (NEW_18K - OLD_18K)
+    lines, total = [], 0.0
+    for account, delta in by_account.items():
+        delta = round(delta, 2)
+        if company.currency_id.is_zero(delta):
+            continue
+        lines.append((0, 0, {'account_id': account.id, 'name': KEY13, 'debit': max(delta, 0), 'credit': max(-delta, 0)}))
+        total += delta
+    if lines:
+        lines.append((0, 0, {'account_id': capital.id, 'name': KEY13, 'debit': max(-total, 0), 'credit': max(total, 0)}))
+        move = Move.create({'journal_id': company.account_stock_journal_id.id, 'date': today, 'ref': KEY13,
+                            'line_ids': lines})
+        move.action_post()
+        log(f'{KEY13}: {len(quants)} quants at 21K {base}; ' + ', '.join(
+            f'{l.account_id.code} {l.balance:,.2f}' for l in move.line_ids) + f' in {move.name}')
 
 if COMMIT:
     env.cr.commit()

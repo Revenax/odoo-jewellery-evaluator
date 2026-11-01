@@ -28,9 +28,9 @@ def test_zero_metal_cost_is_unknown():
 
 
 def test_diamond_is_gold_at_purity_plus_stones():
-    # 18K = 7/8 of 21K: 4000 * 7/8 = 3500/g * 2 g = 7000, stones 100 USD * 50 = 5000
-    assert cost('diamond_jewellery', base_gold_price_21k=4000, gold_purity='18K',
-                gold_weight_g=2, stones_cost_usd=100, usd_rate=50) == 12000.0
+    # 18K = 6/7 of 21K: 4200 * 6/7 = 3600/g * 2 g = 7200, stones 100 USD * 50 = 5000
+    assert cost('diamond_jewellery', base_gold_price_21k=4200, gold_purity='18K',
+                gold_weight_g=2, stones_cost_usd=100, usd_rate=50) == 12200.0
 
 
 def test_center_stone_is_stone_only():

@@ -52,15 +52,15 @@ def test_compute_24k_price():
 
 
 def test_compute_18k_price():
-    """Test price computation for 18K gold (18K = 7/8 of 21K)."""
+    """Test price computation for 18K gold (18K = 6/7 of 21K)."""
     cost, sale, min_sale = compute_gold_product_price(
-        100.0, '18K', 8.0, 5.0
+        140.0, '18K', 8.0, 5.0
     )
-    # 18K factor 7/8: cost = 700, sale = 740 rounded to 50 = 750,
-    # min_sale = 700 + 0.7 × 40 markup = 728 (exact — min is NOT rounded to 50)
-    assert cost == 700.0
-    assert sale == 750.0
-    assert min_sale == 728.0
+    # 18K factor 6/7: 120/g x 8 = cost 960, sale 1000 (already a 50),
+    # min_sale = 960 + 0.7 × 40 markup = 988 (exact — min is NOT rounded to 50)
+    assert cost == 960.0
+    assert sale == 1000.0
+    assert min_sale == 988.0
 
 
 def test_zero_markup():

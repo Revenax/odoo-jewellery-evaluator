@@ -35,9 +35,9 @@ class TestGoldPriceForPurity:
         # 5865 x 8/7 = 6702.857142... -> 6702.86
         assert gold_price_for_purity(_BASE_21K, "24K") == 6702.86
 
-    def test_18k_is_seven_eighths(self):
-        # 5865 x 7/8 = 5131.875 -> ROUND_HALF_UP -> 5131.88
-        assert gold_price_for_purity(_BASE_21K, "18K") == 5131.88
+    def test_18k_is_six_sevenths(self):
+        # 5865 x 6/7 = 5027.142857... -> 5027.14
+        assert gold_price_for_purity(_BASE_21K, "18K") == 5027.14
 
     def test_ordering_holds(self):
         p18 = gold_price_for_purity(_BASE_21K, "18K")

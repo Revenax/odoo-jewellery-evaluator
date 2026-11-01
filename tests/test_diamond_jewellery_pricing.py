@@ -192,10 +192,10 @@ class TestComputeDiamondJewelleryPrice:
 
     def test_18k_purity_factor(self):
         r = self._call('18K', 10.0, [])
-        # purity_factor = 7/8 = 0.875
-        # gold_per_gram = (750 * 0.875) / 50 = 656.25/50 = 13.125
-        # total_gold = (13.125 + 17) * 10 = 301.25
-        assert abs(r['total_gold_cost_usd'] - 301.25) < 0.01
+        # purity_factor = 6/7
+        # gold_per_gram = (750 * 6/7) / 50 = 642.857.../50 = 12.857...
+        # total_gold = (12.857 + 17) * 10 = 298.57
+        assert abs(r['total_gold_cost_usd'] - 298.57) < 0.01
 
     def test_24k_purity_factor(self):
         r = self._call('24K', 10.0, [])

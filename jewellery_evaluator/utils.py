@@ -35,13 +35,14 @@ CARAT_MAX = 9.999999
 _CARAT_QUANT = Decimal('0.000001')
 
 # Gold purity factors, relative to 21K — which is what the price API quotes, so
-# 21K is the identity. 24K = 8/7 of 21K; 18K = 7/8 of 21K. Single source of
+# 21K is the identity. 24K = 24/21 = 8/7 of 21K; 18K = 18/21 = 6/7 of 21K
+# (it was 7/8 until 2026-11-01, which is 21/24 and overpriced 18K by 2.1 %). Single source of
 # truth: the gold, diamond and dashboard price paths all read this, so the
 # factors cannot drift apart.
 GOLD_PURITY_FACTORS = {
     '24K': Decimal('8') / Decimal('7'),
     '21K': Decimal('1'),
-    '18K': Decimal('7') / Decimal('8'),
+    '18K': Decimal('6') / Decimal('7'),
 }
 
 # A "unique jewellery piece" carries a serial SKU: PREFIX-NNNN with an optional
