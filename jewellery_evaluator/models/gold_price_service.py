@@ -16,6 +16,7 @@ from ..utils import (  # noqa: E402
     gold_price_for_purity,
     parse_gold_price_with_regex,
     price_from_feed,
+    usd_rate_is_plausible,
 )
 
 _logger = logging.getLogger(__name__)
@@ -210,6 +211,25 @@ class GoldPriceService(models.Model):
         except ValueError:
             usd = None
         if usd:
+            last_usd = float(icp.get_param('jewellery_evaluator.feed_usd_egp') or 0)
+            try:
+                max_jump = float(icp.get_param('jewellery_evaluator.usd_rate_max_jump_pct', '0.10'))
+            except (TypeError, ValueError):
+                max_jump = 0.10
+            if not usd_rate_is_plausible(usd, last_usd, max_jump):
+                # Diamonds stay at the last good rate until a human looks.
+                _logger.warning('[gold-cron] rejected USD/EGP %s: more than %.0f%% off %s',
+                                usd, max_jump * 100, last_usd)
+                pulse.notify_in_background(
+                    'price-guard-tripped',
+                    'USD rate rejected as implausible',
+                    f'Fetched USD/EGP {usd} vs last good {last_usd} (max {max_jump * 100:.0f}% '
+                    f'move). Kept the old rate for diamonds and stone costs.',
+                    {'fetched': usd, 'lastGood': last_usd, 'maxJumpPct': round(max_jump * 100, 1)},
+                    pulse.make_idempotency_key('usd-guard', round(usd, 4), round(last_usd, 4)),
+                    env=self.env,
+                )
+                return price
             icp.set_param('jewellery_evaluator.feed_usd_egp', str(usd))
             if str2bool(icp.get_param('jewellery_evaluator.diamond_rate_from_feed', 'False')):
                 icp.set_param('jewellery_evaluator.diamond_exchange_rate_usd', str(usd))

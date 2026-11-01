@@ -58,3 +58,18 @@ def test_unknown_side_is_refused():
 def test_not_a_dict_is_refused():
     with pytest.raises(ValueError):
         utils.price_from_feed(None, "gold_21k")
+
+
+def test_usd_rate_normal_move_is_accepted():
+    assert utils.usd_rate_is_plausible(56.1, 55.74, 0.10)
+
+
+def test_usd_rate_garbage_is_rejected():
+    assert not utils.usd_rate_is_plausible(0.001, 55.74, 0.10)
+    assert not utils.usd_rate_is_plausible(557.4, 55.74, 0.10)
+
+
+def test_usd_rate_bootstraps_and_guard_can_be_disabled():
+    assert utils.usd_rate_is_plausible(55.74, 0, 0.10)
+    assert utils.usd_rate_is_plausible(80.0, 55.74, 0)
+    assert not utils.usd_rate_is_plausible(0, 0, 0)

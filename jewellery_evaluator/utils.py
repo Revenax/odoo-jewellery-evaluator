@@ -1063,6 +1063,21 @@ def price_from_feed(snapshot: dict, key: str, side: str = 'ask',
     return value
 
 
+def usd_rate_is_plausible(rate: float, last_good: float, max_jump: float) -> bool:
+    """Whether a fetched USD/EGP rate may replace the last good one.
+
+    The rate prices every diamond (and the stones' cost), so a garbage value
+    from the feed (its bid side reads 0.001) must never be stored. Rejects a
+    move of more than ``max_jump`` (a fraction) off ``last_good``. With no
+    last good rate, or ``max_jump`` 0 (guard off), any positive rate passes.
+    """
+    if rate <= 0:
+        return False
+    if last_good <= 0 or max_jump <= 0:
+        return True
+    return abs(rate - last_good) / last_good <= max_jump
+
+
 def fold_sold_state(movements: list) -> dict:
     """Whether a unique piece is sold, from its sale and return lines.
 
