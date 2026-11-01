@@ -1223,3 +1223,25 @@ def making_fee_split(revenue: float, metal_cost: float) -> tuple[float, float]:
     if cost == 0:
         return float(rev), 0.0
     return float(cost), float(rev - cost)
+
+
+def price_board(snapshot, sell: dict) -> dict:
+    """Sell and buy price of every POS banner tile.
+
+    ``sell`` holds the prices the till charges (gold_24k, gold_21k, gold_18k,
+    silver_999, usd_egp). Buy prices come from the feed's bid side, so they are
+    None when the feed is off, stale or has no bid. USD is the exception: the
+    feed's USD bid is garbage (0.001), so its buy is the feed's own USD ask and
+    its sell the shop's rate (ask + markup).
+    """
+    board = {}
+    for key, value in sell.items():
+        try:
+            if key == 'usd_egp':
+                buy = price_from_feed(snapshot, 'usd_egp')
+            else:
+                buy = price_from_feed(snapshot, key, side='bid')
+        except ValueError:
+            buy = None
+        board[key] = {'sell': value or None, 'buy': buy}
+    return board

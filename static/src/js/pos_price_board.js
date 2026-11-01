@@ -44,11 +44,11 @@ export class PriceBoard extends Component {
     get tiles() {
         const p = this.state.prices || {};
         return [
-            { key: "g24", label: "Gold 24K", value: p.gold_24k, unit: "EGP/g", kind: "gold" },
-            { key: "g21", label: "Gold 21K", value: p.gold_21k, unit: "EGP/g", kind: "gold" },
-            { key: "g18", label: "Gold 18K", value: p.gold_18k, unit: "EGP/g", kind: "gold" },
-            { key: "s999", label: "Silver 999", value: p.silver_999, unit: "EGP/g", kind: "silver" },
-            { key: "usd", label: "USD", value: p.usd_egp, unit: "EGP", kind: "usd", digits: 2 },
+            { key: "g24", label: "Gold 24K", price: p.gold_24k, unit: "EGP/g", kind: "gold" },
+            { key: "g21", label: "Gold 21K", price: p.gold_21k, unit: "EGP/g", kind: "gold" },
+            { key: "g18", label: "Gold 18K", price: p.gold_18k, unit: "EGP/g", kind: "gold" },
+            { key: "s999", label: "Silver 999", price: p.silver_999, unit: "EGP/g", kind: "silver" },
+            { key: "usd", label: "USD", price: p.usd_egp, unit: "EGP", kind: "usd", digits: 2 },
         ];
     }
 

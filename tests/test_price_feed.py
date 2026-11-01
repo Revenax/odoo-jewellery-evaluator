@@ -82,3 +82,16 @@ def test_usd_markup_adds_two_percent():
 def test_usd_markup_zero_or_negative_keeps_feed_rate():
     assert utils.apply_usd_markup(55.74, 0) == 55.74
     assert utils.apply_usd_markup(55.74, -0.05) == 55.74
+
+
+def test_price_board_pairs_sell_with_feed_bid():
+    snap = {**SNAP, "gold_24k": {"ask": 7017.0, "bid": 6983.0}}
+    board = utils.price_board(snap, {"gold_21k": 6140.0, "gold_24k": 7017.14, "usd_egp": 53.65})
+    assert board["gold_21k"] == {"sell": 6140.0, "buy": 6130.0}
+    assert board["gold_24k"] == {"sell": 7017.14, "buy": 6983.0}
+    assert board["usd_egp"] == {"sell": 53.65, "buy": 52.6}
+
+
+def test_price_board_without_feed_has_no_buy():
+    board = utils.price_board(None, {"gold_21k": 6140.0, "silver_999": 0})
+    assert board == {"gold_21k": {"sell": 6140.0, "buy": None}, "silver_999": {"sell": None, "buy": None}}

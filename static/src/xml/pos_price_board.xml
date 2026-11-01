@@ -14,7 +14,16 @@
             <div t-foreach="tiles" t-as="tile" t-key="tile.key"
                  t-attf-class="o_ppb_tile o_ppb_{{ tile.kind }}">
                 <span class="o_ppb_label" t-esc="tile.label"/>
-                <span class="o_ppb_value" t-esc="format(tile.value, tile.digits)"/>
+                <div class="o_ppb_prices">
+                    <div class="o_ppb_side">
+                        <span class="o_ppb_side_label">Sell</span>
+                        <span class="o_ppb_value" t-esc="format(tile.price?.sell, tile.digits)"/>
+                    </div>
+                    <div class="o_ppb_side o_ppb_buy">
+                        <span class="o_ppb_side_label">Buy</span>
+                        <span class="o_ppb_value" t-esc="format(tile.price?.buy, tile.digits)"/>
+                    </div>
+                </div>
                 <span class="o_ppb_unit" t-esc="tile.unit"/>
             </div>
         </div>
