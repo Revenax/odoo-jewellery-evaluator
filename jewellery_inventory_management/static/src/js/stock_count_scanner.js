@@ -3,6 +3,7 @@
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, useState, useRef, onMounted } from "@odoo/owl";
+import { scanBarcode, isBarcodeScannerSupported } from "@web/core/barcode/barcode_dialog";
 
 const MODEL = "jewellery.stock.count";
 
@@ -79,6 +80,7 @@ export class StockCountScanner extends Component {
         this.countId = p.count_id || p.active_id;
         this.resolutions = RESOLUTIONS;
         this.missingDecisions = MISSING_DECISIONS;
+        this.cameraSupported = isBarcodeScannerSupported();
         this.state = useState({
             loaded: false,
             name: "",
@@ -149,6 +151,29 @@ export class StockCountScanner extends Component {
         }
         const code = (this.scanRef.el.value || "").trim();
         this.scanRef.el.value = "";
+        await this.submitScan(code);
+    }
+
+    /** Read a code with the device camera (Odoo's own scanner dialog). */
+    async _camera() {
+        try {
+            return ((await scanBarcode(this.env)) || "").trim();
+        } catch (err) {
+            if (err && err.message) {
+                this.notification.add(err.message, { type: "danger" });
+            }
+            return "";
+        }
+    }
+
+    async scanWithCamera() {
+        const code = await this._camera();
+        if (code) {
+            await this.submitScan(code);
+        }
+    }
+
+    async submitScan(code) {
         if (!code) {
             return;
         }
@@ -239,6 +264,28 @@ export class StockCountScanner extends Component {
         Promise.resolve().then(() => this.badgeRef.el && this.badgeRef.el.focus());
     }
 
+    /** What approval will do, for the dialog. */
+    get approvalSummary() {
+        const toFind = this.toFind;
+        const n = (key) => toFind.filter((l) => l.resolution === key).length;
+        return [
+            { key: "found", label: "Counted", value: this.state.stats.found, icon: "fa-check", cls: "text-success" },
+            { key: "lost", label: "Lost (off stock, Inventory Loss)", value: n("lost"), icon: "fa-ban", cls: "text-danger" },
+            { key: "sold", label: "Sold without invoice (off stock)", value: n("sold_no_invoice"), icon: "fa-shopping-bag", cls: "text-secondary" },
+            { key: "other", label: "Moved to another location", value: n("other_location"), icon: "fa-map-marker", cls: "text-info" },
+            { key: "keep", label: "Left in stock", value: n("keep"), icon: "fa-archive", cls: "text-muted" },
+            { key: "unexpected", label: "Unexpected (reported only)", value: this.state.stats.unexpected, icon: "fa-exclamation-triangle", cls: "text-warning" },
+        ].filter((row) => row.value);
+    }
+
+    async badgeWithCamera() {
+        const code = await this._camera();
+        if (code && this.badgeRef.el) {
+            this.badgeRef.el.value = code;
+            await this.approve();
+        }
+    }
+
     cancelApprove() {
         this.state.approving = false;
         this.focus();
@@ -262,6 +309,7 @@ export class StockCountScanner extends Component {
             this.state.approving = false;
             this.notification.add(`Count approved by ${data.approved_by}. Stock updated.`, { type: "success" });
         } catch (err) {
+            buzz();
             this.state.approveError =
                 (err && err.data && err.data.message) || "Could not approve the count.";
             if (this.badgeRef.el) {

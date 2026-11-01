@@ -79,10 +79,71 @@
     }
     .o_jsc_modal_box {
         background: var(--bs-body-bg);
+        border-radius: 16px;
+        padding: 28px;
+        width: 520px;
+        max-width: 94vw;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+    .o_jsc_approve_head {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    .o_jsc_approve_icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        background: var(--bs-primary-bg-subtle);
+        color: var(--bs-primary-text-emphasis);
+    }
+    .o_jsc_approve_summary {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: var(--bs-tertiary-bg);
+        margin-bottom: 16px;
+    }
+    .o_jsc_badge_zone {
+        position: relative;
+        text-align: center;
+        padding: 22px 16px;
+        border: 2px dashed var(--bs-primary-border-subtle);
         border-radius: 12px;
-        padding: 24px;
-        width: 460px;
-        max-width: 92vw;
+        color: var(--bs-primary-text-emphasis);
+        background: var(--bs-primary-bg-subtle);
+        animation: o_jsc_pulse 1.6s ease-in-out infinite;
+    }
+    .o_jsc_badge_err {
+        border-color: var(--bs-danger-border-subtle);
+        color: var(--bs-danger-text-emphasis);
+        background: var(--bs-danger-bg-subtle);
+        animation: o_jsc_shake 0.35s ease-in-out 1;
+    }
+    .o_jsc_badge_busy {
+        animation: none;
+    }
+    // The badge field stays focused (the handheld scanner types into it) but
+    // is invisible: the zone above is what people look at.
+    .o_jsc_badge_input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        border: 0;
+        cursor: default;
+    }
+    .o_jsc_cam {
+        width: 52px;
+        height: 52px;
     }
 
     .o_jsc_scanbox {
@@ -177,6 +238,16 @@
         font-weight: 500;
         margin-bottom: 8px;
     }
+}
+
+@keyframes o_jsc_pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.25); }
+    50% { box-shadow: 0 0 0 8px rgba(13, 110, 253, 0); }
+}
+@keyframes o_jsc_shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
 }
 
 @media (max-width: 991.98px) {

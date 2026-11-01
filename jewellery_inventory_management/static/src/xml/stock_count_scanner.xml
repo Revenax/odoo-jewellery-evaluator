@@ -24,11 +24,17 @@
                         </span>
                     </div>
 
-                    <div t-if="open" class="o_jsc_scanbox mb-2">
-                        <i class="fa fa-barcode o_jsc_scanicon"/>
-                        <input t-ref="scan" type="text" class="form-control o_jsc_scan"
-                               placeholder="Scan barcode…" autocomplete="off"
-                               t-on-keydown="onKeydown"/>
+                    <div t-if="open" class="d-flex gap-2 mb-2">
+                        <div class="o_jsc_scanbox flex-grow-1">
+                            <i class="fa fa-barcode o_jsc_scanicon"/>
+                            <input t-ref="scan" type="text" class="form-control o_jsc_scan"
+                                   placeholder="Scan barcode…" autocomplete="off"
+                                   t-on-keydown="onKeydown"/>
+                        </div>
+                        <button t-if="cameraSupported" type="button" class="btn btn-dark o_jsc_cam"
+                                title="Scan with the camera" t-on-click="scanWithCamera">
+                            <i class="fa fa-camera fa-lg"/>
+                        </button>
                     </div>
 
                     <div t-if="state.last" t-att-class="'o_jsc_banner mb-3 ' + banner.cls">
@@ -280,17 +286,45 @@
 
                 <div t-if="state.approving" class="o_jsc_modal" t-on-click.self="cancelApprove">
                     <div class="o_jsc_modal_box">
-                        <h4 class="mb-2"><i class="fa fa-id-badge me-2"/>Admin approval</h4>
-                        <p class="text-muted small mb-3">
-                            Scan an admin badge to close <b t-esc="state.name"/> and apply the decisions:
-                            lost and sold-without-invoice pieces leave stock, pieces in another location are moved there.
-                        </p>
-                        <input t-ref="badge" type="password" class="form-control form-control-lg mb-2"
-                               placeholder="Scan admin badge…" autocomplete="off" t-on-keydown="onBadgeKeydown"/>
-                        <div t-if="state.approveError" class="text-danger small mb-2" t-esc="state.approveError"/>
-                        <div class="d-flex justify-content-end gap-2">
-                            <button class="btn btn-secondary" t-on-click="cancelApprove">Cancel</button>
-                            <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="approve">Approve</button>
+                        <div class="o_jsc_approve_head">
+                            <div class="o_jsc_approve_icon"><i class="fa fa-id-badge"/></div>
+                            <div>
+                                <h3 class="mb-0">Admin approval</h3>
+                                <div class="text-muted">Close <b t-esc="state.name"/> and update stock</div>
+                            </div>
+                        </div>
+
+                        <div class="o_jsc_approve_summary">
+                            <t t-foreach="approvalSummary" t-as="row" t-key="row.key">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span><i t-att-class="'fa fa-fw me-2 ' + row.icon + ' ' + row.cls"/><t t-esc="row.label"/></span>
+                                    <b class="font-monospace" t-esc="row.value"/>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div t-att-class="'o_jsc_badge_zone' + (state.approveError ? ' o_jsc_badge_err' : '') + (state.busy ? ' o_jsc_badge_busy' : '')">
+                            <i t-att-class="'fa fa-2x mb-2 ' + (state.busy ? 'fa-spinner fa-spin' : state.approveError ? 'fa-times-circle' : 'fa-qrcode')"/>
+                            <div class="fw-semibold">
+                                <t t-if="state.busy">Checking badge…</t>
+                                <t t-elif="state.approveError" t-esc="state.approveError"/>
+                                <t t-else="">Scan an admin badge now</t>
+                            </div>
+                            <div class="small text-muted">Use the handheld scanner, or the camera below.</div>
+                            <input t-ref="badge" type="password" class="o_jsc_badge_input" autocomplete="off"
+                                   aria-label="Admin badge" t-on-keydown="onBadgeKeydown"/>
+                        </div>
+
+                        <div class="d-flex gap-2 mt-3">
+                            <button t-if="cameraSupported" class="btn btn-dark flex-grow-1" t-att-disabled="state.busy"
+                                    t-on-click="badgeWithCamera">
+                                <i class="fa fa-camera me-2"/>Scan badge with camera
+                            </button>
+                            <button class="btn btn-light" t-on-click="cancelApprove">Cancel</button>
+                        </div>
+                        <div class="small text-muted mt-3">
+                            Only a register manager's badge (the people who approve below-minimum sales) can approve.
+                            Nothing in stock changes until then.
                         </div>
                     </div>
                 </div>
