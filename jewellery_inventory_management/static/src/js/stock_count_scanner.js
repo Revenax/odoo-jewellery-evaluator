@@ -19,7 +19,11 @@ export const RESOLUTIONS = {
     sold_no_invoice: { label: "Sold without invoice", cls: "text-bg-secondary", icon: "fa-shopping-bag" },
     other_location: { label: "In another location", cls: "text-bg-info", icon: "fa-map-marker" },
     keep: { label: "Leave in stock", cls: "text-bg-light", icon: "fa-archive" },
+    transfer_here: { label: "Transfer to this location", cls: "text-bg-primary", icon: "fa-exchange" },
 };
+
+/** What can be decided for a piece that was not found. */
+export const MISSING_DECISIONS = ["lost", "sold_no_invoice", "other_location", "keep"];
 
 /**
  * The stock-count scan screen. Full width: the count on the left, a side
@@ -41,6 +45,7 @@ export class StockCountScanner extends Component {
         const p = (this.props.action && (this.props.action.params || this.props.action.context)) || {};
         this.countId = p.count_id || p.active_id;
         this.resolutions = RESOLUTIONS;
+        this.missingDecisions = MISSING_DECISIONS;
         this.state = useState({
             loaded: false,
             name: "",

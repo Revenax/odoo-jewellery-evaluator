@@ -18,7 +18,10 @@ RESOLUTIONS = [
     ('sold_no_invoice', 'Sold without invoice'),
     ('other_location', 'In another location'),
     ('keep', 'Leave in stock'),
+    # For an unexpected scan of a piece Odoo has in another location.
+    ('transfer_here', 'Transfer to this location'),
 ]
+MISSING_RESOLUTIONS = ('lost', 'sold_no_invoice', 'other_location', 'keep')
 
 
 class JewelleryStockCount(models.Model):
@@ -35,24 +38,35 @@ class JewelleryStockCount(models.Model):
     * sold without invoice: off on-hand, its cost to its cost-of-sales
       account (no revenue or cash is recorded);
     * in another location: moved there;
-    * left in stock / unexpected scans: nothing changes (reported only)."""
+    * left in stock: nothing changes.
+
+    An unexpected scan is reported only, unless Odoo has the piece in another
+    location and it is marked 'transfer to this location': then it is moved
+    into this count's location on approval."""
 
     _name = 'jewellery.stock.count'
     _description = 'Jewellery Stock Count Operation'
     _order = 'create_date desc, id desc'
 
     name = fields.Char(default='New', required=True, copy=False, readonly=True)
+    prefix_choice = fields.Selection(
+        selection='_prefix_options', string='Pieces to count', store=False,
+        help='SKU prefixes with pieces in stock, and how many.')
     sku_prefix = fields.Char(
         string='SKU Prefix', required=True,
         help='Count every in-stock piece whose internal reference starts with '
              'this prefix, e.g. "GBF8".')
     warehouse_id = fields.Many2one(
         'stock.warehouse', string='Warehouse',
+        default=lambda self: self.env['stock.warehouse'].search(
+            [('company_id', '=', self.env.company.id)], limit=1),
         help='Count all internal locations of this warehouse. Ignored when a '
              'specific location is set below.')
     location_id = fields.Many2one(
         'stock.location', string='Location',
-        domain="[('usage', '=', 'internal')]",
+        domain="[('usage', '=', 'internal'), ('warehouse_id', '=', warehouse_id)]",
+        default=lambda self: self.env['stock.warehouse'].search(
+            [('company_id', '=', self.env.company.id)], limit=1).lot_stock_id,
         help='Count only this location. Leave empty to count the whole '
              'warehouse above.')
     state = fields.Selection(
@@ -114,6 +128,30 @@ class JewelleryStockCount(models.Model):
             count.found_reading_g = sum(found.mapped('weight_reading_g'))
             count.missing_reading_g = sum(missing.mapped('weight_reading_g'))
 
+    @api.model
+    def _prefix_options(self):
+        """SKU prefixes with pieces in stock anywhere, with how many."""
+        self.env.cr.execute("""
+            SELECT upper(split_part(pp.default_code, '-', 1)) AS prefix, count(DISTINCT pp.id)
+              FROM stock_quant q
+              JOIN stock_location l ON l.id = q.location_id AND l.usage = 'internal'
+              JOIN product_product pp ON pp.id = q.product_id
+             WHERE q.quantity > 0 AND pp.default_code LIKE '%%-%%'
+             GROUP BY 1 ORDER BY 1
+        """)
+        return [(prefix, f'{prefix} · {n} in stock') for prefix, n in self.env.cr.fetchall()]
+
+    @api.onchange('prefix_choice')
+    def _onchange_prefix_choice(self):
+        if self.prefix_choice:
+            self.sku_prefix = self.prefix_choice
+
+    @api.onchange('warehouse_id')
+    def _onchange_warehouse_id(self):
+        # The warehouse's main stock location by default; clear it to count the
+        # whole warehouse.
+        self.location_id = self.warehouse_id.lot_stock_id
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
@@ -136,6 +174,11 @@ class JewelleryStockCount(models.Model):
                 ('id', 'child_of', self.warehouse_id.view_location_id.id),
             ])
         return self.env['stock.location']
+
+    def _home_location(self):
+        """Where 'transfer to this location' puts a piece."""
+        self.ensure_one()
+        return self.location_id or self.warehouse_id.lot_stock_id
 
     def _prefix(self):
         return (self.sku_prefix or '').strip().upper()
@@ -217,9 +260,13 @@ class JewelleryStockCount(models.Model):
         if line and line.status == 'found':
             return self._scan_result('already', sku, 'Already counted')
         if line and line.status == 'to_find':
-            line.write({'status': 'found', 'scanned_at': fields.Datetime.now()})
+            # Found after all: any decision taken while it was missing is void.
+            line.write({'status': 'found', 'scanned_at': fields.Datetime.now(),
+                        'resolution': False, 'resolution_location_id': False})
             return self._scan_result('found', sku, 'Counted')
 
+        if line and line.status == 'unexpected':
+            return self._scan_result('already', sku, f'Already scanned ({line.reason})')
         reason = self._unexpected_reason(product)
         self.env['jewellery.stock.count.line'].create({
             'count_id': self.id,
@@ -233,13 +280,21 @@ class JewelleryStockCount(models.Model):
     def _unexpected_reason(self, product):
         if self._code_prefix(product.default_code) != self._prefix():
             return 'wrong prefix'
-        on_hand = sum(self.env['stock.quant'].sudo().search([
-            ('product_id', '=', product.id),
-            ('location_id', 'in', self._scope_locations().ids),
-        ]).mapped('quantity'))
-        if on_hand <= 0:
-            return 'sold / no stock here'
-        return 'not in this count'
+        quants = self.env['stock.quant'].sudo().search([
+            ('product_id', '=', product.id), ('location_id.usage', '=', 'internal'), ('quantity', '>', 0)])
+        scope = self._scope_locations()
+        here = quants.filtered(lambda q: q.location_id in scope)
+        if here:
+            return 'not in this count'
+        if quants:
+            return 'in ' + ', '.join(quants.location_id.mapped('complete_name'))
+        return 'sold / no stock in Odoo'
+
+    def _elsewhere_quants(self, product):
+        """On-hand of this piece in internal locations outside this count."""
+        return self.env['stock.quant'].sudo().search([
+            ('product_id', '=', product.id), ('location_id.usage', '=', 'internal'),
+            ('location_id', 'not in', self._scope_locations().ids), ('quantity', '>', 0)])
 
     # --- resolving missing pieces ---------------------------------------------
 
@@ -253,10 +308,16 @@ class JewelleryStockCount(models.Model):
         self.ensure_one()
         self._check_open()
         line = self.line_ids.filtered(lambda line: line.id == line_id)
-        if not line or line.status != 'to_find':
-            raise UserError('Only a piece that is still to find can be marked.')
+        if not line or line.status == 'found':
+            raise UserError('This piece was counted; there is nothing to decide.')
         if resolution and resolution not in dict(RESOLUTIONS):
             raise UserError('Unknown resolution.')
+        if line.status == 'unexpected' and resolution not in (False, 'transfer_here'):
+            raise UserError('An unexpected piece can only be transferred to this location.')
+        if line.status == 'to_find' and resolution and resolution not in MISSING_RESOLUTIONS:
+            raise UserError('Choose what happened to the missing piece.')
+        if resolution == 'transfer_here' and not self._elsewhere_quants(line.product_id):
+            raise UserError('Odoo has no stock of this piece in another location to transfer.')
         location = self.env['stock.location']
         if resolution == 'other_location':
             location = self.env['stock.location'].browse(int(location_id or 0)).exists()
@@ -313,7 +374,9 @@ class JewelleryStockCount(models.Model):
                 f'{len(unresolved)} missing piece(s) still need a decision: '
                 + ', '.join(unresolved[:10].mapped('default_code')))
         moves = self.env['account.move']
-        for line in self.line_ids.filtered(lambda line: line.status == 'to_find' and line.resolution != 'keep'):
+        for line in self.line_ids.filtered(
+                lambda line: (line.status == 'to_find' and line.resolution != 'keep')
+                or (line.status == 'unexpected' and line.resolution == 'transfer_here')):
             moves |= line._apply_resolution()
         self.write({
             'state': 'done',
@@ -358,6 +421,8 @@ class JewelleryStockCount(models.Model):
             'price': tmpl.list_price,
             'image': f'/web/image/product.product/{product.id}/image_512' if product.image_128 else '',
             'on_hand': [{'location': q.location_id.complete_name, 'qty': q.quantity} for q in quants],
+            'elsewhere': [q.location_id.complete_name for q in self._elsewhere_quants(product)],
+            'home': self._home_location().complete_name or '',
             'line': line and {
                 'id': line.id, 'status': line.status, 'reason': line.reason or '',
                 'resolution': line.resolution or '',
@@ -503,6 +568,12 @@ class JewelleryStockCountLine(models.Model):
             ('location_id', 'in', count._scope_locations().ids),
             ('quantity', '>', 0)])
         label = f'{count.name}: {product.default_code or product.display_name}'
+        if self.resolution == 'transfer_here':
+            elsewhere = count._elsewhere_quants(product)
+            if elsewhere and count._home_location():
+                elsewhere.move_quants(location_dest_id=count._home_location(),
+                                      message=f'{label} found here in the count')
+            return self.env['account.move']
         if self.resolution == 'other_location':
             if quants:
                 quants.move_quants(location_dest_id=self.resolution_location_id,
