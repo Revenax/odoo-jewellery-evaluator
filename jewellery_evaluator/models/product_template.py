@@ -895,24 +895,14 @@ class ProductTemplate(models.Model):
         if not is_cs and base_gold_21k_egp <= 0:
             return {}
 
-        exchange_rate, fee_per_gram, multiplier, discount, min_pct = self._diamond_pricing_config()
-        if exchange_rate <= 0:
+        config = self._diamond_pricing_config()
+        if config[0] <= 0:
             return {}
 
-        valid_stone_prices = [
-            s.total_price_usd for s in self.stone_ids if s.total_price_usd > 0
-        ]
         try:
+            # Same kwargs as the cron, so a Center Stone gets no ticket markup here either.
             result = compute_diamond_jewellery_price(
-                base_gold_price_21k_egp=base_gold_21k_egp,
-                gold_purity=self.gold_purity or '21K',
-                weight_g=0.0 if is_cs else self.jewellery_weight_g,
-                stone_prices_usd=valid_stone_prices,
-                exchange_rate_usd=exchange_rate,
-                fee_per_gram_usd=fee_per_gram,
-                ticket_multiplier=multiplier,
-                ticket_discount=discount,
-                min_sale_pct=min_pct,
+                **self._diamond_price_args(base_gold_21k_egp, config)
             )
         except (ValueError, Exception) as e:
             _logger.warning(
