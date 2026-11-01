@@ -73,3 +73,12 @@ def test_usd_rate_bootstraps_and_guard_can_be_disabled():
     assert utils.usd_rate_is_plausible(55.74, 0, 0.10)
     assert utils.usd_rate_is_plausible(80.0, 55.74, 0)
     assert not utils.usd_rate_is_plausible(0, 0, 0)
+
+
+def test_usd_markup_adds_two_percent():
+    assert utils.apply_usd_markup(55.74, 0.02) == 56.8548
+
+
+def test_usd_markup_zero_or_negative_keeps_feed_rate():
+    assert utils.apply_usd_markup(55.74, 0) == 55.74
+    assert utils.apply_usd_markup(55.74, -0.05) == 55.74

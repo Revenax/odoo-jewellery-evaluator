@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Price banner above the product grid (pos_price_board.js). Styling:
+    pos_price_board.scss.
+-->
+<templates xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.PriceBoard">
+        <div class="o_pos_price_board" t-att-class="{'o_ppb_failed': state.failed}">
+            <div t-foreach="tiles" t-as="tile" t-key="tile.key"
+                 t-attf-class="o_ppb_tile o_ppb_{{ tile.kind }}">
+                <span class="o_ppb_label" t-esc="tile.label"/>
+                <span class="o_ppb_value" t-esc="format(tile.value, tile.digits)"/>
+                <span class="o_ppb_unit" t-esc="tile.unit"/>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="jewellery_evaluator.ProductScreenPriceBoard" t-inherit="point_of_sale.ProductScreen" t-inherit-mode="extension">
+        <xpath expr="//CategorySelector" position="before">
+            <PriceBoard t-if="!this.pos.isSmallProductScreen || pos.mobile_pane === 'right'"/>
+        </xpath>
+    </t>
+
+</templates>

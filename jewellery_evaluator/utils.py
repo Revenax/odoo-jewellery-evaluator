@@ -1063,6 +1063,16 @@ def price_from_feed(snapshot: dict, key: str, side: str = 'ask',
     return value
 
 
+def apply_usd_markup(rate: float, markup: float) -> float:
+    """The shop's USD/EGP: the feed rate raised by ``markup`` (0.02 = +2 %).
+
+    Owner decision 2026-11-01: diamonds, stone costs and the POS price board
+    use the eDahab rate plus 2 %. A negative markup is treated as 0.
+    """
+    value = Decimal(str(rate)) * (Decimal('1') + Decimal(str(max(markup, 0.0))))
+    return float(value.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP))
+
+
 def usd_rate_is_plausible(rate: float, last_good: float, max_jump: float) -> bool:
     """Whether a fetched USD/EGP rate may replace the last good one.
 

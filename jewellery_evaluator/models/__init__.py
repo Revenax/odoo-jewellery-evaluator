@@ -19,6 +19,7 @@ from . import (
     pos_config,  # noqa: F401
     pos_make_payment,  # noqa: F401
     pos_order,  # noqa: F401
+    pos_price_board,  # noqa: F401
     pos_product_info,  # noqa: F401
     pos_session,  # noqa: F401
     product_product,  # noqa: F401

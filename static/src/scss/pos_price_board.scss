@@ -1,0 +1,40 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+//
+// Price banner above the POS product grid. Scoped under .o_pos_price_board.
+
+.o_pos_price_board {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0;
+
+    .o_ppb_tile {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.45rem 0.25rem;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        line-height: 1.15;
+        min-width: 0;
+    }
+    .o_ppb_gold { background: #f6ecd2; color: #6b4e0e; }
+    .o_ppb_silver { background: #eceef1; color: #3c4450; }
+    .o_ppb_usd { background: #e3efe6; color: #1f5130; }
+
+    .o_ppb_label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+    .o_ppb_value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .o_ppb_unit { font-size: 0.7rem; opacity: 0.75; }
+
+    &.o_ppb_failed .o_ppb_value { opacity: 0.45; }
+}
+
+@media (max-width: 767.98px) {
+    .o_pos_price_board {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        .o_ppb_value { font-size: 1rem; }
+    }
+}

@@ -13,6 +13,7 @@ from odoo.tools import str2bool  # noqa: E402
 from .. import pulse  # noqa: E402
 from ..utils import (  # noqa: E402
     DEFAULT_PRICE_FEED_URL,
+    apply_usd_markup,
     gold_price_for_purity,
     parse_gold_price_with_regex,
     price_from_feed,
@@ -211,6 +212,11 @@ class GoldPriceService(models.Model):
         except ValueError:
             usd = None
         if usd:
+            try:
+                markup = float(icp.get_param('jewellery_evaluator.usd_markup_pct', '0.02'))
+            except (TypeError, ValueError):
+                markup = 0.02
+            usd = apply_usd_markup(usd, markup)
             last_usd = float(icp.get_param('jewellery_evaluator.feed_usd_egp') or 0)
             try:
                 max_jump = float(icp.get_param('jewellery_evaluator.usd_rate_max_jump_pct', '0.10'))
