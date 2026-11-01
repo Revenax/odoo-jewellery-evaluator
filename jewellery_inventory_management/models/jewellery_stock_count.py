@@ -3,15 +3,39 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
+import logging
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
+
+# Lost pieces are expensed here (scripts/accounting/configure_accounting.py).
+INVENTORY_LOSS_ACCOUNT_CODE = '400071'
+
+RESOLUTIONS = [
+    ('lost', 'Lost'),
+    ('sold_no_invoice', 'Sold without invoice'),
+    ('other_location', 'In another location'),
+    ('keep', 'Leave in stock'),
+]
 
 
 class JewelleryStockCount(models.Model):
     """A physical stock-count *operation*: pick a SKU prefix and a scope
     (a single location, or a whole warehouse), generate the set of pieces that
     should be on hand, then scan each one with a barcode scanner. What never
-    gets scanned is 'missing'; a scan that wasn't expected is 'unexpected'."""
+    gets scanned is 'missing'; a scan that wasn't expected is 'unexpected'.
+
+    Every missing piece must be resolved (lost, sold without invoice, in
+    another location, or left in stock) before the count can close, and
+    closing needs an admin's badge. Only then is stock changed:
+
+    * lost: off on-hand, its cost to Inventory Loss (400071);
+    * sold without invoice: off on-hand, its cost to its cost-of-sales
+      account (no revenue or cash is recorded);
+    * in another location: moved there;
+    * left in stock / unexpected scans: nothing changes (reported only)."""
 
     _name = 'jewellery.stock.count'
     _description = 'Jewellery Stock Count Operation'
@@ -34,6 +58,11 @@ class JewelleryStockCount(models.Model):
     state = fields.Selection(
         [('draft', 'Draft'), ('in_progress', 'In Progress'), ('done', 'Done')],
         default='draft', required=True, copy=False)
+    approved_by_employee_id = fields.Many2one(
+        'hr.employee', string='Approved By', readonly=True, copy=False)
+    approved_at = fields.Datetime(readonly=True, copy=False)
+    adjustment_move_ids = fields.Many2many(
+        'account.move', string='Stock Count Entries', readonly=True, copy=False)
     user_id = fields.Many2one(
         'res.users', string='Counted By', default=lambda self: self.env.user)
     start_date = fields.Datetime(readonly=True, copy=False)
@@ -158,12 +187,13 @@ class JewelleryStockCount(models.Model):
         }
 
     def action_finish(self):
-        self.ensure_one()
-        self.write({'state': 'done', 'end_date': fields.Datetime.now()})
-        return True
+        """Closing needs an admin badge, which the scan screen asks for."""
+        return self.action_open_scanner()
 
     def action_reset_to_draft(self):
         self.ensure_one()
+        if self.state == 'done':
+            raise UserError('An approved count has already changed stock and cannot be reset.')
         self.line_ids.unlink()
         self.write({'state': 'draft', 'start_date': False, 'end_date': False})
 
@@ -211,6 +241,138 @@ class JewelleryStockCount(models.Model):
             return 'sold / no stock here'
         return 'not in this count'
 
+    # --- resolving missing pieces ---------------------------------------------
+
+    def _check_open(self):
+        if self.state != 'in_progress':
+            raise UserError('This count is not in progress.')
+
+    def set_resolution(self, line_id, resolution, location_id=False):
+        """Mark a missing piece (from the scan screen). ``resolution`` False
+        clears it. Nothing changes in stock until the count is approved."""
+        self.ensure_one()
+        self._check_open()
+        line = self.line_ids.filtered(lambda line: line.id == line_id)
+        if not line or line.status != 'to_find':
+            raise UserError('Only a piece that is still to find can be marked.')
+        if resolution and resolution not in dict(RESOLUTIONS):
+            raise UserError('Unknown resolution.')
+        location = self.env['stock.location']
+        if resolution == 'other_location':
+            location = self.env['stock.location'].browse(int(location_id or 0)).exists()
+            if not location or location.usage != 'internal':
+                raise UserError('Choose the location where the piece is.')
+            if location in self._scope_locations():
+                raise UserError('That location is part of this count; scan the piece instead.')
+        line.write({
+            'resolution': resolution or False,
+            'resolution_location_id': location.id or False,
+            'resolved_by_id': self.env.user.id if resolution else False,
+            'resolved_at': fields.Datetime.now() if resolution else False,
+        })
+        return self.get_scan_state()
+
+    def other_locations(self):
+        """Internal locations outside this count, for 'in another location'."""
+        self.ensure_one()
+        scope = self._scope_locations()
+        locations = self.env['stock.location'].search(
+            [('usage', '=', 'internal'), ('id', 'not in', scope.ids)], order='complete_name')
+        return [{'id': loc.id, 'name': loc.complete_name} for loc in locations]
+
+    # --- approval (admin badge) ------------------------------------------------
+
+    def _badge_admin(self, badge):
+        """The employee whose badge this is, when they are an admin: a manager
+        on any POS register (Employees with advanced rights), or a user in the
+        POS manager group — the same people who approve below-minimum sales."""
+        badge = (badge or '').strip()
+        if not badge:
+            return self.env['hr.employee']
+        employee = self.env['hr.employee'].sudo().search([('barcode', '=', badge)], limit=1)
+        if not employee:
+            return employee
+        configs = self.env['pos.config'].sudo().search([])
+        if 'advanced_employee_ids' in configs._fields and employee in configs.advanced_employee_ids:
+            return employee
+        group = self.env.ref('point_of_sale.group_pos_manager', raise_if_not_found=False)
+        if group and employee.user_id and group in employee.user_id.all_group_ids:
+            return employee
+        return self.env['hr.employee']
+
+    def action_approve(self, badge):
+        """Close the count with an admin's badge and apply every resolution."""
+        self.ensure_one()
+        self._check_open()
+        employee = self._badge_admin(badge)
+        if not employee:
+            raise UserError('That badge does not belong to an admin.')
+        unresolved = self.line_ids.filtered(lambda line: line.status == 'to_find' and not line.resolution)
+        if unresolved:
+            raise UserError(
+                f'{len(unresolved)} missing piece(s) still need a decision: '
+                + ', '.join(unresolved[:10].mapped('default_code')))
+        moves = self.env['account.move']
+        for line in self.line_ids.filtered(lambda line: line.status == 'to_find' and line.resolution != 'keep'):
+            moves |= line._apply_resolution()
+        self.write({
+            'state': 'done',
+            'end_date': fields.Datetime.now(),
+            'approved_by_employee_id': employee.id,
+            'approved_at': fields.Datetime.now(),
+            'adjustment_move_ids': [(6, 0, moves.ids)],
+        })
+        return self.get_scan_state()
+
+    # --- piece details for the side panel ------------------------------------
+
+    def get_piece(self, product_id):
+        self.ensure_one()
+        product = self.env['product.product'].browse(int(product_id)).exists()
+        if not product:
+            raise UserError('Piece not found.')
+        tmpl = product.product_tmpl_id
+        line = self.line_ids.filtered(lambda line: line.product_id == product)[:1]
+        quants = self.env['stock.quant'].sudo().search([
+            ('product_id', '=', product.id), ('location_id.usage', '=', 'internal'), ('quantity', '!=', 0)])
+        type_labels = dict(tmpl._fields['jewellery_type'].selection) if 'jewellery_type' in tmpl._fields else {}
+        stones = tmpl.stone_ids if 'stone_ids' in tmpl._fields else []
+        return {
+            'product_id': product.id,
+            'sku': product.default_code or '',
+            'name': (tmpl.website_title if 'website_title' in tmpl._fields and tmpl.website_title
+                     else product.display_name),
+            'category': tmpl.categ_id.complete_name or '',
+            'type': type_labels.get(tmpl.jewellery_type, '') if type_labels else '',
+            'karat': (tmpl.gold_purity or '') if 'gold_purity' in tmpl._fields else '',
+            'weights': {
+                'jewellery': tmpl.gross_jewellery_weight_g,
+                'net_gold': tmpl.net_gold_weight_g,
+                'stones': tmpl.diamond_weight_g,
+                'reading': tmpl.weight_reading_g,
+            },
+            'stones': [{
+                'qty': st.quantity, 'shape': st.shape or '', 'carat': st.total_carat,
+                'color': st.color or '', 'clarity': st.clarity or '',
+            } for st in stones],
+            'price': tmpl.list_price,
+            'image': f'/web/image/product.product/{product.id}/image_512' if product.image_128 else '',
+            'on_hand': [{'location': q.location_id.complete_name, 'qty': q.quantity} for q in quants],
+            'line': line and {
+                'id': line.id, 'status': line.status, 'reason': line.reason or '',
+                'resolution': line.resolution or '',
+                'resolution_location': line.resolution_location_id.complete_name or '',
+                'scanned_at': fields.Datetime.to_string(line.scanned_at)[11:19] if line.scanned_at else '',
+            } or False,
+        }
+
+    def get_piece_by_line(self, line_id):
+        self.ensure_one()
+        line = self.line_ids.filtered(lambda line: line.id == line_id)
+        if not line:
+            raise UserError('Line not found.')
+        return self.get_piece(line.product_id.id)
+
     # --- payloads for the OWL scan screen ------------------------------------
 
     @staticmethod
@@ -237,6 +399,7 @@ class JewelleryStockCount(models.Model):
             'missing': to_find,
             'unexpected': unexpected,
             'progress': round(100.0 * found / expected, 1) if expected else 0.0,
+            'unresolved': len(to_find_lines.filtered(lambda line: not line.resolution)),
             'weights': {
                 'found': self._wsum(found_lines),
                 'missing': self._wsum(to_find_lines),
@@ -250,7 +413,10 @@ class JewelleryStockCount(models.Model):
             scanned = fields.Datetime.to_string(line.scanned_at) if line.scanned_at else ''
             out.append({
                 'id': line.id,
+                'product_id': line.product_id.id,
                 'sku': line.default_code or '',
+                'resolution': line.resolution or '',
+                'resolution_location': line.resolution_location_id.complete_name or '',
                 'status': line.status,
                 'reason': line.reason or '',
                 'scanned_at': scanned[11:19] if scanned else '',
@@ -259,9 +425,12 @@ class JewelleryStockCount(models.Model):
 
     def _scan_result(self, result, sku, message):
         self.ensure_one()
+        product = self.env['product.product'].search(
+            ['|', ('barcode', '=', sku), ('default_code', '=', sku)], limit=1) if sku else False
         return {
             'result': result,
             'sku': sku,
+            'piece': self.get_piece(product.id) if product else False,
             'message': message,
             'stats': self._stats_dict(),
             'lines': self._lines_payload(),
@@ -278,6 +447,7 @@ class JewelleryStockCount(models.Model):
             'sku_prefix': self.sku_prefix or '',
             'scope': scope,
             'state': self.state,
+            'approved_by': self.approved_by_employee_id.name or '',
             'stats': self._stats_dict(),
             'lines': self._lines_payload(),
         }
@@ -300,6 +470,11 @@ class JewelleryStockCountLine(models.Model):
         default='to_find', required=True, index=True)
     reason = fields.Char(string='Note')
     scanned_at = fields.Datetime()
+    resolution = fields.Selection(RESOLUTIONS, string='Decision', copy=False)
+    resolution_location_id = fields.Many2one(
+        'stock.location', string='Found In', domain="[('usage', '=', 'internal')]", copy=False)
+    resolved_by_id = fields.Many2one('res.users', string='Decided By', copy=False)
+    resolved_at = fields.Datetime(copy=False)
 
     # Per-piece weights, pulled from the product template (see the Weight
     # Inventory report). Stored so they aggregate per count without re-reading
@@ -316,3 +491,59 @@ class JewelleryStockCountLine(models.Model):
     weight_reading_g = fields.Float(
         related='product_id.product_tmpl_id.weight_reading_g',
         string='Reading (g)', store=True, digits=(16, 3))
+
+    def _apply_resolution(self):
+        """Apply this missing piece's decision (on approval). Returns the
+        journal entry it posted, if any."""
+        self.ensure_one()
+        count = self.count_id
+        product = self.product_id
+        quants = self.env['stock.quant'].sudo().search([
+            ('product_id', '=', product.id),
+            ('location_id', 'in', count._scope_locations().ids),
+            ('quantity', '>', 0)])
+        label = f'{count.name}: {product.default_code or product.display_name}'
+        if self.resolution == 'other_location':
+            if quants:
+                quants.move_quants(location_dest_id=self.resolution_location_id,
+                                   message=f'{label} found in {self.resolution_location_id.complete_name}')
+            return self.env['account.move']
+
+        qty = sum(quants.mapped('quantity'))
+        if not qty:
+            return self.env['account.move']
+        cost = qty * product.standard_price
+        for quant in quants:
+            qc = quant.with_context(inventory_mode=True, inventory_name=label)
+            qc.inventory_quantity = 0
+            qc.action_apply_inventory()
+        company = count.env.company
+        if company.currency_id.is_zero(cost):
+            return self.env['account.move']
+        accounts = product.product_tmpl_id.get_product_accounts()
+        stock_account = accounts.get('stock_valuation')
+        if self.resolution == 'lost':
+            debit_account = self.env['account.account'].sudo().search([
+                ('code', '=', INVENTORY_LOSS_ACCOUNT_CODE), ('company_ids', 'in', company.id)], limit=1)
+            if not debit_account:
+                raise UserError(f'Account {INVENTORY_LOSS_ACCOUNT_CODE} Inventory Loss is missing; '
+                                'run scripts/accounting/configure_accounting.py.')
+            what = 'Lost'
+        else:
+            debit_account = accounts.get('expense')
+            what = 'Sold without invoice'
+        if not stock_account or not debit_account:
+            _logger.warning('[stock-count] %s: no accounts to book %s', label, cost)
+            return self.env['account.move']
+        move = self.env['account.move'].sudo().create({
+            'journal_id': company.account_stock_journal_id.id,
+            'ref': f'{label} ({what})',
+            'line_ids': [
+                (0, 0, {'account_id': debit_account.id, 'name': f'{label} ({what})',
+                        'product_id': product.id, 'debit': company.currency_id.round(cost)}),
+                (0, 0, {'account_id': stock_account.id, 'name': f'{label} ({what})',
+                        'product_id': product.id, 'credit': company.currency_id.round(cost)}),
+            ],
+        })
+        move._post()
+        return move

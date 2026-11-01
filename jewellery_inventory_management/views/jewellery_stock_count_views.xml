@@ -42,7 +42,7 @@
                             class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_open_scanner" type="object" string="Resume scanning"
                             class="btn-primary" invisible="state != 'in_progress'"/>
-                    <button name="action_finish" type="object" string="Finish"
+                    <button name="action_finish" type="object" string="Finish &amp; approve"
                             invisible="state != 'in_progress'"/>
                     <button name="action_reset_to_draft" type="object" string="Reset to draft"
                             invisible="state == 'draft'"/>
@@ -83,9 +83,16 @@
                         </group>
                     </group>
                     <group>
-                        <field name="user_id"/>
-                        <field name="start_date"/>
-                        <field name="end_date"/>
+                        <group>
+                            <field name="user_id"/>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                        </group>
+                        <group invisible="state != 'done'">
+                            <field name="approved_by_employee_id"/>
+                            <field name="approved_at"/>
+                            <field name="adjustment_move_ids" widget="many2many_tags"/>
+                        </group>
                     </group>
                     <notebook>
                         <page string="Lines">
@@ -99,6 +106,9 @@
                                     <field name="stones_weight_g" string="Stones" sum="Stones" optional="hide"/>
                                     <field name="jewellery_weight_g" string="Jewellery" sum="Jewellery" optional="show"/>
                                     <field name="weight_reading_g" string="Reading" sum="Reading" optional="hide"/>
+                                    <field name="resolution" optional="show"/>
+                                    <field name="resolution_location_id" optional="show"/>
+                                    <field name="resolved_by_id" optional="hide"/>
                                     <field name="reason"/>
                                     <field name="scanned_at"/>
                                 </list>

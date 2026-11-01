@@ -2,163 +2,291 @@
 <templates xml:space="preserve">
 
     <t t-name="jewellery_inventory_management.StockCountScanner">
-        <div class="o_jsc_scanner p-3">
+        <div class="o_jsc_scanner">
             <t t-if="!state.loaded">
                 <div class="text-muted p-4">Loading…</div>
             </t>
             <t t-else="">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div>
-                        <h2 class="mb-2" t-esc="state.name"/>
-                        <span class="badge text-bg-info me-1">
-                            <i class="fa fa-tag me-1"/><t t-esc="state.prefix"/>
+                <div class="o_jsc_main p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h2 class="mb-2" t-esc="state.name"/>
+                            <span class="badge text-bg-info me-1">
+                                <i class="fa fa-tag me-1"/><t t-esc="state.prefix"/>
+                            </span>
+                            <span class="badge text-bg-light">
+                                <i class="fa fa-building me-1"/><t t-esc="state.scope"/>
+                            </span>
+                        </div>
+                        <span t-att-class="open ? 'badge text-bg-warning' : 'badge text-bg-success'">
+                            <t t-if="open">In progress</t>
+                            <t t-else="">Approved by <t t-esc="state.approvedBy"/></t>
                         </span>
-                        <span class="badge text-bg-light">
-                            <i class="fa fa-building me-1"/><t t-esc="state.scope"/>
-                        </span>
                     </div>
-                    <span t-att-class="state.countState === 'done' ? 'badge text-bg-success' : 'badge text-bg-warning'">
-                        <t t-esc="state.countState === 'done' ? 'Done' : 'In progress'"/>
-                    </span>
-                </div>
 
-                <div class="o_jsc_scanbox mb-2">
-                    <i class="fa fa-barcode o_jsc_scanicon"/>
-                    <input t-ref="scan" type="text" class="form-control o_jsc_scan"
-                           placeholder="Scan barcode…" autocomplete="off"
-                           t-on-keydown="onKeydown"/>
-                </div>
-
-                <div t-if="state.last" t-att-class="'o_jsc_banner mb-3 ' + banner.cls">
-                    <i t-att-class="'fa me-2 ' + banner.icon"/>
-                    <span><b t-esc="state.last.sku"/> — <t t-esc="state.last.message"/></span>
-                </div>
-
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between small text-muted mb-1">
-                        <span><t t-esc="state.stats.found"/> of <t t-esc="state.stats.expected"/> counted</span>
-                        <span><t t-esc="state.stats.progress"/>%</span>
+                    <div t-if="open" class="o_jsc_scanbox mb-2">
+                        <i class="fa fa-barcode o_jsc_scanicon"/>
+                        <input t-ref="scan" type="text" class="form-control o_jsc_scan"
+                               placeholder="Scan barcode…" autocomplete="off"
+                               t-on-keydown="onKeydown"/>
                     </div>
-                    <div class="progress" style="height: 8px;">
-                        <div class="progress-bar bg-success" t-attf-style="width: {{ state.stats.progress }}%;"/>
-                    </div>
-                </div>
 
-                <div class="row g-2 mb-3">
-                    <div class="col">
-                        <div class="o_jsc_metric">
-                            <div class="o_jsc_metric_l">Expected</div>
-                            <div class="o_jsc_metric_v" t-esc="state.stats.expected"/>
+                    <div t-if="state.last" t-att-class="'o_jsc_banner mb-3 ' + banner.cls">
+                        <i t-att-class="'fa me-2 ' + banner.icon"/>
+                        <span><b t-esc="state.last.sku"/> — <t t-esc="state.last.message"/></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span><t t-esc="state.stats.found"/> of <t t-esc="state.stats.expected"/> counted</span>
+                            <span><t t-esc="state.stats.progress"/>%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" t-attf-style="width: {{ state.stats.progress }}%;"/>
                         </div>
                     </div>
-                    <div class="col">
-                        <div class="o_jsc_metric o_jsc_m_ok">
-                            <div class="o_jsc_metric_l">Found</div>
-                            <div class="o_jsc_metric_v" t-esc="state.stats.found"/>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="o_jsc_metric o_jsc_m_warn">
-                            <div class="o_jsc_metric_l">Missing</div>
-                            <div class="o_jsc_metric_v" t-esc="state.stats.missing"/>
-                        </div>
-                    </div>
-                    <div class="col">
-                        <div class="o_jsc_metric o_jsc_m_err">
-                            <div class="o_jsc_metric_l">Unexpected</div>
-                            <div class="o_jsc_metric_v" t-esc="state.stats.unexpected"/>
-                        </div>
-                    </div>
-                </div>
 
-                <div t-if="state.stats.weights" class="o_jsc_list mb-3">
-                    <div class="o_jsc_list_h"><i class="fa fa-balance-scale me-1"/>Weights (g) — found vs missing</div>
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Weight</th>
-                                <th class="text-end text-success">Found</th>
-                                <th class="text-end text-warning">Missing</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Net gold</td>
-                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.net_gold.toFixed(2)"/>
-                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.net_gold.toFixed(2)"/>
-                            </tr>
-                            <tr>
-                                <td>Stones</td>
-                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.stones.toFixed(2)"/>
-                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.stones.toFixed(2)"/>
-                            </tr>
-                            <tr>
-                                <td>Jewellery</td>
-                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.jewellery.toFixed(2)"/>
-                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.jewellery.toFixed(2)"/>
-                            </tr>
-                            <tr>
-                                <td>Reading</td>
-                                <td class="text-end font-monospace" t-esc="state.stats.weights.found.readings.toFixed(2)"/>
-                                <td class="text-end font-monospace text-warning" t-esc="state.stats.weights.missing.readings.toFixed(2)"/>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="row g-2">
-                    <div class="col-6">
-                        <div class="o_jsc_list">
-                            <div class="o_jsc_list_h text-warning">
-                                <i class="fa fa-search me-1"/>Still to find · <t t-esc="toFind.length"/>
+                    <div class="row g-2 mb-3">
+                        <div class="col">
+                            <div class="o_jsc_metric">
+                                <div class="o_jsc_metric_l">Expected</div>
+                                <div class="o_jsc_metric_v" t-esc="state.stats.expected"/>
                             </div>
-                            <div class="d-flex flex-wrap gap-1">
-                                <t t-foreach="toFind.slice(0, 24)" t-as="l" t-key="l.id">
-                                    <span class="badge text-bg-warning font-monospace" t-esc="l.sku"/>
-                                </t>
-                                <span t-if="toFind.length > 24" class="text-muted small">
-                                    +<t t-esc="toFind.length - 24"/> more
-                                </span>
-                                <span t-if="!toFind.length" class="text-success small">
-                                    <i class="fa fa-check me-1"/>All found
-                                </span>
+                        </div>
+                        <div class="col">
+                            <div class="o_jsc_metric o_jsc_m_ok">
+                                <div class="o_jsc_metric_l">Found</div>
+                                <div class="o_jsc_metric_v" t-esc="state.stats.found"/>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="o_jsc_metric o_jsc_m_warn">
+                                <div class="o_jsc_metric_l">Missing</div>
+                                <div class="o_jsc_metric_v" t-esc="state.stats.missing"/>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="o_jsc_metric o_jsc_m_err">
+                                <div class="o_jsc_metric_l">Unexpected</div>
+                                <div class="o_jsc_metric_v" t-esc="state.stats.unexpected"/>
+                            </div>
+                        </div>
+                        <div t-if="open" class="col">
+                            <div class="o_jsc_metric">
+                                <div class="o_jsc_metric_l">Undecided</div>
+                                <div class="o_jsc_metric_v" t-esc="state.stats.unresolved"/>
                             </div>
                         </div>
                     </div>
-                    <div class="col-6">
-                        <div class="o_jsc_list">
-                            <div class="o_jsc_list_h text-success">
-                                <i class="fa fa-check me-1"/>Counted · <t t-esc="found.length"/>
-                            </div>
-                            <t t-foreach="found.slice(0, 12)" t-as="l" t-key="l.id">
-                                <div class="d-flex justify-content-between small">
-                                    <span class="font-monospace" t-esc="l.sku"/>
-                                    <span class="text-muted" t-esc="l.scanned_at"/>
+
+                    <div t-if="state.stats.weights" class="o_jsc_list mb-3">
+                        <div class="o_jsc_list_h"><i class="fa fa-balance-scale me-1"/>Weights (g) — found vs missing</div>
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Weight</th>
+                                    <th class="text-end text-success">Found</th>
+                                    <th class="text-end text-warning">Missing</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Net gold</td>
+                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.net_gold)"/>
+                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.net_gold)"/>
+                                </tr>
+                                <tr>
+                                    <td>Stones</td>
+                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.stones)"/>
+                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.stones)"/>
+                                </tr>
+                                <tr>
+                                    <td>Jewellery</td>
+                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.jewellery)"/>
+                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.jewellery)"/>
+                                </tr>
+                                <tr>
+                                    <td>Reading</td>
+                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.readings)"/>
+                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.readings)"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="o_jsc_list">
+                                <div class="o_jsc_list_h text-warning">
+                                    <i class="fa fa-search me-1"/>Still to find · <t t-esc="toFind.length"/>
+                                    <span t-if="open and toFind.length" class="text-muted fw-normal ms-1">— click a piece to decide</span>
                                 </div>
-                            </t>
-                            <div t-if="found.length > 12" class="text-muted small">
-                                +<t t-esc="found.length - 12"/> more
+                                <div class="d-flex flex-wrap gap-1">
+                                    <t t-foreach="toFind" t-as="l" t-key="l.id">
+                                        <button type="button"
+                                                t-att-class="'btn btn-sm font-monospace o_jsc_chip ' + (l.resolution ? resolutions[l.resolution].cls : 'text-bg-warning') + (state.piece and state.piece.line and state.piece.line.id === l.id ? ' o_jsc_chip_active' : '')"
+                                                t-att-title="l.resolution ? resolutions[l.resolution].label + (l.resolution_location ? ': ' + l.resolution_location : '') : 'Undecided'"
+                                                t-on-click="() => this.showLine(l)">
+                                            <i t-if="l.resolution" t-att-class="'fa me-1 ' + resolutions[l.resolution].icon"/>
+                                            <t t-esc="l.sku"/>
+                                        </button>
+                                    </t>
+                                    <span t-if="!toFind.length" class="text-success small">
+                                        <i class="fa fa-check me-1"/>All found
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="o_jsc_list">
+                                <div class="o_jsc_list_h text-success">
+                                    <i class="fa fa-check me-1"/>Counted · <t t-esc="found.length"/>
+                                </div>
+                                <div class="o_jsc_scroll">
+                                    <t t-foreach="found" t-as="l" t-key="l.id">
+                                        <div class="d-flex justify-content-between small o_jsc_row" t-on-click="() => this.showLine(l)">
+                                            <span class="font-monospace" t-esc="l.sku"/>
+                                            <span class="text-muted" t-esc="l.scanned_at"/>
+                                        </div>
+                                    </t>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <div t-if="unexpected.length" class="o_jsc_list o_jsc_list_err mt-2">
+                        <div class="o_jsc_list_h text-danger">
+                            <i class="fa fa-exclamation-triangle me-1"/>Unexpected · <t t-esc="unexpected.length"/>
+                            <span class="text-muted fw-normal ms-1">— reported only, stock is not changed</span>
+                        </div>
+                        <t t-foreach="unexpected" t-as="l" t-key="l.id">
+                            <div class="d-flex justify-content-between small o_jsc_row" t-on-click="() => this.showLine(l)">
+                                <span class="font-monospace" t-esc="l.sku"/>
+                                <span class="text-muted" t-esc="l.reason"/>
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button class="btn btn-secondary" t-on-click="openForm">
+                            <i class="fa fa-list me-1"/>Open record
+                        </button>
+                        <button t-if="open" class="btn btn-primary" t-on-click="startApprove">
+                            <i class="fa fa-flag-checkered me-1"/>Finish &amp; approve
+                        </button>
+                    </div>
                 </div>
 
-                <div t-if="unexpected.length" class="o_jsc_list o_jsc_list_err mt-2">
-                    <div class="o_jsc_list_h text-danger">
-                        <i class="fa fa-exclamation-triangle me-1"/>Unexpected · <t t-esc="unexpected.length"/>
-                    </div>
-                    <t t-foreach="unexpected" t-as="l" t-key="l.id">
-                        <div class="d-flex justify-content-between small">
-                            <span class="font-monospace" t-esc="l.sku"/>
-                            <span class="text-muted" t-esc="l.reason"/>
+                <aside class="o_jsc_side">
+                    <t t-if="state.pieceLoading">
+                        <div class="text-muted p-4">Loading…</div>
+                    </t>
+                    <t t-elif="!state.piece">
+                        <div class="o_jsc_side_empty">
+                            <i class="fa fa-barcode fa-3x mb-3"/>
+                            <div>Scan a piece, or click any SKU, to see it here.</div>
                         </div>
                     </t>
-                </div>
+                    <t t-else="">
+                        <t t-set="pc" t-value="state.piece"/>
+                        <div class="o_jsc_img">
+                            <img t-if="pc.image" t-att-src="pc.image" t-att-alt="pc.sku"/>
+                            <div t-else="" class="o_jsc_noimg"><i class="fa fa-picture-o fa-3x"/><div>No photo</div></div>
+                        </div>
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <h3 class="font-monospace mb-1" t-esc="pc.sku"/>
+                                <t t-if="pc.line">
+                                    <span t-if="pc.line.status === 'found'" class="badge text-bg-success">Counted <t t-esc="pc.line.scanned_at"/></span>
+                                    <span t-elif="pc.line.status === 'unexpected'" class="badge text-bg-danger">Unexpected</span>
+                                    <span t-elif="pc.line.resolution" t-att-class="'badge ' + resolutions[pc.line.resolution].cls" t-esc="resolutions[pc.line.resolution].label"/>
+                                    <span t-else="" class="badge text-bg-warning">Still to find</span>
+                                </t>
+                                <span t-else="" class="badge text-bg-light">Not in this count</span>
+                            </div>
+                            <div class="text-muted mb-2" t-esc="pc.name"/>
+                            <div t-if="pc.line and pc.line.reason" class="small text-danger mb-2" t-esc="pc.line.reason"/>
+                            <div t-if="pc.line and pc.line.resolution_location" class="small mb-2">
+                                <i class="fa fa-map-marker me-1"/>In <b t-esc="pc.line.resolution_location"/>
+                            </div>
 
-                <div class="d-flex justify-content-end mt-3">
-                    <button class="btn btn-primary" t-on-click="finish">
-                        <i class="fa fa-flag-checkered me-1"/>Finish count
-                    </button>
+                            <table class="table table-sm mb-3">
+                                <tbody>
+                                    <tr t-if="pc.type"><td class="text-muted">Type</td><td class="text-end" t-esc="pc.type"/></tr>
+                                    <tr t-if="pc.category"><td class="text-muted">Category</td><td class="text-end" t-esc="pc.category"/></tr>
+                                    <tr t-if="pc.karat"><td class="text-muted">Karat</td><td class="text-end" t-esc="pc.karat"/></tr>
+                                    <tr><td class="text-muted">Jewellery (g)</td><td class="text-end font-monospace" t-esc="fmt(pc.weights.jewellery, 3)"/></tr>
+                                    <tr><td class="text-muted">Net gold (g)</td><td class="text-end font-monospace" t-esc="fmt(pc.weights.net_gold, 3)"/></tr>
+                                    <tr t-if="pc.weights.stones"><td class="text-muted">Stones (g)</td><td class="text-end font-monospace" t-esc="fmt(pc.weights.stones, 3)"/></tr>
+                                    <tr t-if="pc.weights.reading"><td class="text-muted">Reading (g)</td><td class="text-end font-monospace" t-esc="fmt(pc.weights.reading, 3)"/></tr>
+                                    <tr><td class="text-muted">Price (EGP)</td><td class="text-end font-monospace" t-esc="(pc.price || 0).toLocaleString()"/></tr>
+                                </tbody>
+                            </table>
+
+                            <div t-if="pc.stones.length" class="mb-3">
+                                <div class="o_jsc_list_h">Stones</div>
+                                <t t-foreach="pc.stones" t-as="st" t-key="st_index">
+                                    <div class="small">
+                                        <t t-esc="st.qty"/> × <t t-esc="st.shape"/> · <t t-esc="fmt(st.carat, 3)"/> ct
+                                        <t t-if="st.color"> · <t t-esc="st.color"/></t>
+                                        <t t-if="st.clarity"> · <t t-esc="st.clarity"/></t>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="o_jsc_list_h">On hand in Odoo</div>
+                                <t t-foreach="pc.on_hand" t-as="q" t-key="q_index">
+                                    <div class="small d-flex justify-content-between">
+                                        <span t-esc="q.location"/><span class="font-monospace" t-esc="q.qty"/>
+                                    </div>
+                                </t>
+                                <div t-if="!pc.on_hand.length" class="small text-muted">Not on hand anywhere (sold).</div>
+                            </div>
+
+                            <div t-if="open and pc.line and pc.line.status === 'to_find'" class="o_jsc_decide">
+                                <div class="o_jsc_list_h">Not found — what happened?</div>
+                                <div class="d-grid gap-2">
+                                    <t t-foreach="Object.keys(resolutions)" t-as="key" t-key="key">
+                                        <button type="button" t-att-disabled="state.busy"
+                                                t-att-class="'btn btn-sm text-start ' + (pc.line.resolution === key ? 'btn-dark' : 'btn-outline-secondary')"
+                                                t-on-click="() => this.resolve(key)">
+                                            <i t-att-class="'fa me-2 ' + resolutions[key].icon"/><t t-esc="resolutions[key].label"/>
+                                        </button>
+                                    </t>
+                                    <div t-if="state.pickLocation" class="d-flex gap-2">
+                                        <select class="form-select form-select-sm" t-model="state.locationId">
+                                            <option value="">Choose the location…</option>
+                                            <t t-foreach="state.locations" t-as="loc" t-key="loc.id">
+                                                <option t-att-value="loc.id" t-esc="loc.name"/>
+                                            </t>
+                                        </select>
+                                        <button class="btn btn-sm btn-primary" t-att-disabled="!state.locationId or state.busy" t-on-click="confirmLocation">Save</button>
+                                    </div>
+                                    <button t-if="pc.line.resolution" type="button" class="btn btn-sm btn-link text-muted"
+                                            t-on-click="() => this._setResolution(pc.line.id, false, false)">Clear decision</button>
+                                </div>
+                                <div class="small text-muted mt-2">Stock changes only when an admin approves the count.</div>
+                            </div>
+                        </div>
+                    </t>
+                </aside>
+
+                <div t-if="state.approving" class="o_jsc_modal" t-on-click.self="cancelApprove">
+                    <div class="o_jsc_modal_box">
+                        <h4 class="mb-2"><i class="fa fa-id-badge me-2"/>Admin approval</h4>
+                        <p class="text-muted small mb-3">
+                            Scan an admin badge to close <b t-esc="state.name"/> and apply the decisions:
+                            lost and sold-without-invoice pieces leave stock, pieces in another location are moved there.
+                        </p>
+                        <input t-ref="badge" type="password" class="form-control form-control-lg mb-2"
+                               placeholder="Scan admin badge…" autocomplete="off" t-on-keydown="onBadgeKeydown"/>
+                        <div t-if="state.approveError" class="text-danger small mb-2" t-esc="state.approveError"/>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-secondary" t-on-click="cancelApprove">Cancel</button>
+                            <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="approve">Approve</button>
+                        </div>
+                    </div>
                 </div>
             </t>
         </div>

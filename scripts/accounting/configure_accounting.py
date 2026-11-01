@@ -72,6 +72,8 @@ def account(code, name, account_type, old_names=(), **extra):
 # ── accounts ────────────────────────────────────────────────────────────
 revaluation = account('500102', 'Metal Price Revaluation', 'income_other')
 capital = account('300001', "Owners' Capital", 'equity')
+# Pieces marked Lost on an approved stock count (jewellery_inventory_management).
+inventory_loss = account('400071', 'Inventory Loss', 'expense')
 from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import (
     GOLD_KARAT_ACCOUNTS, MAKING_FEE_ACCOUNTS, SILVER_ACCOUNTS)
 
@@ -281,6 +283,7 @@ for code in ('BNK1', 'IFRS'):
 # categories, payment methods, payroll rules, asset models...), and the
 # ones below that a 4-branch jeweller will use.
 KEEP = {
+    '400071',
     '100001', '101002', '101003', '101008', '102014', '104023', '104035', '104037', '104040',
     '106001', '106002', '106003', '106004', '106006', '106007', '106008', '106009', '132103',
     '201001', '201002', '201004', '201007', '201011', '201015', '201016', '201018', '202001',
