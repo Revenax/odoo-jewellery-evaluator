@@ -145,7 +145,10 @@
                                 <div class="o_jsc_scroll">
                                     <t t-foreach="found" t-as="l" t-key="l.id">
                                         <div class="d-flex justify-content-between small o_jsc_row" t-on-click="() => this.showLine(l)">
-                                            <span class="font-monospace" t-esc="l.sku"/>
+                                            <span class="font-monospace">
+                                                <t t-esc="l.sku"/>
+                                                <i t-if="l.reason" class="fa fa-exchange text-primary ms-1" t-att-title="l.reason"/>
+                                            </span>
                                             <span class="text-muted" t-esc="l.scanned_at"/>
                                         </div>
                                     </t>
@@ -157,7 +160,7 @@
                     <div t-if="unexpected.length" class="o_jsc_list o_jsc_list_err mt-2">
                         <div class="o_jsc_list_h text-danger">
                             <i class="fa fa-exclamation-triangle me-1"/>Unexpected · <t t-esc="unexpected.length"/>
-                            <span class="text-muted fw-normal ms-1">— click one Odoo has elsewhere to transfer it here</span>
+                            <span class="text-muted fw-normal ms-1">— reported only</span>
                         </div>
                         <t t-foreach="unexpected" t-as="l" t-key="l.id">
                             <div class="d-flex justify-content-between small o_jsc_row" t-on-click="() => this.showLine(l)">
@@ -208,7 +211,7 @@
                                 <span t-else="" class="badge text-bg-light">Not in this count</span>
                             </div>
                             <div class="text-muted mb-2" t-esc="pc.name"/>
-                            <div t-if="pc.line and pc.line.reason" class="small text-danger mb-2" t-esc="pc.line.reason"/>
+                            <div t-if="pc.line and pc.line.reason" t-att-class="'small mb-2 ' + (pc.line.status === 'found' ? 'text-primary' : 'text-danger')" t-esc="pc.line.reason"/>
                             <div t-if="pc.line and pc.line.resolution_location" class="small mb-2">
                                 <i class="fa fa-map-marker me-1"/>In <b t-esc="pc.line.resolution_location"/>
                             </div>
@@ -247,20 +250,6 @@
                                 <div t-if="!pc.on_hand.length" class="small text-muted">Not on hand anywhere (sold).</div>
                             </div>
 
-                            <div t-if="open and pc.line and pc.line.status === 'unexpected' and pc.elsewhere.length" class="o_jsc_decide">
-                                <div class="o_jsc_list_h">Odoo has it in <t t-esc="pc.elsewhere.join(', ')"/></div>
-                                <div class="d-grid gap-2">
-                                    <button type="button" t-att-disabled="state.busy"
-                                            t-att-class="'btn btn-sm text-start ' + (pc.line.resolution === 'transfer_here' ? 'btn-dark' : 'btn-outline-primary')"
-                                            t-on-click="() => this._setResolution(pc.line.id, 'transfer_here', false)">
-                                        <i class="fa fa-exchange me-2"/>Transfer to <t t-esc="pc.home"/>
-                                    </button>
-                                    <button t-if="pc.line.resolution" type="button" class="btn btn-sm btn-link text-muted"
-                                            t-on-click="() => this._setResolution(pc.line.id, false, false)">Don't transfer (report only)</button>
-                                </div>
-                                <div class="small text-muted mt-2">Moved only when an admin approves the count.</div>
-                            </div>
-
                             <div t-if="open and pc.line and pc.line.status === 'to_find'" class="o_jsc_decide">
                                 <div class="o_jsc_list_h">Not found — what happened?</div>
                                 <div class="d-grid gap-2">
@@ -294,7 +283,7 @@
                         <h4 class="mb-2"><i class="fa fa-id-badge me-2"/>Admin approval</h4>
                         <p class="text-muted small mb-3">
                             Scan an admin badge to close <b t-esc="state.name"/> and apply the decisions:
-                            lost and sold-without-invoice pieces leave stock, pieces in another location are moved there, and pieces marked for transfer are moved here.
+                            lost and sold-without-invoice pieces leave stock, pieces in another location are moved there.
                         </p>
                         <input t-ref="badge" type="password" class="form-control form-control-lg mb-2"
                                placeholder="Scan admin badge…" autocomplete="off" t-on-keydown="onBadgeKeydown"/>

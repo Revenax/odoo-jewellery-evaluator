@@ -40,9 +40,9 @@ class JewelleryStockCount(models.Model):
     * in another location: moved there;
     * left in stock: nothing changes.
 
-    An unexpected scan is reported only, unless Odoo has the piece in another
-    location and it is marked 'transfer to this location': then it is moved
-    into this count's location on approval."""
+    A scanned piece that Odoo has in another location is moved here at once,
+    with a note on its line (an internal move, no accounting effect). Other
+    unexpected scans are reported only."""
 
     _name = 'jewellery.stock.count'
     _description = 'Jewellery Stock Count Operation'
@@ -267,6 +267,30 @@ class JewelleryStockCount(models.Model):
 
         if line and line.status == 'unexpected':
             return self._scan_result('already', sku, f'Already scanned ({line.reason})')
+
+        # Odoo has it in another location but it is physically here: move it
+        # here now, with a note, and carry on scanning. An internal move has no
+        # accounting effect, so it needs no approval.
+        elsewhere = self._elsewhere_quants(product)
+        in_scope = self.env['stock.quant'].sudo().search_count([
+            ('product_id', '=', product.id), ('location_id', 'in', self._scope_locations().ids),
+            ('quantity', '>', 0)])
+        home = self._home_location()
+        if elsewhere and not in_scope and home and self.state == 'in_progress':
+            origin = ', '.join(elsewhere.location_id.mapped('complete_name'))
+            elsewhere.move_quants(location_dest_id=home,
+                                  message=f'{self.name}: {sku} scanned in {home.complete_name}')
+            note = f'moved here from {origin}'
+            ours = self._code_prefix(product.default_code) == self._prefix()
+            self.env['jewellery.stock.count.line'].create({
+                'count_id': self.id,
+                'product_id': product.id,
+                'status': 'found' if ours else 'unexpected',
+                'reason': note if ours else f'wrong prefix; {note}',
+                'scanned_at': fields.Datetime.now(),
+            })
+            return self._scan_result('moved', sku, f'Counted, {note}' if ours else f'Wrong prefix; {note}')
+
         reason = self._unexpected_reason(product)
         self.env['jewellery.stock.count.line'].create({
             'count_id': self.id,

@@ -8,6 +8,7 @@ const MODEL = "jewellery.stock.count";
 
 const BANNER = {
     found: { cls: "o_jsc_ok", icon: "fa-check-circle" },
+    moved: { cls: "o_jsc_ok", icon: "fa-exchange" },
     already: { cls: "o_jsc_note", icon: "fa-refresh" },
     unexpected: { cls: "o_jsc_warn", icon: "fa-exclamation-triangle" },
     unknown: { cls: "o_jsc_err", icon: "fa-times-circle" },
