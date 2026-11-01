@@ -23,6 +23,38 @@ export const RESOLUTIONS = {
     transfer_here: { label: "Transfer to this location", cls: "text-bg-primary", icon: "fa-exchange" },
 };
 
+/**
+ * A buzzer for every scan that is not a clean match (already counted, moved
+ * here from elsewhere, unexpected, unknown), so the person scanning looks up
+ * at the screen. Web Audio, no sound file; the context is created on the
+ * first scan, which follows a key press, so browsers allow it.
+ */
+let audio = null;
+export function buzz() {
+    try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        if (audio.state === "suspended") {
+            audio.resume();
+        }
+        const now = audio.currentTime;
+        const gain = audio.createGain();
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.setValueAtTime(0.25, now + 0.42);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+        gain.connect(audio.destination);
+        for (const freq of [140, 147]) {
+            const osc = audio.createOscillator();
+            osc.type = "square";
+            osc.frequency.setValueAtTime(freq, now);
+            osc.connect(gain);
+            osc.start(now);
+            osc.stop(now + 0.5);
+        }
+    } catch {
+        // No audio on this device; the coloured banner still shows.
+    }
+}
+
 /** What can be decided for a piece that was not found. */
 export const MISSING_DECISIONS = ["lost", "sold_no_invoice", "other_location", "keep"];
 
@@ -121,6 +153,9 @@ export class StockCountScanner extends Component {
             return;
         }
         const res = await this.orm.call(MODEL, "process_scan", [[this.countId], code]);
+        if (res.result !== "found") {
+            buzz();
+        }
         this.state.last = res;
         this._apply(res);
         this.state.piece = res.piece || null;
