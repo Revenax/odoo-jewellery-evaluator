@@ -81,7 +81,8 @@
         background: var(--bs-body-bg);
         border-radius: 12px;
         padding: 24px;
-        width: min(460px, 92vw);
+        width: 460px;
+        max-width: 92vw;
     }
 
     .o_jsc_scanbox {
