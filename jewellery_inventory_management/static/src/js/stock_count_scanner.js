@@ -3,7 +3,8 @@
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, useState, useRef, onMounted } from "@odoo/owl";
-import { scanBarcode, isBarcodeScannerSupported } from "@web/core/barcode/barcode_dialog";
+import { scanBarcode } from "@web/core/barcode/barcode_dialog";
+import { isBarcodeScannerSupported } from "@web/core/barcode/barcode_video_scanner";
 
 const MODEL = "jewellery.stock.count";
 
