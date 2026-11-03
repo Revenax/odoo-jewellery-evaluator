@@ -6,5 +6,6 @@
 from . import (
     jewellery_inventory_count,  # noqa: F401
     jewellery_stock_count,  # noqa: F401
+    jewellery_stock_take,  # noqa: F401
     jewellery_weight_inventory_report,  # noqa: F401
 )

@@ -49,6 +49,9 @@ class JewelleryStockCount(models.Model):
     _order = 'create_date desc, id desc'
 
     name = fields.Char(default='New', required=True, copy=False, readonly=True)
+    take_id = fields.Many2one(
+        'jewellery.stock.take', string='Full Count', ondelete='cascade', index=True, copy=False,
+        help='The full warehouse count this mini count belongs to, if any.')
     prefix_choice = fields.Selection(
         selection='_prefix_options', string='Pieces to count', store=False,
         help='SKU prefixes with pieces in stock, and how many.')
@@ -257,6 +260,16 @@ class JewelleryStockCount(models.Model):
 
         sku = product.default_code or product.display_name
         line = self.line_ids.filtered(lambda line: line.product_id == product)[:1]
+
+        # Part of a full count: a piece of another prefix belongs to that
+        # prefix's mini count. File it there and say so.
+        sibling = self._sibling_for(product) if not line else self.env['jewellery.stock.count']
+        if sibling:
+            res = sibling.process_scan(code)
+            # Not a clean match for this mini (wrong tray), so the screen buzzes.
+            result = 'routed' if res['result'] in ('found', 'moved', 'already') else 'unexpected'
+            return self._scan_result(
+                result, sku, f"{res['message']} — filed in {sibling.sku_prefix} ({sibling.name})")
         if line and line.status == 'found':
             return self._scan_result('already', sku, 'Already counted')
         if line and line.status == 'to_find':
@@ -300,6 +313,15 @@ class JewelleryStockCount(models.Model):
             'scanned_at': fields.Datetime.now(),
         })
         return self._scan_result('unexpected', sku, reason)
+
+    def _sibling_for(self, product):
+        """The open mini count of the same full count that owns this piece's
+        prefix, when it isn't this one."""
+        prefix = self._code_prefix(product.default_code)
+        if not self.take_id or not prefix or prefix == self._prefix():
+            return self.env['jewellery.stock.count']
+        return self.take_id.count_ids.filtered(
+            lambda c: c.state == 'in_progress' and c._prefix() == prefix)[:1]
 
     def _unexpected_reason(self, product):
         if self._code_prefix(product.default_code) != self._prefix():
@@ -409,6 +431,7 @@ class JewelleryStockCount(models.Model):
             'approved_at': fields.Datetime.now(),
             'adjustment_move_ids': [(6, 0, moves.ids)],
         })
+        self.take_id._check_done()
         return self.get_scan_state()
 
     # --- piece details for the side panel ------------------------------------
@@ -537,6 +560,7 @@ class JewelleryStockCount(models.Model):
             'scope': scope,
             'state': self.state,
             'approved_by': self.approved_by_employee_id.name or '',
+            'take': self.take_id and {'id': self.take_id.id, 'name': self.take_id.name} or False,
             'stats': self._stats_dict(),
             'lines': self._lines_payload(),
         }

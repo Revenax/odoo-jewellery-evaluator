@@ -1,6 +1,6 @@
 {
     'name': 'Jewellery Inventory Management',
-    'version': '19.0.3.0.0',
+    'version': '19.0.4.0.0',
     'category': 'Inventory/Inventory',
     'summary': 'Stock counts for jewellery products (extends Jewellery Evaluator)',
     'description': """
@@ -23,6 +23,7 @@
         'security/ir.model.access.csv',
         'views/jewellery_stock_count_views.xml',
         'views/jewellery_inventory_count_views.xml',
+        'views/jewellery_stock_take_views.xml',
         'views/jewellery_weight_inventory_report_views.xml',
     ],
     'assets': {

@@ -11,6 +11,7 @@ const MODEL = "jewellery.stock.count";
 const BANNER = {
     found: { cls: "o_jsc_ok", icon: "fa-check-circle" },
     moved: { cls: "o_jsc_ok", icon: "fa-exchange" },
+    routed: { cls: "o_jsc_note", icon: "fa-share" },
     already: { cls: "o_jsc_note", icon: "fa-refresh" },
     unexpected: { cls: "o_jsc_warn", icon: "fa-exclamation-triangle" },
     unknown: { cls: "o_jsc_err", icon: "fa-times-circle" },
@@ -89,6 +90,7 @@ export class StockCountScanner extends Component {
             scope: "",
             countState: "in_progress",
             approvedBy: "",
+            take: false,
             stats: { expected: 0, found: 0, missing: 0, unexpected: 0, progress: 0, unresolved: 0 },
             lines: [],
             last: null,
@@ -124,6 +126,7 @@ export class StockCountScanner extends Component {
         if (data.state) {
             this.state.countState = data.state;
             this.state.approvedBy = data.approved_by || "";
+            this.state.take = data.take || false;
         }
     }
 
@@ -320,6 +323,16 @@ export class StockCountScanner extends Component {
         } finally {
             this.state.busy = false;
         }
+    }
+
+    openTake() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "jewellery.stock.take",
+            res_id: this.state.take.id,
+            views: [[false, "form"]],
+            target: "main",
+        });
     }
 
     openForm() {

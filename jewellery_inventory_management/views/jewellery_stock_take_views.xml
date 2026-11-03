@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_jewellery_stock_take" model="ir.sequence">
+        <field name="name">Jewellery Full Stock Count</field>
+        <field name="code">jewellery.stock.take</field>
+        <field name="prefix">ST/</field>
+        <field name="padding">4</field>
+    </record>
+
+    <record id="view_jewellery_stock_take_list" model="ir.ui.view">
+        <field name="name">jewellery.stock.take.list</field>
+        <field name="model">jewellery.stock.take</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state == 'done'" decoration-info="state == 'in_progress'">
+                <field name="name"/>
+                <field name="warehouse_id"/>
+                <field name="location_id" optional="show"/>
+                <field name="mini_done" string="Approved"/>
+                <field name="mini_total" string="Mini counts"/>
+                <field name="found_count" string="Found"/>
+                <field name="expected_count" string="Expected"/>
+                <field name="missing_count" string="Missing"/>
+                <field name="progress" widget="progressbar"/>
+                <field name="state" widget="badge" decoration-info="state == 'in_progress'" decoration-success="state == 'done'"/>
+                <field name="start_date" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_jewellery_stock_take_form" model="ir.ui.view">
+        <field name="name">jewellery.stock.take.form</field>
+        <field name="model">jewellery.stock.take</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_reset_to_draft" type="object" string="Reset to draft"
+                            invisible="state != 'in_progress'"
+                            confirm="This deletes every mini count of this full count and their scans. Continue?"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+
+                    <group invisible="state != 'draft'">
+                        <group>
+                            <field name="warehouse_id" options="{'no_create': True}"/>
+                            <field name="location_id" options="{'no_create': True}"
+                                   placeholder="Empty = the whole warehouse"/>
+                        </group>
+                    </group>
+                    <div invisible="state != 'draft'" class="mt-2">
+                        <p class="text-muted">Start creates one mini count for every SKU prefix with pieces on hand here.
+                            Staff then scan inside each mini count; each one is approved with an admin badge.</p>
+                        <button name="action_start" type="object" class="btn btn-primary btn-lg">
+                            <i class="fa fa-th-large me-2"/>Start full count
+                        </button>
+                    </div>
+
+                    <group invisible="state == 'draft'">
+                        <group string="Count">
+                            <field name="warehouse_id" readonly="1"/>
+                            <field name="location_id" readonly="1" invisible="not location_id"/>
+                            <field name="user_id" readonly="1"/>
+                            <field name="start_date"/>
+                            <field name="end_date" invisible="not end_date"/>
+                        </group>
+                        <group string="Result">
+                            <field name="progress" widget="progressbar"/>
+                            <label for="mini_done" string="Approved"/>
+                            <div><field name="mini_done" class="oe_inline"/> of <field name="mini_total" class="oe_inline"/> mini counts</div>
+                            <field name="found_count"/>
+                            <field name="expected_count"/>
+                            <field name="missing_count"/>
+                            <field name="unexpected_count"/>
+                            <field name="missing_net_gold_g"/>
+                        </group>
+                    </group>
+                    <notebook invisible="state == 'draft'">
+                        <page string="Mini counts">
+                            <field name="count_ids" readonly="1">
+                                <list decoration-success="state == 'done'" decoration-info="state == 'in_progress'">
+                                    <field name="sku_prefix" string="Prefix"/>
+                                    <field name="name"/>
+                                    <field name="found_count" string="Found"/>
+                                    <field name="expected_count" string="Expected"/>
+                                    <field name="missing_count" string="Missing"/>
+                                    <field name="unexpected_count" string="Unexpected"/>
+                                    <field name="progress" widget="progressbar"/>
+                                    <field name="state" widget="badge" decoration-info="state == 'in_progress'" decoration-success="state == 'done'"/>
+                                    <field name="approved_by_employee_id" optional="show"/>
+                                    <button name="action_open_scanner" type="object" string="Open scanner"
+                                            icon="fa-barcode" class="btn-primary" invisible="state != 'in_progress'"/>
+                                    <button name="action_open_scanner" type="object" string="View"
+                                            icon="fa-eye" invisible="state != 'done'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notes">
+                            <field name="note" placeholder="Notes..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_jewellery_stock_take" model="ir.actions.act_window">
+        <field name="name">Full Stock Counts</field>
+        <field name="res_model">jewellery.stock.take</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Count a whole warehouse</p>
+            <p>Pick a warehouse; the count is split into one mini count per SKU prefix.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_jewellery_stock_take"
+              name="Full Stock Counts"
+              parent="menu_jewellery_inventory_root"
+              action="action_jewellery_stock_take"
+              sequence="5"/>
+</odoo>
