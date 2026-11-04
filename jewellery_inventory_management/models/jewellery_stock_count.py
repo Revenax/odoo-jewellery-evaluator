@@ -49,6 +49,7 @@ class JewelleryStockCount(models.Model):
     _order = 'create_date desc, id desc'
 
     name = fields.Char(default='New', required=True, copy=False, readonly=True)
+    active = fields.Boolean(default=True)
     take_id = fields.Many2one(
         'jewellery.stock.take', string='Full Count', ondelete='cascade', index=True, copy=False,
         help='The full warehouse count this mini count belongs to, if any.')

@@ -27,6 +27,7 @@ class JewelleryStockTake(models.Model):
     _order = 'create_date desc, id desc'
 
     name = fields.Char(default='New', required=True, copy=False, readonly=True)
+    active = fields.Boolean(default=True, help='Archive an old full count to hide it and its mini counts.')
     warehouse_id = fields.Many2one(
         'stock.warehouse', string='Warehouse', required=True,
         default=lambda self: self.env['stock.warehouse'].search(
@@ -77,6 +78,13 @@ class JewelleryStockTake(models.Model):
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('jewellery.stock.take') or 'New'
         return super().create(vals_list)
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'active' in vals:
+            # Archiving a full count hides its mini counts with it (and back).
+            self.with_context(active_test=False).count_ids.write({'active': vals['active']})
+        return res
 
     def _scope_locations(self):
         self.ensure_one()
