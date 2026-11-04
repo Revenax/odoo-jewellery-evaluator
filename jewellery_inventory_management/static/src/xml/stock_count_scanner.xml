@@ -13,8 +13,11 @@
                             <a t-if="state.take" href="#" class="small d-block mb-1" t-on-click.prevent="openTake">
                                 <i class="fa fa-arrow-left me-1"/>Full count <t t-esc="state.take.name"/>
                             </a>
-                            <h2 class="mb-2" t-esc="state.name"/>
-                            <span class="badge text-bg-info me-1">
+                            <h2 class="mb-2"><t t-esc="state.name"/><small t-if="together" class="text-muted fs-6 ms-2">scan together</small></h2>
+                            <span t-if="together" class="badge text-bg-info me-1">
+                                <i class="fa fa-th-large me-1"/><t t-esc="state.selectedIds.length"/> mini counts
+                            </span>
+                            <span t-else="" class="badge text-bg-info me-1">
                                 <i class="fa fa-tag me-1"/><t t-esc="state.prefix"/>
                             </span>
                             <span class="badge text-bg-light">
@@ -25,6 +28,30 @@
                             <t t-if="open">In progress</t>
                             <t t-else="">Approved by <t t-esc="state.approvedBy"/></t>
                         </span>
+                    </div>
+
+                    <div t-if="together" class="o_jsc_list mb-3">
+                        <div class="o_jsc_list_h d-flex justify-content-between">
+                            <span><i class="fa fa-th-large me-1"/>Mini counts in this scan — click to add or remove</span>
+                            <a t-if="state.selectedIds.length !== openMinis.length" href="#" class="fw-normal"
+                               t-on-click.prevent="selectAllMinis">All open</a>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1">
+                            <t t-foreach="openMinis" t-as="m" t-key="m.id">
+                                <button type="button"
+                                        t-att-class="'btn btn-sm o_jsc_chip ' + (state.selectedIds.includes(m.id) ? 'btn-primary' : 'btn-outline-secondary')"
+                                        t-att-title="m.name"
+                                        t-on-click="() => this.toggleMini(m)">
+                                    <i t-att-class="'fa me-1 ' + (state.selectedIds.includes(m.id) ? 'fa-check-square-o' : 'fa-square-o')"/>
+                                    <b t-esc="m.prefix"/> <span class="opacity-75"><t t-esc="m.found"/>/<t t-esc="m.expected"/></span>
+                                </button>
+                            </t>
+                            <t t-foreach="doneMinis" t-as="m" t-key="m.id">
+                                <span class="btn btn-sm o_jsc_chip text-bg-success disabled" t-att-title="m.name + ' approved'">
+                                    <i class="fa fa-lock me-1"/><b t-esc="m.prefix"/>
+                                </span>
+                            </t>
+                        </div>
                     </div>
 
                     <div t-if="open" class="d-flex gap-2 mb-2">
@@ -293,7 +320,12 @@
                             <div class="o_jsc_approve_icon"><i class="fa fa-id-badge"/></div>
                             <div>
                                 <h3 class="mb-0">Admin approval</h3>
-                                <div class="text-muted">Close <b t-esc="state.name"/> and update stock</div>
+                                <div class="text-muted">
+                                    <t t-if="together">Close <b t-esc="state.selectedIds.length"/> mini counts
+                                        (<t t-esc="state.minis.filter((m) => state.selectedIds.includes(m.id)).map((m) => m.prefix).join(', ')"/>)
+                                        and update stock</t>
+                                    <t t-else="">Close <b t-esc="state.name"/> and update stock</t>
+                                </div>
                             </div>
                         </div>
 

@@ -7,6 +7,17 @@ import { scanBarcode } from "@web/core/barcode/barcode_dialog";
 import { isBarcodeScannerSupported } from "@web/core/barcode/barcode_video_scanner";
 
 const MODEL = "jewellery.stock.count";
+const TAKE = "jewellery.stock.take";
+
+/** Mini-count method -> its "scan together" twin on the full count. */
+const GROUP_METHOD = {
+    get_scan_state: "get_group_scan_state",
+    process_scan: "group_process_scan",
+    get_piece: "group_get_piece",
+    set_resolution: "group_set_resolution",
+    other_locations: "group_other_locations",
+    action_approve: "group_approve",
+};
 
 const BANNER = {
     found: { cls: "o_jsc_ok", icon: "fa-check-circle" },
@@ -67,6 +78,11 @@ export const MISSING_DECISIONS = ["lost", "sold_no_invoice", "other_location", "
  * the lists. A missing piece is decided from the panel (lost, sold without
  * invoice, in another location, leave in stock); the count closes only
  * with an admin badge, which applies those decisions to stock.
+ *
+ * Opened with a ``take_id`` instead of a ``count_id`` it is the full count's
+ * optional "scan together" screen: several mini counts at once (chips at the
+ * top pick which), every scan filed into its own prefix's mini, combined
+ * lists, and one badge approving all the selected minis.
  */
 export class StockCountScanner extends Component {
     static template = "jewellery_inventory_management.StockCountScanner";
@@ -79,7 +95,8 @@ export class StockCountScanner extends Component {
         this.scanRef = useRef("scan");
         this.badgeRef = useRef("badge");
         const p = (this.props.action && (this.props.action.params || this.props.action.context)) || {};
-        this.countId = p.count_id || p.active_id;
+        this.takeId = p.take_id || false;
+        this.countId = this.takeId ? false : p.count_id || p.active_id;
         this.resolutions = RESOLUTIONS;
         this.missingDecisions = MISSING_DECISIONS;
         this.cameraSupported = isBarcodeScannerSupported();
@@ -102,8 +119,48 @@ export class StockCountScanner extends Component {
             approving: false,
             approveError: "",
             busy: false,
+            minis: [],
+            selectedIds: [],
         });
         onMounted(() => this.load());
+    }
+
+    get together() {
+        return Boolean(this.takeId);
+    }
+
+    /** Call a mini-count method, or its full-count twin on the together screen. */
+    call(method, ...args) {
+        if (this.together) {
+            return this.orm.call(TAKE, GROUP_METHOD[method], [[this.takeId], this.state.selectedIds, ...args]);
+        }
+        return this.orm.call(MODEL, method, [[this.countId], ...args]);
+    }
+
+    get openMinis() {
+        return this.state.minis.filter((m) => m.state === "in_progress");
+    }
+    get doneMinis() {
+        return this.state.minis.filter((m) => m.state !== "in_progress");
+    }
+
+    async toggleMini(mini) {
+        const ids = this.state.selectedIds.includes(mini.id)
+            ? this.state.selectedIds.filter((id) => id !== mini.id)
+            : [...this.state.selectedIds, mini.id];
+        if (!ids.length) {
+            this.notification.add("Keep at least one mini count in the scan.", { type: "warning" });
+            return;
+        }
+        this.state.selectedIds = ids;
+        this._apply(await this.call("get_scan_state"));
+        this.focus();
+    }
+
+    async selectAllMinis() {
+        this.state.selectedIds = this.openMinis.map((m) => m.id);
+        this._apply(await this.call("get_scan_state"));
+        this.focus();
     }
 
     get open() {
@@ -111,10 +168,10 @@ export class StockCountScanner extends Component {
     }
 
     async load() {
-        const data = await this.orm.call(MODEL, "get_scan_state", [[this.countId]]);
+        const data = await this.call("get_scan_state");
         this._apply(data);
         this.state.name = data.name;
-        this.state.prefix = data.sku_prefix;
+        this.state.prefix = data.sku_prefix || "";
         this.state.scope = data.scope;
         this.state.loaded = true;
         this.focus();
@@ -123,6 +180,10 @@ export class StockCountScanner extends Component {
     _apply(data) {
         this.state.stats = data.stats;
         this.state.lines = data.lines;
+        if (data.minis) {
+            this.state.minis = data.minis;
+            this.state.selectedIds = data.selected_ids;
+        }
         if (data.state) {
             this.state.countState = data.state;
             this.state.approvedBy = data.approved_by || "";
@@ -181,7 +242,7 @@ export class StockCountScanner extends Component {
         if (!code) {
             return;
         }
-        const res = await this.orm.call(MODEL, "process_scan", [[this.countId], code]);
+        const res = await this.call("process_scan", code);
         if (res.result !== "found") {
             buzz();
         }
@@ -196,7 +257,7 @@ export class StockCountScanner extends Component {
         this.state.pieceLoading = true;
         this.state.pickLocation = false;
         try {
-            this.state.piece = await this.orm.call(MODEL, "get_piece", [[this.countId], line.product_id]);
+            this.state.piece = await this.call("get_piece", line.product_id);
         } finally {
             this.state.pieceLoading = false;
         }
@@ -204,10 +265,7 @@ export class StockCountScanner extends Component {
 
     async _refreshPiece() {
         if (this.state.piece) {
-            this.state.piece = await this.orm.call(MODEL, "get_piece", [
-                [this.countId],
-                this.state.piece.product_id,
-            ]);
+            this.state.piece = await this.call("get_piece", this.state.piece.product_id);
         }
     }
 
@@ -218,7 +276,7 @@ export class StockCountScanner extends Component {
         }
         if (resolution === "other_location") {
             if (!this.state.locations) {
-                this.state.locations = await this.orm.call(MODEL, "other_locations", [[this.countId]]);
+                this.state.locations = await this.call("other_locations");
             }
             this.state.pickLocation = true;
             this.state.locationId = "";
@@ -239,12 +297,7 @@ export class StockCountScanner extends Component {
     async _setResolution(lineId, resolution, locationId) {
         this.state.busy = true;
         try {
-            const data = await this.orm.call(MODEL, "set_resolution", [
-                [this.countId],
-                lineId,
-                resolution,
-                locationId,
-            ]);
+            const data = await this.call("set_resolution", lineId, resolution, locationId);
             this._apply(data);
             await this._refreshPiece();
         } finally {
@@ -308,10 +361,11 @@ export class StockCountScanner extends Component {
         }
         this.state.busy = true;
         try {
-            const data = await this.orm.call(MODEL, "action_approve", [[this.countId], badge]);
+            const data = await this.call("action_approve", badge);
             this._apply(data);
             this.state.approving = false;
-            this.notification.add(`Count approved by ${data.approved_by}. Stock updated.`, { type: "success" });
+            const what = data.approved ? data.approved.join(", ") : "Count";
+            this.notification.add(`${what} approved by ${data.approved_by}. Stock updated.`, { type: "success" });
         } catch (err) {
             buzz();
             this.state.approveError =
@@ -338,8 +392,8 @@ export class StockCountScanner extends Component {
     openForm() {
         this.action.doAction({
             type: "ir.actions.act_window",
-            res_model: MODEL,
-            res_id: this.countId,
+            res_model: this.together ? TAKE : MODEL,
+            res_id: this.together ? this.takeId : this.countId,
             views: [[false, "form"]],
             target: "main",
         });

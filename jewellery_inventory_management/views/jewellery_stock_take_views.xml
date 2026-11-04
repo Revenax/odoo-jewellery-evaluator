@@ -33,6 +33,9 @@
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <button name="action_open_group_scanner" type="object" string="Scan together"
+                            icon="fa-th-large" class="btn-primary" invisible="state != 'in_progress'"
+                            help="Optional: one scan screen over several mini counts at once. Each scan is filed into its own prefix."/>
                     <button name="action_reset_to_draft" type="object" string="Reset to draft"
                             invisible="state != 'in_progress'"
                             confirm="This deletes every mini count of this full count and their scans. Continue?"/>
@@ -77,6 +80,10 @@
                             <field name="missing_net_gold_g"/>
                         </group>
                     </group>
+                    <div invisible="state != 'in_progress'" class="alert alert-info py-2 mb-3" role="note">
+                        <i class="fa fa-th-large me-1"/>Optional: <b>Scan together</b> scans several mini counts on one screen
+                        (pick which ones there). You can still open each mini count on its own.
+                    </div>
                     <notebook invisible="state == 'draft'">
                         <page string="Mini counts">
                             <field name="count_ids" readonly="1">
