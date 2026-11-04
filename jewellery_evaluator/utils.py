@@ -1004,6 +1004,7 @@ STONE_SHAPE_CODES = {
     'Emerald': 'E',
     'Princess': 'PR',
     'Radiant': 'RA',
+    'Cushion': 'C',
 }
 
 

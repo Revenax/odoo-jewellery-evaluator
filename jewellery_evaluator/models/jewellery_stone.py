@@ -32,6 +32,7 @@ STONE_SHAPE_SELECTION = [
     ('Emerald', 'Emerald'),
     ('Princess', 'Princess'),
     ('Radiant', 'Radiant'),
+    ('Cushion', 'Cushion'),
 ]
 
 # GIA clarity scale
