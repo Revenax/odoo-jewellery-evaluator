@@ -5,6 +5,8 @@
 
 import logging
 
+from markupsafe import escape
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -25,48 +27,54 @@ MISSING_RESOLUTIONS = ('lost', 'sold_no_invoice', 'other_location', 'keep')
 
 
 def _g(value):
-    return f'{value:,.3f}'
+    return f'{value:,.2f}' if value else '—'
 
 
-def summary_table_html(stats):
-    """Found / Missing / Total with their weights, for the count and full-count
-    forms. Found includes Extra (pieces Odoo did not list here)."""
+def summary_table_html(stats, meta=''):
+    """Found / Missing / Total and their weights, for the count and full-count
+    forms (styles: .o_jsum in stock_count_scanner.scss). Found includes Extra
+    (pieces Odoo did not list here)."""
     w = stats['weights']
     extra = stats.get('extra', 0)
-    cards = ''.join(
-        f'<div class="col"><div class="border rounded-3 p-3 h-100 {cls}">'
-        f'<div class="small text-uppercase fw-semibold opacity-75">{label}</div>'
-        f'<div class="fs-1 fw-bold lh-1 my-1">{value:,}</div>'
-        f'<div class="small font-monospace">{_g(w[key]["net_gold"])} g net gold</div>'
-        f'<div class="small opacity-75">{sub}</div></div></div>'
-        for key, label, value, cls, sub in (
-            ('found', 'Found', stats['found'], 'border-success bg-success-subtle text-success-emphasis',
-             f'incl. {extra} extra' if extra else 'all on the list'),
-            ('missing', 'Missing', stats['missing'], 'border-warning bg-warning-subtle text-warning-emphasis',
-             f'{stats.get("unresolved", 0)} without a decision' if stats['missing'] else 'nothing missing'),
-            ('total', 'Total', stats['total'], 'bg-light', f'{stats["progress"]:g}% found'),
-        ))
-    rows = ''.join(
-        f'<tr class="{cls}"><th class="ps-3">{label}</th>'
-        f'<td class="text-end font-monospace">{pieces:,}</td>'
-        + ''.join(f'<td class="text-end font-monospace">{_g(w[key][k])}</td>'
-                  for k in ('net_gold', 'stones', 'jewellery', 'readings'))
-        + '</tr>'
-        for key, label, pieces, cls in (
-            ('found', 'Found', stats['found'], 'text-success'),
-            ('missing', 'Missing', stats['missing'], 'text-warning-emphasis'),
-            ('total', 'Total', stats['total'], 'fw-bold border-top'),
-        ))
-    return (
-        f'<div class="row g-3 mb-3">{cards}</div>'
-        f'<div class="progress mb-3" style="height:10px"><div class="progress-bar bg-success" '
-        f'style="width:{stats["progress"]}%"></div></div>'
-        '<table class="table table-sm align-middle mb-0">'
-        '<thead><tr><th class="ps-3">Weights (g)</th><th class="text-end">Pieces</th>'
-        '<th class="text-end">Net gold</th><th class="text-end">Stones</th>'
-        '<th class="text-end">Jewellery</th><th class="text-end">Reading</th></tr></thead>'
-        f'<tbody>{rows}</tbody></table>'
+    unresolved = stats.get('unresolved', 0)
+    tiles = (
+        ('found', 'Found', stats['found'],
+         f'<span class="o_jsum_tag">{extra} extra</span>' if extra else ''),
+        ('missing', 'Missing', stats['missing'],
+         f'<span class="o_jsum_tag">{unresolved} undecided</span>' if unresolved else ''),
+        ('total', 'Total', stats['total'], ''),
     )
+    cards = ''.join(
+        f'<div class="o_jsum_card o_jsum_{key}">'
+        f'<div class="o_jsum_label"><i class="o_jsum_dot"></i>{label}{tag}</div>'
+        f'<div class="o_jsum_num">{value:,}<small>pcs</small></div>'
+        f'<div class="o_jsum_gold">{_g(w[key]["net_gold"])} <small>g net gold</small></div>'
+        '</div>'
+        for key, label, value, tag in tiles)
+    pct = stats['progress']
+    bar = (
+        '<div class="o_jsum_bar">'
+        f'<div class="o_jsum_bar_track"><div class="o_jsum_bar_fill" style="width:{pct}%"></div></div>'
+        f'<div class="o_jsum_bar_txt"><b>{pct:g}%</b> found</div></div>'
+    )
+    rows = ''.join(
+        f'<tr class="o_jsum_{key}"><th><i class="o_jsum_dot"></i>{label}</th>'
+        f'<td>{pieces:,}</td>'
+        + ''.join(f'<td>{_g(w[key][k])}</td>' for k in ('net_gold', 'stones', 'jewellery', 'readings'))
+        + '</tr>'
+        for key, label, pieces in (
+            ('found', 'Found', stats['found']),
+            ('missing', 'Missing', stats['missing']),
+            ('total', 'Total', stats['total']),
+        ))
+    table = (
+        '<div class="o_jsum_tablewrap"><table class="o_jsum_table">'
+        '<thead><tr><th>Weights (g)</th><th>Pieces</th><th>Net gold</th><th>Stones</th>'
+        '<th>Jewellery</th><th>Reading</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table></div>'
+    )
+    meta_html = f'<div class="o_jsum_meta">{meta}</div>' if meta else ''
+    return f'<div class="o_jsum">{meta_html}<div class="o_jsum_cards">{cards}</div>{bar}{table}</div>'
 
 
 class JewelleryStockCount(models.Model):
@@ -165,7 +173,7 @@ class JewelleryStockCount(models.Model):
             count.expected_count = stats['expected']
             count.progress = stats['progress']
 
-    @api.depends('line_ids.status', 'line_ids.net_gold_weight_g',
+    @api.depends('line_ids.status', 'line_ids.net_gold_weight_g', 'state', 'approved_by_employee_id',
                  'line_ids.stones_weight_g', 'line_ids.jewellery_weight_g',
                  'line_ids.weight_reading_g')
     def _compute_weights(self):
@@ -548,7 +556,22 @@ class JewelleryStockCount(models.Model):
         }
 
     def _summary_html(self):
-        return summary_table_html(self._stats_dict())
+        return summary_table_html(self._stats_dict(), self._meta_html())
+
+    def _meta_html(self):
+        """One line under the title: what is counted, where, by whom, when."""
+        self.ensure_one()
+        parts = [f'<b>{escape(self.sku_prefix or "")}</b>'] if self.sku_prefix else []
+        place = self.location_id.complete_name or self.warehouse_id.name
+        if place:
+            parts.append(escape(place))
+        if self.user_id:
+            parts.append(f'by {escape(self.user_id.name)}')
+        if self.start_date:
+            parts.append(f'started {fields.Datetime.context_timestamp(self, self.start_date):%d %b, %H:%M}')
+        if self.state == 'done' and self.approved_by_employee_id:
+            parts.append(f'approved by {escape(self.approved_by_employee_id.name)}')
+        return ' · '.join(parts)
 
     def _stats_dict(self):
         """Found = every piece scanned here (on Odoo's list or not), Missing =

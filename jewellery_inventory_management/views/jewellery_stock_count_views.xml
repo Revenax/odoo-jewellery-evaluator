@@ -72,26 +72,18 @@
                         </button>
                     </div>
 
-                    <!-- Started: what was counted and the result. -->
-                    <group invisible="state == 'draft'">
-                        <group string="Count">
-                            <field name="take_id" readonly="1" invisible="not take_id"/>
-                            <field name="sku_prefix" readonly="1"/>
-                            <field name="warehouse_id" readonly="1"/>
-                            <field name="location_id" readonly="1"/>
-                            <field name="user_id" readonly="1"/>
-                            <field name="start_date"/>
-                            <field name="end_date" invisible="not end_date"/>
-                        </group>
-                        <group string="Approval" invisible="state != 'done'">
+                    <!-- Started: one summary block (what, where, Found / Missing / Total, weights). -->
+                    <div invisible="not take_id" class="text-muted mb-2">
+                        <i class="fa fa-th-large me-1"/>Part of full count <field name="take_id" readonly="1" class="oe_inline"/>
+                    </div>
+                    <field name="summary_html" nolabel="1" readonly="1" invisible="state == 'draft'" class="w-100 mb-3"/>
+                    <group invisible="state != 'done'">
+                        <group string="Approval">
                             <field name="approved_by_employee_id"/>
                             <field name="approved_at"/>
                             <field name="adjustment_move_ids" widget="many2many_tags"/>
                         </group>
                     </group>
-                    <div invisible="state == 'draft'" class="mb-4">
-                        <field name="summary_html" nolabel="1" readonly="1"/>
-                    </div>
                     <notebook invisible="state == 'draft'">
                         <page string="Pieces">
                             <field name="line_ids" readonly="1">

@@ -63,26 +63,7 @@
                         </button>
                     </div>
 
-                    <group invisible="state == 'draft'">
-                        <group string="Count">
-                            <field name="warehouse_id" readonly="1"/>
-                            <field name="location_id" readonly="1" invisible="not location_id"/>
-                            <field name="user_id" readonly="1"/>
-                            <field name="start_date"/>
-                            <field name="end_date" invisible="not end_date"/>
-                        </group>
-                        <group string="Mini counts">
-                            <label for="mini_done" string="Approved"/>
-                            <div><field name="mini_done" class="oe_inline"/> of <field name="mini_total" class="oe_inline"/> mini counts</div>
-                        </group>
-                    </group>
-                    <div invisible="state != 'in_progress'" class="alert alert-info py-2 mb-3" role="note">
-                        <i class="fa fa-th-large me-1"/>Optional: <b>Scan together</b> scans several mini counts on one screen
-                        (pick which ones there). You can still open each mini count on its own.
-                    </div>
-                    <div invisible="state == 'draft'" class="mb-4">
-                        <field name="summary_html" nolabel="1" readonly="1"/>
-                    </div>
+                    <field name="summary_html" nolabel="1" readonly="1" invisible="state == 'draft'" class="w-100 mb-3"/>
                     <notebook invisible="state == 'draft'">
                         <page string="Mini counts">
                             <field name="count_ids" readonly="1">

@@ -3,6 +3,8 @@
 # Author: Mohamed A. Abdallah
 # Website: https://www.revenax.com
 
+from markupsafe import escape
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -70,7 +72,7 @@ class JewelleryStockTake(models.Model):
             take.unexpected_count = sum(counts.mapped('unexpected_count'))
             take.progress = round(100.0 * take.found_count / take.expected_count, 1) if take.expected_count else 0.0
             take.missing_net_gold_g = sum(counts.mapped('missing_net_gold_g'))
-            take.summary_html = summary_table_html(take._sum_stats(counts))
+            take.summary_html = summary_table_html(take._sum_stats(counts), take._meta_html())
 
     @api.onchange('warehouse_id')
     def _onchange_warehouse_id(self):
@@ -173,6 +175,19 @@ class JewelleryStockTake(models.Model):
         """The mini count of this full count that owns the piece's prefix."""
         prefix = self.env['jewellery.stock.count']._code_prefix(product.default_code)
         return self.count_ids.filtered(lambda c: c._prefix() == prefix)[:1]
+
+    def _meta_html(self):
+        """One line under the title: where, by whom, when, mini counts approved."""
+        self.ensure_one()
+        parts = [escape(self.location_id.complete_name or self.warehouse_id.name or '')]
+        if self.user_id:
+            parts.append(f'by {escape(self.user_id.name)}')
+        if self.start_date:
+            parts.append(f'started {fields.Datetime.context_timestamp(self, self.start_date):%d %b, %H:%M}')
+        if self.count_ids:
+            done = len(self.count_ids.filtered(lambda c: c.state == 'done'))
+            parts.append(f'<b>{done} of {len(self.count_ids)}</b> mini counts approved')
+        return ' · '.join(p for p in parts if p)
 
     @staticmethod
     def _sum_stats(counts):

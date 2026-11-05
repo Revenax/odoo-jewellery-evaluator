@@ -276,3 +276,135 @@
         }
     }
 }
+
+// Count / full-count form: summary block (models/jewellery_stock_count.py
+// summary_table_html). Found = green, Missing = amber, Total = ink.
+.o_jsum {
+    --jsum-found: #198754;
+    --jsum-missing: #b7791f;
+    --jsum-total: #212529;
+    font-variant-numeric: tabular-nums;
+
+    .o_jsum_meta {
+        color: #6c757d;
+        margin: -0.25rem 0 1rem;
+        b { color: #212529; }
+    }
+    .o_jsum_cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+    }
+    .o_jsum_card {
+        border: 1px solid #e3e6ea;
+        border-left: 4px solid var(--jsum-c);
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: #fff;
+    }
+    .o_jsum_found { --jsum-c: var(--jsum-found); }
+    .o_jsum_missing { --jsum-c: var(--jsum-missing); }
+    .o_jsum_total { --jsum-c: var(--jsum-total); }
+    .o_jsum_dot {
+        display: inline-block;
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 50%;
+        background: var(--jsum-c);
+        margin-right: 0.4rem;
+        vertical-align: middle;
+    }
+    .o_jsum_label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+    }
+    .o_jsum_tag {
+        margin-left: auto;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 500;
+        color: var(--jsum-c);
+        background: #f6f7f9;
+        border-radius: 1rem;
+        padding: 0 0.5rem;
+    }
+    .o_jsum_num {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.1;
+        margin-top: 0.25rem;
+        color: var(--jsum-c);
+        small {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #6c757d;
+            margin-left: 0.3rem;
+        }
+    }
+    .o_jsum_gold {
+        font-weight: 600;
+        color: #212529;
+        small { font-weight: 400; color: #6c757d; }
+    }
+    .o_jsum_bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0.9rem 0 0.5rem;
+    }
+    .o_jsum_bar_track {
+        flex: 1 1 auto;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(183, 121, 31, 0.25);
+        overflow: hidden;
+    }
+    .o_jsum_bar_fill {
+        height: 100%;
+        background: var(--jsum-found);
+    }
+    .o_jsum_bar_txt {
+        white-space: nowrap;
+        font-size: 0.85rem;
+        color: #6c757d;
+        b { color: var(--jsum-found); }
+    }
+    .o_jsum_tablewrap {
+        overflow-x: auto;
+    }
+    .o_jsum_table {
+        width: 100%;
+        border-collapse: collapse;
+        th, td {
+            padding: 0.4rem 0.75rem;
+            text-align: right;
+            white-space: nowrap;
+        }
+        th:first-child { text-align: left; }
+        thead th {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6c757d;
+            border-bottom: 1px solid #e3e6ea;
+        }
+        tbody th { font-weight: 600; color: var(--jsum-c); }
+        tbody tr + tr td,
+        tbody tr + tr th { border-top: 1px solid #f0f1f3; }
+        tbody tr.o_jsum_total td,
+        tbody tr.o_jsum_total th {
+            border-top: 2px solid #212529;
+            font-weight: 700;
+            color: #212529;
+        }
+    }
+}
+@media (max-width: 767.98px) {
+    .o_jsum .o_jsum_cards { grid-template-columns: 1fr; }
+}
