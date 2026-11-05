@@ -24,6 +24,51 @@ RESOLUTIONS = [
 MISSING_RESOLUTIONS = ('lost', 'sold_no_invoice', 'other_location', 'keep')
 
 
+def _g(value):
+    return f'{value:,.3f}'
+
+
+def summary_table_html(stats):
+    """Found / Missing / Total with their weights, for the count and full-count
+    forms. Found includes Extra (pieces Odoo did not list here)."""
+    w = stats['weights']
+    extra = stats.get('extra', 0)
+    cards = ''.join(
+        f'<div class="col"><div class="border rounded-3 p-3 h-100 {cls}">'
+        f'<div class="small text-uppercase fw-semibold opacity-75">{label}</div>'
+        f'<div class="fs-1 fw-bold lh-1 my-1">{value:,}</div>'
+        f'<div class="small font-monospace">{_g(w[key]["net_gold"])} g net gold</div>'
+        f'<div class="small opacity-75">{sub}</div></div></div>'
+        for key, label, value, cls, sub in (
+            ('found', 'Found', stats['found'], 'border-success bg-success-subtle text-success-emphasis',
+             f'incl. {extra} extra' if extra else 'all on the list'),
+            ('missing', 'Missing', stats['missing'], 'border-warning bg-warning-subtle text-warning-emphasis',
+             f'{stats.get("unresolved", 0)} without a decision' if stats['missing'] else 'nothing missing'),
+            ('total', 'Total', stats['total'], 'bg-light', f'{stats["progress"]:g}% found'),
+        ))
+    rows = ''.join(
+        f'<tr class="{cls}"><th class="ps-3">{label}</th>'
+        f'<td class="text-end font-monospace">{pieces:,}</td>'
+        + ''.join(f'<td class="text-end font-monospace">{_g(w[key][k])}</td>'
+                  for k in ('net_gold', 'stones', 'jewellery', 'readings'))
+        + '</tr>'
+        for key, label, pieces, cls in (
+            ('found', 'Found', stats['found'], 'text-success'),
+            ('missing', 'Missing', stats['missing'], 'text-warning-emphasis'),
+            ('total', 'Total', stats['total'], 'fw-bold border-top'),
+        ))
+    return (
+        f'<div class="row g-3 mb-3">{cards}</div>'
+        f'<div class="progress mb-3" style="height:10px"><div class="progress-bar bg-success" '
+        f'style="width:{stats["progress"]}%"></div></div>'
+        '<table class="table table-sm align-middle mb-0">'
+        '<thead><tr><th class="ps-3">Weights (g)</th><th class="text-end">Pieces</th>'
+        '<th class="text-end">Net gold</th><th class="text-end">Stones</th>'
+        '<th class="text-end">Jewellery</th><th class="text-end">Reading</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table>'
+    )
+
+
 class JewelleryStockCount(models.Model):
     """A physical stock-count *operation*: pick a SKU prefix and a scope
     (a single location, or a whole warehouse), generate the set of pieces that
@@ -90,10 +135,14 @@ class JewelleryStockCount(models.Model):
     line_ids = fields.One2many(
         'jewellery.stock.count.line', 'count_id', string='Lines', copy=False)
 
-    expected_count = fields.Integer(compute='_compute_stats')
-    found_count = fields.Integer(compute='_compute_stats')
-    missing_count = fields.Integer(compute='_compute_stats')
-    unexpected_count = fields.Integer(compute='_compute_stats')
+    # Found = every piece scanned (Extra included), Missing = not scanned yet,
+    # Total = Found + Missing. See _stats_dict.
+    expected_count = fields.Integer(compute='_compute_stats', string='Total')
+    found_count = fields.Integer(compute='_compute_stats', string='Found')
+    missing_count = fields.Integer(compute='_compute_stats', string='Missing')
+    unexpected_count = fields.Integer(compute='_compute_stats', string='Extra',
+        help='Found here although Odoo did not list them (sold, other prefix, other place). Included in Found.')
+    summary_html = fields.Html(compute='_compute_weights', sanitize=False)
     progress = fields.Float(compute='_compute_stats', digits=(5, 1))
 
     # Weights accounted for (found) vs not yet found (missing), in grams.
@@ -121,8 +170,9 @@ class JewelleryStockCount(models.Model):
                  'line_ids.weight_reading_g')
     def _compute_weights(self):
         for count in self:
-            found = count.line_ids.filtered(lambda line: line.status == 'found')
+            found = count.line_ids.filtered(lambda line: line.status in ('found', 'unexpected'))
             missing = count.line_ids.filtered(lambda line: line.status == 'to_find')
+            count.summary_html = count._summary_html()
             count.found_net_gold_g = sum(found.mapped('net_gold_weight_g'))
             count.missing_net_gold_g = sum(missing.mapped('net_gold_weight_g'))
             count.found_stones_g = sum(found.mapped('stones_weight_g'))
@@ -272,12 +322,12 @@ class JewelleryStockCount(models.Model):
             return self._scan_result(
                 result, sku, f"{res['message']} — filed in {sibling.sku_prefix} ({sibling.name})")
         if line and line.status == 'found':
-            return self._scan_result('already', sku, 'Already counted')
+            return self._scan_result('already', sku, 'Already found')
         if line and line.status == 'to_find':
             # Found after all: any decision taken while it was missing is void.
             line.write({'status': 'found', 'scanned_at': fields.Datetime.now(),
                         'resolution': False, 'resolution_location_id': False})
-            return self._scan_result('found', sku, 'Counted')
+            return self._scan_result('found', sku, 'Found')
 
         if line and line.status == 'unexpected':
             return self._scan_result('already', sku, f'Already scanned ({line.reason})')
@@ -303,7 +353,7 @@ class JewelleryStockCount(models.Model):
                 'reason': note if ours else f'wrong prefix; {note}',
                 'scanned_at': fields.Datetime.now(),
             })
-            return self._scan_result('moved', sku, f'Counted, {note}' if ours else f'Wrong prefix; {note}')
+            return self._scan_result('moved', sku, f'Found, {note}' if ours else f'Wrong prefix; {note}')
 
         reason = self._unexpected_reason(product)
         self.env['jewellery.stock.count.line'].create({
@@ -313,7 +363,7 @@ class JewelleryStockCount(models.Model):
             'reason': reason,
             'scanned_at': fields.Datetime.now(),
         })
-        return self._scan_result('unexpected', sku, reason)
+        return self._scan_result('unexpected', sku, f'Found · extra: {reason}')
 
     def _sibling_for(self, product):
         """The open mini count of the same full count that owns this piece's
@@ -356,7 +406,7 @@ class JewelleryStockCount(models.Model):
         self._check_open()
         line = self.line_ids.filtered(lambda line: line.id == line_id)
         if not line or line.status == 'found':
-            raise UserError('This piece was counted; there is nothing to decide.')
+            raise UserError('This piece was found; there is nothing to decide.')
         if resolution and resolution not in dict(RESOLUTIONS):
             raise UserError('Unknown resolution.')
         if line.status == 'unexpected' and resolution not in (False, 'transfer_here'):
@@ -497,25 +547,32 @@ class JewelleryStockCount(models.Model):
             'readings': round(sum(lines.mapped('weight_reading_g')), 3),
         }
 
+    def _summary_html(self):
+        return summary_table_html(self._stats_dict())
+
     def _stats_dict(self):
+        """Found = every piece scanned here (on Odoo's list or not), Missing =
+        listed pieces not scanned yet, Total = Found + Missing. Extra = the
+        found pieces Odoo did not list here (already warned at scan)."""
         self.ensure_one()
-        found_lines = self.line_ids.filtered(lambda line: line.status == 'found')
-        to_find_lines = self.line_ids.filtered(lambda line: line.status == 'to_find')
+        found_lines = self.line_ids.filtered(lambda line: line.status in ('found', 'unexpected'))
+        missing_lines = self.line_ids.filtered(lambda line: line.status == 'to_find')
         found = len(found_lines)
-        to_find = len(to_find_lines)
-        unexpected = len(
-            self.line_ids.filtered(lambda line: line.status == 'unexpected'))
-        expected = found + to_find
+        missing = len(missing_lines)
+        total = found + missing
         return {
-            'expected': expected,
+            'total': total,
+            'expected': total,
             'found': found,
-            'missing': to_find,
-            'unexpected': unexpected,
-            'progress': round(100.0 * found / expected, 1) if expected else 0.0,
-            'unresolved': len(to_find_lines.filtered(lambda line: not line.resolution)),
+            'missing': missing,
+            'extra': len(found_lines.filtered(lambda line: line.status == 'unexpected')),
+            'unexpected': len(found_lines.filtered(lambda line: line.status == 'unexpected')),
+            'progress': round(100.0 * found / total, 1) if total else 0.0,
+            'unresolved': len(missing_lines.filtered(lambda line: not line.resolution)),
             'weights': {
                 'found': self._wsum(found_lines),
-                'missing': self._wsum(to_find_lines),
+                'missing': self._wsum(missing_lines),
+                'total': self._wsum(found_lines | missing_lines),
             },
         }
 
@@ -579,8 +636,8 @@ class JewelleryStockCountLine(models.Model):
     default_code = fields.Char(
         related='product_id.default_code', string='SKU', store=True)
     status = fields.Selection(
-        [('to_find', 'To find'), ('found', 'Found'),
-         ('unexpected', 'Unexpected')],
+        [('to_find', 'Missing'), ('found', 'Found'),
+         ('unexpected', 'Found · extra')],
         default='to_find', required=True, index=True)
     reason = fields.Char(string='Note')
     scanned_at = fields.Datetime()

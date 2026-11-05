@@ -18,11 +18,12 @@
                 <field name="take_id" optional="show"/>
                 <field name="warehouse_id" optional="show"/>
                 <field name="location_id" optional="show"/>
-                <field name="found_count" string="Found"/>
-                <field name="expected_count" string="Expected"/>
-                <field name="missing_count" string="Missing"/>
-                <field name="missing_net_gold_g" string="Missing Gold (g)" optional="show"/>
-                <field name="unexpected_count" string="Unexpected"/>
+                <field name="found_count" string="Found" decoration-success="1"/>
+                <field name="missing_count" string="Missing" decoration-warning="missing_count"/>
+                <field name="expected_count" string="Total"/>
+                <field name="unexpected_count" string="Extra" optional="show"/>
+                <field name="found_net_gold_g" string="Found gold (g)" optional="show"/>
+                <field name="missing_net_gold_g" string="Missing gold (g)" optional="show"/>
                 <field name="progress" widget="progressbar"/>
                 <field name="state" widget="badge"
                        decoration-info="state == 'in_progress'"
@@ -82,28 +83,23 @@
                             <field name="start_date"/>
                             <field name="end_date" invisible="not end_date"/>
                         </group>
-                        <group string="Result">
-                            <field name="progress" widget="progressbar"/>
-                            <field name="found_count" string="Found"/>
-                            <field name="expected_count" string="Expected"/>
-                            <field name="missing_count" string="Missing"/>
-                            <field name="unexpected_count" string="Unexpected"/>
-                            <field name="missing_net_gold_g" string="Missing net gold (g)"/>
-                        </group>
                         <group string="Approval" invisible="state != 'done'">
                             <field name="approved_by_employee_id"/>
                             <field name="approved_at"/>
                             <field name="adjustment_move_ids" widget="many2many_tags"/>
                         </group>
                     </group>
+                    <div invisible="state == 'draft'" class="mb-4">
+                        <field name="summary_html" nolabel="1" readonly="1"/>
+                    </div>
                     <notebook invisible="state == 'draft'">
                         <page string="Pieces">
                             <field name="line_ids" readonly="1">
-                                <list decoration-success="status == 'found'"
+                                <list decoration-success="status in ('found', 'unexpected')"
                                       decoration-warning="status == 'to_find'"
-                                      decoration-danger="status == 'unexpected'">
+                                      default_order="status desc, default_code">
                                     <field name="default_code" string="SKU"/>
-                                    <field name="status" widget="badge"/>
+                                    <field name="status" widget="badge" decoration-success="status == 'found'" decoration-warning="status == 'to_find'" decoration-danger="status == 'unexpected'"/>
                                     <field name="resolution"/>
                                     <field name="resolution_location_id" optional="show"/>
                                     <field name="reason"/>

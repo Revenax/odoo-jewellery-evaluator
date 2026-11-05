@@ -72,89 +72,75 @@
                         <span><b t-esc="state.last.sku"/> — <t t-esc="state.last.message"/></span>
                     </div>
 
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between small text-muted mb-1">
-                            <span><t t-esc="state.stats.found"/> of <t t-esc="state.stats.expected"/> counted</span>
-                            <span><t t-esc="state.stats.progress"/>%</span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-success" t-attf-style="width: {{ state.stats.progress }}%;"/>
-                        </div>
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col">
-                            <div class="o_jsc_metric">
-                                <div class="o_jsc_metric_l">Expected</div>
-                                <div class="o_jsc_metric_v" t-esc="state.stats.expected"/>
-                            </div>
-                        </div>
+                    <div class="row g-2 mb-2">
                         <div class="col">
                             <div class="o_jsc_metric o_jsc_m_ok">
                                 <div class="o_jsc_metric_l">Found</div>
                                 <div class="o_jsc_metric_v" t-esc="state.stats.found"/>
+                                <div class="o_jsc_metric_s">
+                                    <t t-if="state.stats.extra">incl. <t t-esc="state.stats.extra"/> extra</t>
+                                    <t t-else="">all on the list</t>
+                                </div>
                             </div>
                         </div>
                         <div class="col">
                             <div class="o_jsc_metric o_jsc_m_warn">
                                 <div class="o_jsc_metric_l">Missing</div>
                                 <div class="o_jsc_metric_v" t-esc="state.stats.missing"/>
+                                <div class="o_jsc_metric_s">
+                                    <t t-if="open and state.stats.unresolved"><t t-esc="state.stats.unresolved"/> without a decision</t>
+                                    <t t-elif="!state.stats.missing">nothing missing</t>
+                                    <t t-else="">all decided</t>
+                                </div>
                             </div>
                         </div>
                         <div class="col">
-                            <div class="o_jsc_metric o_jsc_m_err">
-                                <div class="o_jsc_metric_l">Unexpected</div>
-                                <div class="o_jsc_metric_v" t-esc="state.stats.unexpected"/>
-                            </div>
-                        </div>
-                        <div t-if="open" class="col">
                             <div class="o_jsc_metric">
-                                <div class="o_jsc_metric_l">Undecided</div>
-                                <div class="o_jsc_metric_v" t-esc="state.stats.unresolved"/>
+                                <div class="o_jsc_metric_l">Total</div>
+                                <div class="o_jsc_metric_v" t-esc="state.stats.total"/>
+                                <div class="o_jsc_metric_s"><t t-esc="state.stats.progress"/>% found</div>
                             </div>
                         </div>
                     </div>
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar bg-success" t-attf-style="width: {{ state.stats.progress }}%;"/>
+                    </div>
 
                     <div t-if="state.stats.weights" class="o_jsc_list mb-3">
-                        <div class="o_jsc_list_h"><i class="fa fa-balance-scale me-1"/>Weights (g) — found vs missing</div>
-                        <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Weight</th>
-                                    <th class="text-end text-success">Found</th>
-                                    <th class="text-end text-warning">Missing</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Net gold</td>
-                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.net_gold)"/>
-                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.net_gold)"/>
-                                </tr>
-                                <tr>
-                                    <td>Stones</td>
-                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.stones)"/>
-                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.stones)"/>
-                                </tr>
-                                <tr>
-                                    <td>Jewellery</td>
-                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.jewellery)"/>
-                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.jewellery)"/>
-                                </tr>
-                                <tr>
-                                    <td>Reading</td>
-                                    <td class="text-end font-monospace" t-esc="fmt(state.stats.weights.found.readings)"/>
-                                    <td class="text-end font-monospace text-warning" t-esc="fmt(state.stats.weights.missing.readings)"/>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="o_jsc_list_h"><i class="fa fa-balance-scale me-1"/>Weights (g)</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0 o_jsc_wtable">
+                                <thead>
+                                    <tr>
+                                        <th/>
+                                        <th class="text-end">Pieces</th>
+                                        <th class="text-end">Net gold</th>
+                                        <th class="text-end">Stones</th>
+                                        <th class="text-end">Jewellery</th>
+                                        <th class="text-end">Reading</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="weightRows" t-as="row" t-key="row.key">
+                                        <tr t-att-class="row.cls">
+                                            <th t-esc="row.label"/>
+                                            <td class="text-end font-monospace" t-esc="row.pieces"/>
+                                            <td class="text-end font-monospace" t-esc="fmt(row.w.net_gold)"/>
+                                            <td class="text-end font-monospace" t-esc="fmt(row.w.stones)"/>
+                                            <td class="text-end font-monospace" t-esc="fmt(row.w.jewellery)"/>
+                                            <td class="text-end font-monospace" t-esc="fmt(row.w.readings)"/>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div class="row g-2">
                         <div class="col-6">
                             <div class="o_jsc_list">
                                 <div class="o_jsc_list_h text-warning">
-                                    <i class="fa fa-search me-1"/>Still to find · <t t-esc="toFind.length"/>
+                                    <i class="fa fa-search me-1"/>Missing · <t t-esc="toFind.length"/>
                                     <span t-if="open and toFind.length" class="text-muted fw-normal ms-1">— click a piece to decide</span>
                                 </div>
                                 <div class="d-flex flex-wrap gap-1">
@@ -168,7 +154,7 @@
                                         </button>
                                     </t>
                                     <span t-if="!toFind.length" class="text-success small">
-                                        <i class="fa fa-check me-1"/>All found
+                                        <i class="fa fa-check me-1"/>Nothing missing
                                     </span>
                                 </div>
                             </div>
@@ -176,37 +162,26 @@
                         <div class="col-6">
                             <div class="o_jsc_list">
                                 <div class="o_jsc_list_h text-success">
-                                    <i class="fa fa-check me-1"/>Counted · <t t-esc="found.length"/>
+                                    <i class="fa fa-check me-1"/>Found · <t t-esc="found.length"/>
+                                    <span t-if="state.stats.extra" class="badge text-bg-danger ms-1"><t t-esc="state.stats.extra"/> extra</span>
                                 </div>
                                 <div class="o_jsc_scroll">
                                     <t t-foreach="found" t-as="l" t-key="l.id">
-                                        <div class="d-flex justify-content-between small o_jsc_row" t-on-click="() => this.showLine(l)">
-                                            <span class="font-monospace">
+                                        <div t-att-class="'d-flex justify-content-between gap-2 small o_jsc_row' + (l.status === 'unexpected' ? ' o_jsc_row_extra' : '')" t-on-click="() => this.showLine(l)">
+                                            <span class="font-monospace text-nowrap">
                                                 <t t-esc="l.sku"/>
-                                                <i t-if="l.reason" class="fa fa-exchange text-primary ms-1" t-att-title="l.reason"/>
+                                                <span t-if="l.status === 'unexpected'" class="badge text-bg-danger ms-1">extra</span>
+                                                <i t-if="l.status === 'found' and l.reason" class="fa fa-exchange text-primary ms-1" t-att-title="l.reason"/>
                                             </span>
-                                            <span class="text-muted" t-esc="l.scanned_at"/>
+                                            <span class="text-muted text-truncate">
+                                                <t t-if="l.status === 'unexpected'" t-esc="l.reason"/>
+                                                <t t-else="" t-esc="l.scanned_at"/>
+                                            </span>
                                         </div>
                                     </t>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div t-if="unexpected.length" class="o_jsc_list o_jsc_list_err mt-2">
-                        <div class="o_jsc_list_h text-danger">
-                            <i class="fa fa-exclamation-triangle me-1"/>Unexpected · <t t-esc="unexpected.length"/>
-                            <span class="text-muted fw-normal ms-1">— reported only</span>
-                        </div>
-                        <t t-foreach="unexpected" t-as="l" t-key="l.id">
-                            <div class="d-flex justify-content-between small o_jsc_row" t-on-click="() => this.showLine(l)">
-                                <span class="font-monospace" t-esc="l.sku"/>
-                                <span class="text-muted">
-                                    <i t-if="l.resolution === 'transfer_here'" class="fa fa-exchange text-primary me-1" title="Transfer to this location"/>
-                                    <t t-esc="l.reason"/>
-                                </span>
-                            </div>
-                        </t>
                     </div>
 
                     <div class="d-flex justify-content-end gap-2 mt-3">
@@ -239,10 +214,10 @@
                             <div class="d-flex justify-content-between align-items-start">
                                 <h3 class="font-monospace mb-1" t-esc="pc.sku"/>
                                 <t t-if="pc.line">
-                                    <span t-if="pc.line.status === 'found'" class="badge text-bg-success">Counted <t t-esc="pc.line.scanned_at"/></span>
-                                    <span t-elif="pc.line.status === 'unexpected'" class="badge text-bg-danger">Unexpected</span>
+                                    <span t-if="pc.line.status === 'found'" class="badge text-bg-success">Found <t t-esc="pc.line.scanned_at"/></span>
+                                    <span t-elif="pc.line.status === 'unexpected'" class="badge text-bg-danger">Found · extra</span>
                                     <span t-elif="pc.line.resolution" t-att-class="'badge ' + resolutions[pc.line.resolution].cls" t-esc="resolutions[pc.line.resolution].label"/>
-                                    <span t-else="" class="badge text-bg-warning">Still to find</span>
+                                    <span t-else="" class="badge text-bg-warning">Missing</span>
                                 </t>
                                 <span t-else="" class="badge text-bg-light">Not in this count</span>
                             </div>
@@ -287,7 +262,7 @@
                             </div>
 
                             <div t-if="open and pc.line and pc.line.status === 'to_find'" class="o_jsc_decide">
-                                <div class="o_jsc_list_h">Not found — what happened?</div>
+                                <div class="o_jsc_list_h">Missing — what happened?</div>
                                 <div class="d-grid gap-2">
                                     <t t-foreach="missingDecisions" t-as="key" t-key="key">
                                         <button type="button" t-att-disabled="state.busy"

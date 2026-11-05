@@ -17,9 +17,9 @@
                 <field name="location_id" optional="show"/>
                 <field name="mini_done" string="Approved"/>
                 <field name="mini_total" string="Mini counts"/>
-                <field name="found_count" string="Found"/>
-                <field name="expected_count" string="Expected"/>
-                <field name="missing_count" string="Missing"/>
+                <field name="found_count" string="Found" decoration-success="1"/>
+                <field name="missing_count" string="Missing" decoration-warning="missing_count"/>
+                <field name="expected_count" string="Total"/>
                 <field name="progress" widget="progressbar"/>
                 <field name="state" widget="badge" decoration-info="state == 'in_progress'" decoration-success="state == 'done'"/>
                 <field name="start_date" optional="hide"/>
@@ -71,20 +71,17 @@
                             <field name="start_date"/>
                             <field name="end_date" invisible="not end_date"/>
                         </group>
-                        <group string="Result">
-                            <field name="progress" widget="progressbar"/>
+                        <group string="Mini counts">
                             <label for="mini_done" string="Approved"/>
                             <div><field name="mini_done" class="oe_inline"/> of <field name="mini_total" class="oe_inline"/> mini counts</div>
-                            <field name="found_count"/>
-                            <field name="expected_count"/>
-                            <field name="missing_count"/>
-                            <field name="unexpected_count"/>
-                            <field name="missing_net_gold_g"/>
                         </group>
                     </group>
                     <div invisible="state != 'in_progress'" class="alert alert-info py-2 mb-3" role="note">
                         <i class="fa fa-th-large me-1"/>Optional: <b>Scan together</b> scans several mini counts on one screen
                         (pick which ones there). You can still open each mini count on its own.
+                    </div>
+                    <div invisible="state == 'draft'" class="mb-4">
+                        <field name="summary_html" nolabel="1" readonly="1"/>
                     </div>
                     <notebook invisible="state == 'draft'">
                         <page string="Mini counts">
@@ -92,10 +89,12 @@
                                 <list decoration-success="state == 'done'" decoration-info="state == 'in_progress'">
                                     <field name="sku_prefix" string="Prefix"/>
                                     <field name="name"/>
-                                    <field name="found_count" string="Found"/>
-                                    <field name="expected_count" string="Expected"/>
-                                    <field name="missing_count" string="Missing"/>
-                                    <field name="unexpected_count" string="Unexpected"/>
+                                    <field name="found_count" string="Found" decoration-success="1"/>
+                                    <field name="missing_count" string="Missing" decoration-warning="missing_count"/>
+                                    <field name="expected_count" string="Total"/>
+                                    <field name="unexpected_count" string="Extra"/>
+                                    <field name="found_net_gold_g" string="Found gold (g)" optional="show"/>
+                                    <field name="missing_net_gold_g" string="Missing gold (g)" optional="show"/>
                                     <field name="progress" widget="progressbar"/>
                                     <field name="state" widget="badge" decoration-info="state == 'in_progress'" decoration-success="state == 'done'"/>
                                     <field name="approved_by_employee_id" optional="show"/>

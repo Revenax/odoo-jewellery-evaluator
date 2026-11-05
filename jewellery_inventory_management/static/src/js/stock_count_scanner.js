@@ -108,7 +108,7 @@ export class StockCountScanner extends Component {
             countState: "in_progress",
             approvedBy: "",
             take: false,
-            stats: { expected: 0, found: 0, missing: 0, unexpected: 0, progress: 0, unresolved: 0 },
+            stats: { total: 0, expected: 0, found: 0, missing: 0, extra: 0, unexpected: 0, progress: 0, unresolved: 0 },
             lines: [],
             last: null,
             piece: null,
@@ -198,10 +198,22 @@ export class StockCountScanner extends Component {
     get toFind() {
         return this.state.lines.filter((l) => l.status === "to_find");
     }
+    /** Every piece scanned here: on Odoo's list or extra. Newest first. */
     get found() {
         return this.state.lines
-            .filter((l) => l.status === "found")
+            .filter((l) => l.status === "found" || l.status === "unexpected")
             .sort((a, b) => (a.scanned_at < b.scanned_at ? 1 : -1));
+    }
+    /** Found / Missing / Total rows of the weights table. */
+    get weightRows() {
+        const st = this.state.stats;
+        const w = st.weights || {};
+        const zero = { net_gold: 0, stones: 0, jewellery: 0, readings: 0 };
+        return [
+            { key: "found", label: "Found", pieces: st.found, w: w.found || zero, cls: "text-success" },
+            { key: "missing", label: "Missing", pieces: st.missing, w: w.missing || zero, cls: "text-warning-emphasis" },
+            { key: "total", label: "Total", pieces: st.total, w: w.total || zero, cls: "fw-bold o_jsc_wtotal" },
+        ];
     }
     get unexpected() {
         return this.state.lines.filter((l) => l.status === "unexpected");
@@ -326,12 +338,12 @@ export class StockCountScanner extends Component {
         const toFind = this.toFind;
         const n = (key) => toFind.filter((l) => l.resolution === key).length;
         return [
-            { key: "found", label: "Counted", value: this.state.stats.found, icon: "fa-check", cls: "text-success" },
+            { key: "found", label: "Found", value: this.state.stats.found, icon: "fa-check", cls: "text-success" },
+            { key: "extra", label: "of which extra (stock unchanged)", value: this.state.stats.extra, icon: "fa-exclamation-triangle", cls: "text-danger" },
             { key: "lost", label: "Lost (off stock, Inventory Loss)", value: n("lost"), icon: "fa-ban", cls: "text-danger" },
             { key: "sold", label: "Sold without invoice (off stock)", value: n("sold_no_invoice"), icon: "fa-shopping-bag", cls: "text-secondary" },
             { key: "other", label: "Moved to another location", value: n("other_location"), icon: "fa-map-marker", cls: "text-info" },
             { key: "keep", label: "Left in stock", value: n("keep"), icon: "fa-archive", cls: "text-muted" },
-            { key: "unexpected", label: "Unexpected (reported only)", value: this.state.stats.unexpected, icon: "fa-exclamation-triangle", cls: "text-warning" },
         ].filter((row) => row.value);
     }
 

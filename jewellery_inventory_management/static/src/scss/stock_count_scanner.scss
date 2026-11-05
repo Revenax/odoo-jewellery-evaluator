@@ -194,6 +194,19 @@
         border-radius: 8px;
         padding: 12px;
     }
+    .o_jsc_metric_s {
+        font-size: 0.75rem;
+        opacity: 0.75;
+        min-height: 1.1em;
+    }
+    .o_jsc_row_extra {
+        background: rgba(220, 53, 69, 0.06);
+    }
+    .o_jsc_wtable .o_jsc_wtotal th,
+    .o_jsc_wtable .o_jsc_wtotal td,
+    .o_jsc_wtable tr.o_jsc_wtotal > * {
+        border-top: 2px solid currentColor;
+    }
     .o_jsc_metric_l {
         font-size: 13px;
         color: var(--bs-secondary-color);

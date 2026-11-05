@@ -6,6 +6,8 @@
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from .jewellery_stock_count import summary_table_html
+
 
 class JewelleryStockTake(models.Model):
     """A full stock count of a warehouse (or one of its locations).
@@ -48,10 +50,11 @@ class JewelleryStockTake(models.Model):
 
     mini_total = fields.Integer(compute='_compute_stats', string='Mini Counts')
     mini_done = fields.Integer(compute='_compute_stats', string='Approved')
-    expected_count = fields.Integer(compute='_compute_stats', string='Expected')
+    expected_count = fields.Integer(compute='_compute_stats', string='Total')
     found_count = fields.Integer(compute='_compute_stats', string='Found')
     missing_count = fields.Integer(compute='_compute_stats', string='Missing')
-    unexpected_count = fields.Integer(compute='_compute_stats', string='Unexpected')
+    unexpected_count = fields.Integer(compute='_compute_stats', string='Extra')
+    summary_html = fields.Html(compute='_compute_stats', sanitize=False)
     progress = fields.Float(compute='_compute_stats', digits=(5, 1))
     missing_net_gold_g = fields.Float(compute='_compute_stats', digits=(16, 3), string='Missing net gold (g)')
 
@@ -67,6 +70,7 @@ class JewelleryStockTake(models.Model):
             take.unexpected_count = sum(counts.mapped('unexpected_count'))
             take.progress = round(100.0 * take.found_count / take.expected_count, 1) if take.expected_count else 0.0
             take.missing_net_gold_g = sum(counts.mapped('missing_net_gold_g'))
+            take.summary_html = summary_table_html(take._sum_stats(counts))
 
     @api.onchange('warehouse_id')
     def _onchange_warehouse_id(self):
@@ -170,25 +174,33 @@ class JewelleryStockTake(models.Model):
         prefix = self.env['jewellery.stock.count']._code_prefix(product.default_code)
         return self.count_ids.filtered(lambda c: c._prefix() == prefix)[:1]
 
+    @staticmethod
+    def _sum_stats(counts):
+        """The mini counts' _stats_dict added up."""
+        keys = ('total', 'expected', 'found', 'missing', 'extra', 'unexpected', 'unresolved')
+        stats = dict.fromkeys(keys, 0)
+        weights = {side: {'net_gold': 0.0, 'stones': 0.0, 'jewellery': 0.0, 'readings': 0.0}
+                   for side in ('found', 'missing', 'total')}
+        for mini in counts:
+            st = mini._stats_dict()
+            for key in keys:
+                stats[key] += st[key]
+            for side, ws in weights.items():
+                for w in ws:
+                    ws[w] = round(ws[w] + st['weights'][side][w], 3)
+        stats['progress'] = round(100.0 * stats['found'] / stats['total'], 1) if stats['total'] else 0.0
+        stats['weights'] = weights
+        return stats
+
     def _group_state(self, count_ids):
         self.ensure_one()
         selected = self._selected(count_ids)
-        stats = {'expected': 0, 'found': 0, 'missing': 0, 'unexpected': 0, 'unresolved': 0}
-        weights = {k: {'net_gold': 0.0, 'stones': 0.0, 'jewellery': 0.0, 'readings': 0.0}
-                   for k in ('found', 'missing')}
+        stats = self._sum_stats(selected)
         lines = []
         for mini in selected:
-            st = mini._stats_dict()
-            for key in stats:
-                stats[key] += st[key]
-            for side in weights:
-                for w in weights[side]:
-                    weights[side][w] = round(weights[side][w] + st['weights'][side][w], 3)
             for line in mini._lines_payload():
                 line.update(count_id=mini.id, count_name=mini.name, prefix=mini.sku_prefix or '')
                 lines.append(line)
-        stats['progress'] = round(100.0 * stats['found'] / stats['expected'], 1) if stats['expected'] else 0.0
-        stats['weights'] = weights
         scope = self.location_id.display_name or self.warehouse_id.display_name or ''
         return {
             'id': self.id,
