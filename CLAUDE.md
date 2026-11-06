@@ -165,6 +165,10 @@ The ops side ([marjaan-operations-server/server.js](../marjaan/marjaan-operation
 
 **Log rotation — server-side, NOT auto-deployed:** [scripts/install-logrotate.sh](scripts/install-logrotate.sh) — `odoo.log` daily ×30 + early rotation at 200 MB, rsyslog `maxsize 200M`, logrotate timer hourly. It replaced `/etc/logrotate.d/00-size-guard`, which listed `/var/log/syslog` a second time and made logrotate fail daily with "duplicate log entry". Never list one path in two logrotate files. Odoo logs via `WatchedFileHandler`, so `create`-style rotation is safe (no `copytruncate`).
 
+## Operations runbook (data fixes on the live system)
+
+[docs/operations-runbook.md](docs/operations-runbook.md): how the ops app, Neon, S3, the label printer and Odoo connect; owner rules (dry run first, hard delete only on request, empty mini counts are deleted, past sales entered with their real date); step-by-step procedures (hard delete, backdated sale/purchase, moves, copy a piece, erase a sale, count fixes, duplicate hunting, ops `web/dist` rebuild); and the request log. Reusable scripts in [scripts/ops/](scripts/ops/) (`run_odoo.sh` runs any of them in the production shell; all roll back unless `COMMIT=1`).
+
 ## The physical day book (`PHYSICAL_LEDGER/`) — reading and transcribing it
 
 The handwritten Arabic day book (دفتر اليومية) is the **source of truth** for the
