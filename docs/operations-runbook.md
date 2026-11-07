@@ -255,6 +255,7 @@ grid automatically. Ops: `server.js` shape list, `web/src/features/register/type
 | Sale 6 Jul GRF8-0094, sara elmkawy, 25,400 cash, salesman Wael Samir | MJ-1573 |
 | One more GIF8-0009 under a new code, to OW | GIF8-0011 (Odoo 3120) |
 | Cushion missing in ops app | dist rebuilt, 8f37c0b |
+| Add Triangle diamond shape (2026-11-07) | Odoo caa688b (fancy grid, invoice code T); ops cd76baa (lists + dist rebuilt) |
 | ahmed-tarek pieces registered at IR by mistake → SM, reprint | DS-0059 … DS-0065 moved; already printed since |
 
 ## 6. Open items
