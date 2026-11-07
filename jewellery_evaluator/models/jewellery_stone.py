@@ -33,6 +33,7 @@ STONE_SHAPE_SELECTION = [
     ('Princess', 'Princess'),
     ('Radiant', 'Radiant'),
     ('Cushion', 'Cushion'),
+    ('Triangle', 'Triangle'),
 ]
 
 # GIA clarity scale

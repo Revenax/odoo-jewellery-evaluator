@@ -87,7 +87,7 @@ class TestDiamondNote:
     def test_every_shape_has_a_letter(self):
         codes = {
             "Round": "R", "Oval": "O", "Marquise": "M", "Pear": "P",
-            "Heart": "H", "Emerald": "E", "Cushion": "C",
+            "Heart": "H", "Emerald": "E", "Cushion": "C", "Triangle": "T",
             # Two letters ONLY where one would be ambiguous.
             "Princess": "PR", "Radiant": "RA",
         }

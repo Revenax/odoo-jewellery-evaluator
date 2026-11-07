@@ -1005,6 +1005,7 @@ STONE_SHAPE_CODES = {
     'Princess': 'PR',
     'Radiant': 'RA',
     'Cushion': 'C',
+    'Triangle': 'T',
 }
 
 
