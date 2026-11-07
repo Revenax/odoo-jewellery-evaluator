@@ -6,7 +6,6 @@
 import logging
 
 from markupsafe import escape
-
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
