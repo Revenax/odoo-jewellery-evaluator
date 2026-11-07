@@ -91,7 +91,7 @@ def total(code, label, formula, children=(), **extra):
 BY_ACCOUNT = {'groupby': 'account_id'}
 
 PL = [
-    total('MJ_REV', 'Revenue', 'MJ_RGOLD.balance + MJ_RFEE.balance + MJ_RDIA.balance + MJ_RSIL.balance + MJ_ROTH.balance', [
+    total('MJ_REV', 'Revenue', 'MJ_RGOLD.balance + MJ_RFEE.balance + MJ_RDIA.balance + MJ_RSIL.balance + MJ_RSVC.balance + MJ_ROTH.balance', [
         total('MJ_RGOLD', 'Gold sales (metal value)', 'MJ_RG24.balance + MJ_RG21.balance + MJ_RG18.balance', [
             codes('MJ_RG24', 'Gold 24K', '-500111'),
             codes('MJ_RG21', 'Gold 21K', '-500112'),
@@ -104,6 +104,7 @@ PL = [
         ]),
         codes('MJ_RDIA', 'Diamond sales', '-500104'),
         codes('MJ_RSIL', 'Silver sales (metal value)', '-500105'),
+        codes('MJ_RSVC', 'Repairs and services', '-500107 - 500108', hide_if_zero=True),
         codes('MJ_ROTH', 'Other sales', '-500001 - 500103 - 500106', hide_if_zero=True),
     ]),
     total('MJ_COS', 'Cost of goods sold', 'MJ_CG24.balance + MJ_CG21.balance + MJ_CG18.balance + MJ_CDIA.balance + MJ_CSIL.balance + MJ_COTH.balance', [
@@ -118,6 +119,7 @@ PL = [
         total('MJ_GPG', 'Gold (making fees)', 'MJ_RGOLD.balance + MJ_RFJ.balance + MJ_RFB.balance - MJ_CG24.balance - MJ_CG21.balance - MJ_CG18.balance - MJ_COTH.balance + MJ_ROTH.balance'),
         total('MJ_GPD', 'Diamond', 'MJ_RDIA.balance - MJ_CDIA.balance'),
         total('MJ_GPS', 'Silver', 'MJ_RSIL.balance + MJ_RFS.balance - MJ_CSIL.balance'),
+        total('MJ_GPV', 'Repairs and services', 'MJ_RSVC.balance'),
     ]),
     codes('MJ_REVAL', 'Metal price revaluation (stock re-marked to today\'s price)', '-500102'),
     codes('MJ_OPEX', 'Operating expenses', '4000 + 4001', **BY_ACCOUNT),
@@ -130,7 +132,7 @@ BS = [
     total('MJ_TA', 'Total assets', 'MJ_CASH.balance + MJ_REC.balance + MJ_STOCK.balance + MJ_OTHA.balance', [
         codes('MJ_CASH', 'Cash, vaults and bank', '101 + 105', **BY_ACCOUNT),
         codes('MJ_REC', 'Receivables', '102', **BY_ACCOUNT),
-        total('MJ_STOCK', 'Stock', 'MJ_GOLD.balance + MJ_SDIA.balance + MJ_SSIL.balance', [
+        total('MJ_STOCK', 'Stock', 'MJ_GOLD.balance + MJ_SDIA.balance + MJ_SSIL.balance + MJ_SWS.balance', [
             total('MJ_GOLD', 'Gold in stock', 'MJ_S24.balance + MJ_S21.balance + MJ_S18.balance + MJ_SNS.balance', [
                 codes('MJ_S24', 'Gold 24K', '132111'),
                 codes('MJ_S21', 'Gold 21K', '132112'),
@@ -139,6 +141,7 @@ BS = [
             ]),
             codes('MJ_SDIA', 'Diamond', '132102'),
             codes('MJ_SSIL', 'Silver', '132103'),
+            codes('MJ_SWS', 'Gold at workshops', '132104 + 132105', hide_if_zero=True),
         ]),
         codes('MJ_OTHA', 'Other assets (prepayments, deposits, fixed assets)', '100 + 104 + 106', hide_if_zero=True, **BY_ACCOUNT),
     ]),
