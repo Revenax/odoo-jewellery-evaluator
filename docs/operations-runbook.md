@@ -250,6 +250,17 @@ employee map is `OPS_TO_EMP` in the script; add new staff there. Re-runnable
 and substitute `__ATTRIB__`. Pieces registered after a run show the sync user
 again until the next run (or until the sync passes the registrant).
 
+**Live attribution (since 2026-11-08, Odoo `product_template_actor.py` + ops 11578d1):**
+the ops server passes `context={'jewellery_actor': <ops login>}` on every Odoo call
+it makes for a person: the registrant on create (+ stock init / buy-back PO), the
+requester on an approved edit, the uploader on a photo change. Odoo maps the login
+through `res.users.jewellery_ops_login` (shown on the user form under the phone)
+and, just before that call commits, re-stamps only the rows/chatter stamped with
+the sync user in THAT transaction. Reconcile and admin re-syncs pass no actor.
+Unknown login = no-op. **New staff:** create the Odoo user (archive it), put their
+ops username in "Operations app login"; nothing else. Users are ids 19–29
+(employees 3–13); user 2 = mohamed-a-abdallah.
+
 ---
 
 ## 5. Request log (2026-11-04 to 2026-11-06)
@@ -279,7 +290,8 @@ again until the next run (or until the sync passes the registrant).
 | One more GIF8-0009 under a new code, to OW | GIF8-0011 (Odoo 3120) |
 | Cushion missing in ops app | dist rebuilt, 8f37c0b |
 | Add Triangle diamond shape (2026-11-07) | Odoo caa688b (fancy grid, invoice code T); ops cd76baa (lists + dist rebuilt) |
-| Archived Odoo account per employee; history points at them (2026-11-08) | users 8–18; 2,142 pieces, 199 stones, 2,146 creation notes, 21 buy-back POs (+42 notes), 15 edited pieces re-attributed |
+| Archived Odoo account per employee; history points at them (2026-11-08) | users 19–29; 2,142 pieces (+7 on re-run), 199 stones, 2,146 creation notes, 21 buy-back POs (+42 notes), 15 edited pieces re-attributed |
+| Sync sends the real creator from now on | Odoo 61251ad + ops 11578d1; ziad-zaza = Ziad Mohamed |
 | ahmed-tarek pieces registered at IR by mistake → SM, reprint | DS-0059 … DS-0065 moved; already printed since |
 
 ## 6. Open items

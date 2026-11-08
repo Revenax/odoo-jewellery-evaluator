@@ -167,7 +167,7 @@ The ops side ([marjaan-operations-server/server.js](../marjaan/marjaan-operation
 
 ## Operations runbook (data fixes on the live system)
 
-[docs/operations-runbook.md](docs/operations-runbook.md): how the ops app, Neon, S3, the label printer and Odoo connect; owner rules (dry run first, hard delete only on request, empty mini counts are deleted, past sales entered with their real date); step-by-step procedures (hard delete, backdated sale/purchase, moves, copy a piece, erase a sale, count fixes, duplicate hunting, ops `web/dist` rebuild); and the request log. Reusable scripts in [scripts/ops/](scripts/ops/) (`run_odoo.sh` runs any of them in the production shell; all roll back unless `COMMIT=1`).
+[docs/operations-runbook.md](docs/operations-runbook.md): how the ops app, Neon, S3, the label printer and Odoo connect; owner rules (dry run first, hard delete only on request, empty mini counts are deleted, past sales entered with their real date); step-by-step procedures (hard delete, backdated sale/purchase, moves, copy a piece, erase a sale, count fixes, duplicate hunting, ops `web/dist` rebuild); and the request log. Who did what: every employee has an archived Odoo user with `jewellery_ops_login`; the ops sync sends `context.jewellery_actor` and [product_template_actor.py](jewellery_evaluator/models/product_template_actor.py) credits that user (runbook 4.11). Reusable scripts in [scripts/ops/](scripts/ops/) (`run_odoo.sh` runs any of them in the production shell; all roll back unless `COMMIT=1`).
 
 ## The physical day book (`PHYSICAL_LEDGER/`) — reading and transcribing it
 
