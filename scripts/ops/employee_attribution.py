@@ -21,10 +21,11 @@ from datetime import datetime, timedelta
 
 ATTRIB = json.loads(r'''__ATTRIB__''')
 SYNC_UID, SYNC_PARTNER = 2, 3
-# ops username -> hr.employee id (mohamed-a-abdallah IS user 2; ziad-zaza has no pieces)
+# ops username -> hr.employee id (mohamed-a-abdallah IS user 2)
 OPS_TO_EMP = {
     'ahmed-tarek': 3, 'ahmed-fathy': 10, 'abelrazak': 13, 'omar-hashim': 4,
     'mohamed-ashraf': 12, 'omar-abbassi': 6, 'anas-abbassi': 7, 'mohamed-abbassi': 8,
+    'ziad-zaza': 9,
 }
 cr = env.cr
 internal = env.ref('base.group_user')
