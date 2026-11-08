@@ -88,6 +88,7 @@ Payment journals: **CSH1** Sway Mall Vault (cash), **IPAY** InstaPay (id 15), **
 | `hard_delete.py` (`SKUS=A,B`) | deletes pieces + stock history + count lines; deletes counts left empty; refuses pieces with any sale/purchase document |
 | `backdated_sale.py` (`SALE=<base64 json>`) | manual invoice on the sale date, payments on the sale date, cash kept out of open shifts, count lines removed |
 | `move_pieces.py` (`SKUS=… TO=SM [DROP_COUNT=1]`) | internal move to a warehouse's Stock location |
+| `employee_attribution.py` (data block from Neon) | archived Odoo user per employee + re-points piece/PO creation and edit history at them (4.11) |
 | `neon.js delete\|sold\|warehouse\|reprint\|show` | the ops-app (Neon) and photo (S3) half of each procedure |
 
 `neon.js` needs `pg` and `@aws-sdk/client-s3`: `npm i pg @aws-sdk/client-s3` in a
@@ -227,6 +228,28 @@ Odoo: `STONE_SHAPE_SELECTION` (jewellery_stone.py) + `STONE_SHAPE_CODES`
 grid automatically. Ops: `server.js` shape list, `web/src/features/register/types.ts`
 `SHAPE_OPTIONS`, the scripts' shape lists, then rebuild `web/dist` (4.9).
 
+### 4.11 Who created / edited a piece (employee attribution)
+
+The ops app syncs to Odoo as ONE user (id 2), so Odoo used to show that user as the
+creator of every piece and buy-back PO. Every employee now has an **archived** Odoo
+user (cannot log in, takes no seat; login `first.last@marjaanjewellery.com`, its own
+archived contact, so the employee's work contact stays active). `hr.employee.user_id`
+was set by SQL so hr does not swap the work contact/photo. Archived users do not
+change the POS: orders keep the session user, manager rights come from the
+register's advanced-employee list.
+
+`employee_attribution.py` takes the truth from Neon: `products.registered_by`
+→ creator, approved `edit` change_requests → editor (the requester). It sets
+`create_uid` on product.template/product.product/jewellery.stone, the "created"
+chatter note + creation-sync tracking (≤10 min), buy-back POs (origin = SKU:
+create/write uid + Buyer + chatter), and tracking within 5 min of an edit approval
++ `write_uid`. Bulk re-syncs (13/15/25 Jun) stay on the sync user. Ops username →
+employee map is `OPS_TO_EMP` in the script; add new staff there. Re-runnable
+(only touches rows still on the sync user). Regenerate the data block: dump
+`{reg: {sku: registered_by}, edits: [[sku, requested_by, decided_at]]}` from Neon
+and substitute `__ATTRIB__`. Pieces registered after a run show the sync user
+again until the next run (or until the sync passes the registrant).
+
 ---
 
 ## 5. Request log (2026-11-04 to 2026-11-06)
@@ -256,6 +279,7 @@ grid automatically. Ops: `server.js` shape list, `web/src/features/register/type
 | One more GIF8-0009 under a new code, to OW | GIF8-0011 (Odoo 3120) |
 | Cushion missing in ops app | dist rebuilt, 8f37c0b |
 | Add Triangle diamond shape (2026-11-07) | Odoo caa688b (fancy grid, invoice code T); ops cd76baa (lists + dist rebuilt) |
+| Archived Odoo account per employee; history points at them (2026-11-08) | users 8–18; 2,142 pieces, 199 stones, 2,146 creation notes, 21 buy-back POs (+42 notes), 15 edited pieces re-attributed |
 | ahmed-tarek pieces registered at IR by mistake → SM, reprint | DS-0059 … DS-0065 moved; already printed since |
 
 ## 6. Open items
