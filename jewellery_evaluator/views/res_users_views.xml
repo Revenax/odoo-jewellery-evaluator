@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 Revenax Digital Services. Author: Mohamed A. Abdallah -->
+<odoo>
+    <!-- Ops app login on the user form: pieces and buy-backs this person registers
+         or edits in the operations app are credited to this user. -->
+    <record id="view_users_form_jewellery_ops_login" model="ir.ui.view">
+        <field name="name">res.users.form.jewellery.ops.login</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='phone']/.." position="after">
+                <div class="d-flex align-items-baseline w-100">
+                    <i class="fa fa-fw me-1 fa-mobile text-primary" title="Operations app login"/>
+                    <field name="jewellery_ops_login" class="w-100" placeholder="Operations app login"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

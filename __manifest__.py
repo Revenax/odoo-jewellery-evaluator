@@ -43,6 +43,7 @@
         'jewellery_evaluator/views/pos_order_views.xml',
         'jewellery_evaluator/views/product_template_views.xml',
         'jewellery_evaluator/views/account_move_views.xml',
+        'jewellery_evaluator/views/res_users_views.xml',
         'jewellery_evaluator/report/paperformat_gold.xml',
         'jewellery_evaluator/report/external_layout_gold.xml',
         'jewellery_evaluator/report/report_invoice_gold.xml',
