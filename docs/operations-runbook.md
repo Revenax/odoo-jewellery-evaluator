@@ -293,6 +293,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Archived Odoo account per employee; history points at them (2026-11-08) | users 19–29; 2,142 pieces (+7 on re-run), 199 stones, 2,146 creation notes, 21 buy-back POs (+42 notes), 15 edited pieces re-attributed |
 | Sync sends the real creator from now on | Odoo 61251ad + ops 11578d1; ziad-zaza = Ziad Mohamed |
 | ahmed-tarek pieces registered at IR by mistake → SM, reprint | DS-0059 … DS-0065 moved; already printed since |
+| Hard delete GEF8-0034; copy sold GEF8-0139 at 1.06 g to OW (2026-11-08) | GEF8-0034 gone (off SC/0011, SC/0031); GEF8-0228 (Odoo 3578) in OW/Stock, 6,600, label queued |
 
 ## 6. Open items
 
