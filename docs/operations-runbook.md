@@ -298,6 +298,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Sale 26 Jun GCF8-0005/0008/0011, حنان العناني, 45,500 IPAY | MJ-1581 (split by list price 15,073 / 15,495 / 14,932); off SC/0026 |
 | Hard delete GNF8-0052 (2026-11-08) | done; was missing in SC/0034 |
 | Hard delete GBF8-0114 (2026-11-08) | done; was missing in SC/0024 |
+| Add Baguette diamond shape (2026-11-10) | Odoo 6dd61ba (fancy grid, invoice code B); ops 557eaf2 (lists + dist rebuilt) |
 
 ## 6. Open items
 
