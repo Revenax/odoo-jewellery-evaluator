@@ -31,26 +31,18 @@ PAGES = {
     500: {
         'title': 'Something went wrong',
         'lead': 'The system hit an unexpected error while handling your request.',
-        'ar_title': 'حدث خطأ غير متوقع',
-        'ar_lead': 'واجه النظام خطأً غير متوقع أثناء تنفيذ طلبك.',
     },
     502: {
         'title': 'The system is restarting',
         'lead': 'The system is not answering right now. It usually comes back on its own within a minute.',
-        'ar_title': 'النظام يعيد التشغيل',
-        'ar_lead': 'النظام لا يستجيب الآن، وعادةً يعود من تلقاء نفسه خلال دقيقة.',
     },
     503: {
         'title': 'Down for a moment',
         'lead': 'The system is briefly unavailable, often for an update. It should be back in a minute or two.',
-        'ar_title': 'النظام متوقف لحظات',
-        'ar_lead': 'النظام غير متاح مؤقتًا، غالبًا بسبب تحديث، وسيعود خلال دقيقة أو اثنتين.',
     },
     504: {
         'title': 'This is taking too long',
         'lead': 'The system took too long to answer. It may be busy or restarting.',
-        'ar_title': 'الطلب استغرق وقتًا طويلًا',
-        'ar_lead': 'استغرق النظام وقتًا طويلًا في الرد، قد يكون مشغولًا أو يعيد التشغيل.',
     },
 }
 
@@ -75,10 +67,10 @@ TEMPLATE = """<!doctype html>
           --blue-soft: rgba(62,132,255,.18); --bg: #17181B; --card: rgba(30,31,35,.82); }}
 }}
 * {{ box-sizing: border-box; }}
-html, body {{ margin: 0; }}
+html, body {{ margin: 0; height: 100%; overflow: hidden; }}
 body {{
-  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 32px 16px; color: var(--ink); background: var(--bg);
+  height: 100vh; height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 16px; color: var(--ink); background: var(--bg);
   font: 16px/1.6 Poppins, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-image:
     radial-gradient(40rem 28rem at 12% 8%, rgba(62,132,255,.16), transparent 60%),
@@ -86,7 +78,7 @@ body {{
     radial-gradient(30rem 22rem at 85% 10%, rgba(229,249,255,.55), transparent 60%);
 }}
 main {{ width: 100%; max-width: 620px; text-align: center; }}
-.logo {{ width: 170px; max-width: 60%; height: auto; color: var(--ink); margin-bottom: 40px; }}
+.logo {{ width: clamp(120px, 20vh, 170px); max-width: 60%; height: auto; color: var(--ink); margin-bottom: clamp(12px, 4vh, 32px); }}
 .badge {{
   display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px;
   background: var(--blue-soft); color: var(--blue); font-size: 12px; font-weight: 600;
@@ -95,31 +87,25 @@ main {{ width: 100%; max-width: 620px; text-align: center; }}
 .dot {{ width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: pulse 1.6s ease-in-out infinite; }}
 @keyframes pulse {{ 50% {{ opacity: .3; }} }}
 @media (prefers-reduced-motion: reduce) {{ .dot {{ animation: none; }} }}
-h1 {{ font-family: "Fractul", Poppins, system-ui, sans-serif; font-weight: 800; font-size: clamp(34px, 7vw, 56px);
-      line-height: 1.05; letter-spacing: -.02em; margin: 20px 0 14px; }}
-.lead {{ color: var(--muted); font-size: 17px; margin: 0 auto 28px; max-width: 30em; }}
-.card {{ background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px;
+h1 {{ font-family: "Fractul", Poppins, system-ui, sans-serif; font-weight: 800; font-size: clamp(28px, min(7vw, 6vh), 52px);
+      line-height: 1.05; letter-spacing: -.02em; margin: clamp(10px, 2.5vh, 20px) 0 clamp(6px, 1.5vh, 12px); }}
+.lead {{ color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 auto clamp(12px, 3vh, 24px); max-width: 30em; }}
+.card {{ background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: clamp(12px, 2.5vh, 20px) 20px;
          text-align: left; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }}
 .card h2 {{ font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-weight: 600; }}
 ol {{ margin: 0; padding-left: 22px; }}
-li {{ margin: 6px 0; }}
+li {{ margin: 4px 0; font-size: 15px; }}
 li strong {{ font-weight: 600; }}
-.actions {{ display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 26px 0 8px; }}
-.btn {{ display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px;
+.actions {{ display: flex; flex-wrap: nowrap; gap: 12px; justify-content: center; margin: clamp(12px, 3vh, 24px) 0 6px; }}
+.btn {{ display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 20px; white-space: nowrap;
         border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; }}
 .btn-primary {{ background: var(--ink); color: var(--bg); border: 0; }}
 .btn-ghost {{ background: transparent; color: var(--ink); border: 1px solid var(--line); }}
 .btn:focus-visible {{ outline: 3px solid var(--blue); outline-offset: 2px; }}
 .retry {{ color: var(--muted); font-size: 14px; min-height: 1.6em; margin: 4px 0 0; }}
-.help {{ margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 15px; }}
+.help {{ margin-top: clamp(10px, 2.5vh, 20px); padding-top: clamp(10px, 2.5vh, 18px); border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }}
 .help a {{ color: var(--blue); font-weight: 600; text-decoration: none; }}
 .help a:hover {{ text-decoration: underline; }}
-.ar {{ margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); text-align: right;
-       font-family: "Segoe UI", Tahoma, "Geeza Pro", "Noto Naskh Arabic", system-ui, sans-serif; }}
-.ar h3 {{ font-size: 20px; margin: 0 0 6px; }}
-.ar p {{ margin: 0 0 8px; color: var(--muted); }}
-.ar ol {{ padding: 0 22px 0 0; }}
-footer {{ margin-top: 36px; font-size: 12px; color: var(--muted); letter-spacing: .04em; }}
 </style>
 </head>
 <body>
@@ -132,9 +118,9 @@ footer {{ margin-top: 36px; font-size: 12px; color: var(--muted); letter-spacing
   <section class="card" aria-labelledby="steps">
     <h2 id="steps">What to do</h2>
     <ol>
-      <li><strong>Wait a minute</strong>, then press <strong>Try again</strong>. This page also retries by itself.</li>
-      <li>Still not working? <strong>Close the app or browser completely and open it again.</strong></li>
-      <li>If that fails, <strong>restart the device</strong> (POS tablet, computer or phone).</li>
+      <li><strong>Wait a minute</strong>, then tap <strong>Try again</strong>.</li>
+      <li><strong>Close the app or browser</strong> and open it again.</li>
+      <li><strong>Restart the device.</strong></li>
     </ol>
   </section>
 
@@ -145,24 +131,12 @@ footer {{ margin-top: 36px; font-size: 12px; color: var(--muted); letter-spacing
   <p class="retry" id="retry" aria-live="polite"></p>
 
   <div class="help">
-    Still in trouble? Contact <strong>Revenax</strong> support:
+    Still in trouble? Contact <strong>Revenax</strong>:<br>
     WhatsApp <a href="{whatsapp}" target="_blank" rel="noopener">{whatsapp_display}</a>
     · <a href="mailto:{email}?subject=Error%20{code}">{email}</a>
   </div>
 
-  <section class="ar" dir="rtl" lang="ar">
-    <h3>{ar_title}</h3>
-    <p>{ar_lead}</p>
-    <ol>
-      <li>انتظر دقيقة ثم اضغط <strong>Try again</strong>، والصفحة تعيد المحاولة تلقائيًا.</li>
-      <li>إذا لم يعمل، <strong>أغلق التطبيق أو المتصفح تمامًا وافتحه من جديد.</strong></li>
-      <li>إذا استمرت المشكلة، <strong>أعد تشغيل الجهاز.</strong></li>
-    </ol>
-    <p>إذا استمرت المشكلة تواصل مع دعم <strong>Revenax</strong>: واتساب
-      <a href="{whatsapp}" target="_blank" rel="noopener" dir="ltr">{whatsapp_display}</a></p>
-  </section>
 
-  <footer>Powered by Revenax · Error {code}</footer>
 </main>
 <script>
 (function () {{
