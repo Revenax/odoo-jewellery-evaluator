@@ -34,6 +34,7 @@ STONE_SHAPE_SELECTION = [
     ('Radiant', 'Radiant'),
     ('Cushion', 'Cushion'),
     ('Triangle', 'Triangle'),
+    ('Baguette', 'Baguette'),
 ]
 
 # GIA clarity scale

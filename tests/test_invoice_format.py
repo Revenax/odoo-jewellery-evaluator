@@ -88,6 +88,7 @@ class TestDiamondNote:
         codes = {
             "Round": "R", "Oval": "O", "Marquise": "M", "Pear": "P",
             "Heart": "H", "Emerald": "E", "Cushion": "C", "Triangle": "T",
+            "Baguette": "B",
             # Two letters ONLY where one would be ambiguous.
             "Princess": "PR", "Radiant": "RA",
         }

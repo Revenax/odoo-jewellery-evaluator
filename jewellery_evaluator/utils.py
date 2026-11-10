@@ -1006,6 +1006,7 @@ STONE_SHAPE_CODES = {
     'Radiant': 'RA',
     'Cushion': 'C',
     'Triangle': 'T',
+    'Baguette': 'B',
 }
 
 
