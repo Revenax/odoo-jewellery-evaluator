@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-This repo holds four Odoo 19 modules (prod runs Enterprise): the three below plus **`payment_kashier`** (Kashier hosted checkout for the shop; see the Website section).
+This repo holds five Odoo 19 modules (prod runs Enterprise): the three below plus **`payment_kashier`** (Kashier hosted checkout for the shop; see the Website section) and **`marjaan_branding`** (see Branding).
 
 - **`jewellery_evaluator`** (the main one): adds gold/silver/diamond pricing to `product.template`, auto-updates prices from live sources via cron, and enforces minimum sale prices in the POS. It is packaged using a trick — **the repo root itself is this module** (see Packaging below).
 - **`jewellery_inventory_management`** ([jewellery_inventory_management/](jewellery_inventory_management/)): a thin module that `depends` on `jewellery_evaluator` and reuses its security groups. Minimal so far — one model, `jewellery.inventory.count` (a stock-count entry linked to a `product.template`), plus a list/form view and menu. Unlike `jewellery_evaluator` it uses a **standard Odoo layout** (its own `__manifest__.py` + `__init__.py` at the module dir).
@@ -140,6 +140,10 @@ The ops side ([marjaan-operations-server/server.js](../marjaan/marjaan-operation
 - **Bullion is banned online (legal):** `is_banned_online` in `website_utils.py` keeps bars/ingots/coins (by category or `jewellery_type == gold_bars`) off the website. Never add a bullion category back.
 - **Kashier** ([payment_kashier/](payment_kashier/), 4th module, in `SUBMODULES`): payment sessions API (Secret Key + `api-key` headers), hosted checkout, return `/payment/kashier/return`, webhook `/payment/kashier/webhook` (sent per payment). A payment is confirmed **only** from the signed redirect or signed webhook. Both are verified with the **Payment API Key** in [kashier_utils.py](payment_kashier/kashier_utils.py), and the webhook check is tested against Kashier's published worked example. Test and live key pairs are separate fields; provider state Test/Enabled picks the pair and host. The Card method is linked in data, because a provider with no methods never shows at checkout.
 - **Testing on a copy:** restore a nightly dump into a scratch DB and run Odoo with `--no-http --workers=0 --max-cron-threads=0`. `/etc/odoo.conf` pins `db_name = marjaan`; without it the production cron worker runs every job on any database it can see (it did, on 2026-10-05 — Pulse rejected the duplicate daily summary via its idempotency key).
+
+### Branding (`marjaan_branding`, fifth module, 2026-11-12)
+
+[marjaan_branding/](marjaan_branding/) (standard layout, nested, in `remote-deploy.sh` `SUBMODULES`) removes Odoo's branding where staff and customers see it: tab titles "<page> · Marjaan" (`title` service replaced, `force: true`) and the Marjaan favicon (`web.layout`, `x_icon` fallback, so website pages keep their own); POS tab "Marjaan POS" + icon (`point_of_sale.index`); home menu in navy #0f1138 with gold light (CSS variables `--homeMenu-bg-*`, light scheme only); PWA manifest navy + Marjaan icons (`WebManifest._get_webmanifest`); user menu without `support`/`odoo_account`; "Powered by Revenax" under the login form and in both mail layouts instead of Odoo. Brand: navy #0f1138, cream #fff4ee, gold #c8860a→#f5c842; the vector wordmark (mark + مرجان + MARJAAN) is `static/img/wordmark.svg` (`currentColor`), icons are gold mark on a navy tile. The login page renders inside the WEBSITE layout (shop header/footer), so login changes stay inside the form area. `web.login`'s form class is `t-attf-class`: `hasclass()` cannot find it; anchor on `oe_structure_login_bottom`. A new module is tested by restoring the nightly dump into a scratch DB and installing it from a temp addons dir before prod.
 
 ## Packaging & deployment
 
