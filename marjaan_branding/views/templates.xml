@@ -26,7 +26,7 @@
 
     <!-- Login: a quiet "Powered by Revenax" under the form. -->
     <template id="login_powered_by" inherit_id="web.login">
-        <xpath expr="//form[hasclass('oe_login_form')]" position="after">
+        <xpath expr="//div[@id='oe_structure_login_bottom']" position="before">
             <p class="text-center small text-muted mt-4 mb-0">
                 Powered by <a href="https://www.revenax.com" target="_blank" rel="noopener" class="fw-semibold">Revenax</a>
             </p>
