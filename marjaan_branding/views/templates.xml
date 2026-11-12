@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 Revenax Digital Services -->
+<odoo>
+    <!-- Backend tab: Marjaan title fallback and icon (website pages pass their own x_icon). -->
+    <template id="layout_brand" inherit_id="web.layout">
+        <xpath expr="//title" position="attributes">
+            <attribute name="t-esc">title or 'Marjaan'</attribute>
+        </xpath>
+        <xpath expr="//link[@rel='shortcut icon']" position="attributes">
+            <attribute name="t-att-href">x_icon or '/marjaan_branding/static/img/favicon.ico'</attribute>
+        </xpath>
+        <xpath expr="//link[@rel='shortcut icon']" position="after">
+            <link rel="apple-touch-icon" href="/marjaan_branding/static/img/apple-touch-icon.png"/>
+        </xpath>
+    </template>
+
+    <!-- POS tab: "Marjaan POS" with the Marjaan icon. -->
+    <template id="pos_brand" inherit_id="point_of_sale.index">
+        <xpath expr="//title" position="replace">
+            <title>Marjaan POS</title>
+        </xpath>
+        <xpath expr="//link[@rel='icon']" position="attributes">
+            <attribute name="href">/marjaan_branding/static/img/favicon.ico</attribute>
+        </xpath>
+    </template>
+
+    <!-- Login: a quiet "Powered by Revenax" under the form. -->
+    <template id="login_powered_by" inherit_id="web.login">
+        <xpath expr="//form[hasclass('oe_login_form')]" position="after">
+            <p class="text-center small text-muted mt-4 mb-0">
+                Powered by <a href="https://www.revenax.com" target="_blank" rel="noopener" class="fw-semibold">Revenax</a>
+            </p>
+        </xpath>
+    </template>
+
+    <!-- Emails: "Powered by Revenax" instead of Odoo. -->
+    <template id="mail_layout_powered_by" inherit_id="mail.mail_notification_layout">
+        <xpath expr="//a[contains(@href, 'odoo.com')]" position="replace">
+            <a target="_blank" href="https://www.revenax.com"
+               t-att-style="'color: ' + (company.email_secondary_color or '#0f1138') + ';'">Revenax</a>
+        </xpath>
+    </template>
+    <template id="mail_light_powered_by" inherit_id="mail.mail_notification_light">
+        <xpath expr="//a[contains(@href, 'odoo.com')]" position="replace">
+            <a target="_blank" href="https://www.revenax.com"
+               t-att-style="'color: ' + (company.email_secondary_color or '#0f1138') + ';'">Revenax</a>
+        </xpath>
+    </template>
+</odoo>

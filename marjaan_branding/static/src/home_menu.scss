@@ -1,0 +1,19 @@
+// Copyright 2026 Revenax Digital Services
+// Home menu in Marjaan navy with a soft gold light (light scheme only; the dark
+// scheme keeps Odoo's own dark look). Plain CSS variables, no Sass min()/max().
+.o_home_menu_background:not(.o_home_menu_background_custom) {
+    --homeMenu-bg-color: #0f1138;
+    --homeMenu-bg-image:
+        radial-gradient(60rem 40rem at 85% -10%, rgba(245, 200, 66, 0.18), transparent 60%),
+        radial-gradient(50rem 36rem at -10% 110%, rgba(26, 107, 181, 0.22), transparent 60%),
+        linear-gradient(160deg, #151847 0%, #0f1138 55%, #0a0c28 100%);
+    --homeMenuCaption-color: #fff4ee;
+
+    .o_main_navbar {
+        --NavBar-entry-color: #fff4ee;
+        --NavBar-entry-color--hover: #f5c842;
+        .o_menu_systray, .o_navbar_apps_menu {
+            color: #fff4ee;
+        }
+    }
+}
