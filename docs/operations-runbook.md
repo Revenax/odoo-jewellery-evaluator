@@ -88,6 +88,7 @@ Payment journals: **CSH1** Sway Mall Vault (cash), **IPAY** InstaPay (id 15), **
 | `hard_delete.py` (`SKUS=A,B`) | deletes pieces + stock history + count lines; deletes counts left empty; refuses pieces with any sale/purchase document |
 | `backdated_sale.py` (`SALE=<base64 json>`) | manual invoice on the sale date, payments on the sale date, cash kept out of open shifts, count lines removed |
 | `move_pieces.py` (`SKUS=… TO=SM [DROP_COUNT=1]`) | internal move to a warehouse's Stock location |
+| `flip_transfer.py` (`PICKINGS=… [FIX=1 HOME_LOC=SM/Stock]`) | reverse a DONE transfer entered the wrong way round (picking, moves, lines, quants), then set each piece to 1 at its real location |
 | `employee_attribution.py` (data block from Neon) | archived Odoo user per employee + re-points piece/PO creation and edit history at them (4.11) |
 | `neon.js delete\|sold\|warehouse\|reprint\|show` | the ops-app (Neon) and photo (S3) half of each procedure |
 
@@ -299,6 +300,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Hard delete GNF8-0052 (2026-11-08) | done; was missing in SC/0034 |
 | Hard delete GBF8-0114 (2026-11-08) | done; was missing in SC/0024 |
 | Add Baguette diamond shape (2026-11-10) | Odoo 6dd61ba (fancy grid, invoice code B); ops 557eaf2 (lists + dist rebuilt) |
+| SM/INT/00020 is SM→OW, SM/INT/00021 is OW→SM (2026-11-14); all 46 pieces are in SM | both flipped (`flip_transfer.py`); 00017/00018 (9 Nov) had also been entered OW→SM for pieces already in SM, so on-hand read SM 3 / OW −2; now every piece is 1 in SM (GRF8-0143 sold); DNL8-0032 and DNL8-0033 set by adjustment; draft 00019 left as is |
 
 ## 6. Open items
 
