@@ -301,6 +301,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Hard delete GBF8-0114 (2026-11-08) | done; was missing in SC/0024 |
 | Add Baguette diamond shape (2026-11-10) | Odoo 6dd61ba (fancy grid, invoice code B); ops 557eaf2 (lists + dist rebuilt) |
 | SM/INT/00020 is SM→OW, SM/INT/00021 is OW→SM (2026-11-14); all 46 pieces are in SM | both flipped (`flip_transfer.py`); 00017/00018 (9 Nov) had also been entered OW→SM for pieces already in SM, so on-hand read SM 3 / OW −2; now every piece is 1 in SM (GRF8-0143 sold); DNL8-0032 and DNL8-0033 set by adjustment; draft 00019 left as is |
+| Recheck against full count ST/0005 (SM, from 13 Nov) | 41 of the 46 scanned found in SM; GCF8-0117 (SC/0048) and GRF8-0057/0139/0142 (SC/0054) not scanned yet; sold GRF8-0143 removed from SC/0054 (listed only because of the wrong-way transfers) |
 
 ## 6. Open items
 
