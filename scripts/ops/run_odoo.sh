@@ -14,7 +14,9 @@ SCRIPT="$1"; shift
 KEY="${MARJAAN_PEM:-$HOME/Documents/Marjaan/marjaan-odoo-19.pem}"
 HOST="${MARJAAN_HOST:-ubuntu@odoo.marjaanjewellery.com}"
 NAME="ops_$(basename "$SCRIPT")"
+# ODOO_DB=marjaan_scratch runs against a restored copy instead of production.
+DB="${ODOO_DB:-marjaan}"
 scp -q -i "$KEY" "$SCRIPT" "$HOST:/tmp/$NAME"
 # KEY=VALUE args become env vars for the shell (values must not contain spaces or quotes).
 ENVS="$*"
-ssh -i "$KEY" "$HOST" "sudo cp /tmp/$NAME /opt/odoo/tmp/$NAME && sudo -u odoo env $ENVS bash -c '/opt/odoo/ee-odoo-bin shell -c /etc/odoo.conf -d marjaan --no-http < /opt/odoo/tmp/$NAME' 2>&1 | grep -v -E ' INFO | WARNING '"
+ssh -i "$KEY" "$HOST" "sudo cp /tmp/$NAME /opt/odoo/tmp/$NAME && sudo -u odoo env $ENVS bash -c '/opt/odoo/ee-odoo-bin shell -c /etc/odoo.conf -d $DB --no-http --max-cron-threads=0 < /opt/odoo/tmp/$NAME' 2>&1 | grep -v -E ' INFO | WARNING '"
