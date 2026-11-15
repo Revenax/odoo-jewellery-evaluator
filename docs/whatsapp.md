@@ -160,14 +160,29 @@ Piece titles come from `product.template.website_title`. Line totals come from t
 
 ## 6. Templates (needed for messages Marjaan starts first)
 
-There are none yet on Messaging account `1109104548407047`. The **owner writes the wording**. Each template has:
-- a name, e.g. `order_confirmation`;
-- a category: **UTILITY** for receipts and order updates, **MARKETING** for promotions;
-- a language: `en` and/or `ar`;
-- a body with `{{1}}`, `{{2}}` … placeholders;
-- optionally a **document header**, which is how invoices get attached outside the 24-hour window.
+**Why:** WhatsApp lets a business message someone first **only with a template Meta has approved** (anti-spam). Free text and files work only within 24 hours of the customer's last message.
 
-Submit in WhatsApp Manager → Message templates, or by API `POST /{messaging-account-id}/message_templates`. Approval takes minutes to hours. The `message_template_status_update` webhook reports the result.
+**Submitted 2026-11-15.** English only, wording approved by the owner. All are UTILITY (transactional). Messaging account `1109104548407047`.
+
+The script is [scripts/whatsapp/submit_templates.py](../scripts/whatsapp/submit_templates.py). It is idempotent and skips templates that already exist. `--status` lists the approval state; a document header needs an example PDF, set with `EXAMPLE_PDF=`.
+
+| Name | Header | Body ({{n}} = filled per customer) |
+|---|---|---|
+| `order_confirmation` | invoice PDF | Dear {{1}}, thank you for shopping at Marjaan Jewellery ✨ Your order {{2}} is confirmed. Total: {{3}} EGP. Your invoice is attached for your records. For sizing, cleaning or any help, simply reply to this message. |
+| `order_ready_pickup` | none | Hi {{1}}, good news! Your order {{2}} is ready for pickup at Marjaan {{3}}. We look forward to seeing you. |
+| `payment_received` | none | Dear {{1}}, we have received your payment of {{2}} EGP for {{3}}. Thank you for choosing Marjaan Jewellery. |
+| `buyback_receipt` | receipt PDF | Dear {{1}}, thank you for your trust. We have bought your piece ({{2}}) for {{3}} EGP. Your receipt is attached. |
+| `welcome_contact` | none | Hi {{1}}, this is Marjaan Jewellery. Thank you for visiting us. This is our official WhatsApp; reply here anytime for prices, new pieces or help with an order. |
+
+- **Arabic versions** were drafted and dropped (owner decision). If they are ever added, use gender-neutral "عزيزنا العميل {{1}}".
+- **Promotions** need separate MARKETING templates: they cost more and customers can opt out.
+- Meta may re-categorise `welcome_contact` as MARKETING.
+
+To add or edit a template:
+1. Change `TEMPLATES` in the script.
+2. Copy the script to the box and run it. An already-approved template cannot be edited in place: create a new name.
+
+Sending an approved template with a document header is a Graph call to `/{phone-id}/messages`. In the template components, set `{"type":"header","parameters":[{"type":"document","document":{"id": <media id>, "filename": "..."}}]}` plus the body parameters. The gateway's `/send` covers text-only templates; document templates go through the Graph call, until the Odoo hook is built.
 
 ---
 
@@ -242,7 +257,7 @@ Check without revealing: compare the token length to the count of `EAA` occurren
 - [ ] Display name approval ("Marjaan Jewellery").
 - [ ] Business verification (in review), then Meta Verified (blue tick, the owner subscribes).
 - [ ] Card "Verify" and VAT tax info on the billing page (owner).
-- [ ] Templates (owner's wording): order confirmation with an invoice document header; order ready for pickup; payment received.
+- [ ] Template approval: 5 submitted 2026-11-15 (section 6), check with `submit_templates.py --status`.
 - [ ] Odoo hook: on POS order or invoice post, call `127.0.0.1:8076/send` with the template and the invoice PDF. Customer mobile is needed on the partner.
 - [ ] Business profile text (about, address, hours, email): owner's wording.
 - [ ] Landline +20 2 2635 7935: coexistence after verification, or keep it on the app.
