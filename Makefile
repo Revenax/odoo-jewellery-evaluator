@@ -4,7 +4,7 @@ check: lint test type-check
 	@echo "All checks passed!"
 
 lint:
-	ruff check jewellery_evaluator/ jewellery_inventory_management/ jewellery_website/ payment_kashier/ tests/
+	ruff check jewellery_evaluator/ jewellery_inventory_management/ jewellery_website/ payment_kashier/ whatsapp_gateway/ tests/
 
 test:
 	pytest tests/ -v
