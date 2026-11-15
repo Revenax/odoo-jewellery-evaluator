@@ -23,7 +23,7 @@ pdf, _ = env['ir.actions.report']._render_qweb_pdf('account.report_invoice_with_
 with open('/tmp/wa_invoice.pdf', 'wb') as f:
     f.write(pdf)
 os.chmod('/tmp/wa_invoice.pdf', 0o644)
-print('INV', inv.name, '|', inv.invoice_date, '|', inv.partner_id.name, '|', inv.partner_id.mobile or inv.partner_id.phone,
+print('INV', inv.name, '|', inv.invoice_date, '|', inv.partner_id.name, '|', inv.partner_id.phone,
       '|', inv.amount_total, inv.currency_id.name, '|', inv.payment_state, '|', len(pdf), 'bytes')
 for line in inv.invoice_line_ids.filtered(lambda l: l.display_type == 'product'):
     tmpl = line.product_id.product_tmpl_id
