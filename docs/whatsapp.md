@@ -239,6 +239,52 @@ Check without revealing: compare the token length to the count of `EAA` occurren
 
 **Rotate a token:** System users → Marjaan Messaging → Revoke tokens → Generate token → run the command above.
 
+## 12. POS invoices sent automatically (live since 2026-11-15 20:45 UTC)
+
+Every POS sale's invoice goes to the customer on WhatsApp:
+- the approved `order_confirmation` template (name, invoice number, total);
+- the invoice PDF (Marjaan's gold A5 layout) as the attachment.
+
+**How:**
+- The cron **"Jewellery: Send POS invoices on WhatsApp"** (`ir_cron_send_whatsapp_invoices`, every 2 minutes) runs `account.move.cron_send_whatsapp_invoices`, in [jewellery_evaluator/models/whatsapp_invoice.py](../jewellery_evaluator/models/whatsapp_invoice.py).
+- It picks posted `out_invoice`s that have a POS order, were created at or after `whatsapp_since`, and are not yet sent (or failed with fewer than 3 attempts). Batches of 20.
+- For each: the customer's `res.partner.phone` goes through `utils.whatsapp_mobile`. Egyptian mobiles 010/011/012/015 are accepted in any spelling; landlines and typos give `''`, which marks the invoice **skipped**.
+- The PDF comes from `account.report_invoice_with_payments` and goes base64-encoded to `POST http://127.0.0.1:8076/send` with `{template, params, document}`.
+- The gateway uploads the media and sends the template with the document header.
+- **Never in the sale path:** the till only creates the invoice. Gateway or Meta problems cannot slow down or fail a sale.
+- **Never twice:** it commits after each invoice.
+
+**On each invoice:**
+- `jewellery_wa_state`: Sent / Failed / Skipped
+- `jewellery_wa_attempts`
+- `jewellery_wa_info`: number and message id, or the reason
+- a chatter note "Invoice sent to the customer on WhatsApp (+20…)"
+- after 3 failed attempts, a chatter note with the reason
+
+**Switches** (`ir.config_parameter`; set from an Odoo shell with `clear_cache('stable')` + `signal_changes`):
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| `jewellery_evaluator.whatsapp_enabled` | `True` | anything else stops all sending (**turn off** = set `False`) |
+| `jewellery_evaluator.whatsapp_since` | `2026-11-15 20:45:26` (UTC) | only invoices created after this; empty means nothing is sent. Guards against messaging past customers |
+| `jewellery_evaluator.whatsapp_gateway_url` | default `http://127.0.0.1:8076/send` | |
+| `jewellery_evaluator.whatsapp_template` | default `order_confirmation` | |
+
+**Coverage at go-live** (last 30 days): 131 POS orders, all invoiced, all with a customer. 116 had a valid mobile; the other 15 had no phone or typos such as 10/12-digit numbers or an `016` prefix. **Ask the cashiers to type the customer's mobile correctly**: it is now how the customer gets the invoice.
+
+**Check it:**
+
+```sql
+SELECT name, partner_id, jewellery_wa_state, jewellery_wa_attempts, jewellery_wa_info
+FROM account_move WHERE jewellery_wa_state IS NOT NULL ORDER BY id DESC LIMIT 20;
+```
+
+Or use `curl -s "http://127.0.0.1:8076/messages?limit=20"` on the box: statuses accepted → sent → delivered → read.
+
+**Billing:** each send is one UTILITY template message, billed to the Messaging account's card (postpaid, section 1).
+
+Tested before go-live: the gateway sent `order_confirmation` with the MJ-1619 PDF to the owner's number (delivered). Tests: `tests/test_whatsapp_utils.py` (phone numbers, amounts) and the document cases in `tests/test_whatsapp_gateway.py`.
+
 ---
 
 ## 10. Lessons and traps (do not relearn these)
@@ -274,7 +320,7 @@ Check without revealing: compare the token length to the count of `EAA` occurren
 - [ ] Business verification (in review), then Meta Verified (blue tick, the owner subscribes).
 - [ ] Card "Verify" and VAT tax info on the billing page (owner).
 - [x] Templates: 5 approved 2026-11-15 (4 UTILITY; `welcome_contact` moved to MARKETING by Meta). Decide whether to keep `welcome_contact`.
-- [ ] Odoo hook: on POS order or invoice post, call `127.0.0.1:8076/send` with the template and the invoice PDF. Customer mobile is needed on the partner.
+- [x] POS invoices are sent automatically (section 12). Possible later: `buyback_receipt` on buy-backs, `payment_received` on InstaPay, `order_ready_pickup` for web orders.
 - [ ] Business profile text (about, address, hours, email): owner's wording.
 - [ ] Landline +20 2 2635 7935: coexistence after verification, or keep it on the app.
 - [ ] Retire the Revenax test setup (app 1120768327231037, test number, system user 61596401169367). Ask first.
