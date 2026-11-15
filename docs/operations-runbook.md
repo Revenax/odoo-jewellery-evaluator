@@ -307,6 +307,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | SM/INT/00020 is SM→OW, SM/INT/00021 is OW→SM (2026-11-14); all 46 pieces are in SM | both flipped (`flip_transfer.py`); 00017/00018 (9 Nov) had also been entered OW→SM for pieces already in SM, so on-hand read SM 3 / OW −2; now every piece is 1 in SM (GRF8-0143 sold); DNL8-0032 and DNL8-0033 set by adjustment; draft 00019 left as is |
 | Recheck against full count ST/0005 (SM, from 13 Nov) | 41 of the 46 scanned found in SM; GCF8-0117 (SC/0048) and GRF8-0057/0139/0142 (SC/0054) not scanned yet; sold GRF8-0143 removed from SC/0054 (listed only because of the wrong-way transfers) |
 | MJ-1617: GDF8-0003 to its own invoice (2026-11-15) | MJ-1617 now GNF8-0174 + GBF8-0350 = 108,400; MJ-1618 GDF8-0003 = 13,500, same customer (ريهام شريف); the one InstaPay payment (121,900) covers both; POS order Sway Mall-000031 unchanged |
+| Center Stone pricing: raw Rap less 10/20/40 % by size, 50 % cashier floor (2026-11-15) | b9d0ee5; 62 DS repriced 6,504,150 -> 4,877,050 EGP (-25 %); DS-0042 1,812,250 -> 1,087,350; cost follows (owner chose), nightly close books the drop to 500102 |
 | Correction (same evening): Sway had already rung GDF8-0003 again as Sway Mall-000224 / MJ-1619 for نهال توفيق (13,500 InstaPay). Owner: InstaPay received was 108,400 (ريهام) + 13,500 (نهال) | GDF8-0003 removed from order 000031 (now 108,400 InstaPay, matches MJ-1617), its first delivery undone (on hand 0, sold once), MJ-1618 cancelled (cannot be deleted, MJ-1619 follows it) |
 
 ## 6. Open items
