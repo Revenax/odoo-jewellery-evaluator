@@ -89,6 +89,7 @@ Payment journals: **CSH1** Sway Mall Vault (cash), **IPAY** InstaPay (id 15), **
 | `backdated_sale.py` (`SALE=<base64 json>`) | manual invoice on the sale date, payments on the sale date, cash kept out of open shifts, count lines removed |
 | `move_pieces.py` (`SKUS=… TO=SM [DROP_COUNT=1]`) | internal move to a warehouse's Stock location |
 | `flip_transfer.py` (`PICKINGS=… [FIX=1 HOME_LOC=SM/Stock]`) | reverse a DONE transfer entered the wrong way round (picking, moves, lines, quants), then set each piece to 1 at its real location |
+| `split_invoice.py` (`INVOICE=MJ-… SKUS=…`) | move pieces off a posted, paid invoice onto their own invoice (same customer/date/price); the payment is split across both; stock untouched; works while the POS session is open |
 | `employee_attribution.py` (data block from Neon) | archived Odoo user per employee + re-points piece/PO creation and edit history at them (4.11) |
 | `neon.js delete\|sold\|warehouse\|reprint\|show` | the ops-app (Neon) and photo (S3) half of each procedure |
 | `scripts/whatsapp/render_invoice_pdf.py` (`INV=MJ-…`), `send_document.py`, `set_profile_photo.py` | WhatsApp: render an invoice PDF on the box, send a file with a caption, set the profile photo. See [docs/whatsapp.md](whatsapp.md) |
@@ -304,6 +305,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | WhatsApp production (2026-11-15) | +20 10 1148 0480 live on the Cloud API (Marjaan portfolio, app "Marjaan Messaging" published), logo set, test reply and invoice MJ-1617 sent to the owner's phone. Everything is in [docs/whatsapp.md](whatsapp.md) |
 | SM/INT/00020 is SM→OW, SM/INT/00021 is OW→SM (2026-11-14); all 46 pieces are in SM | both flipped (`flip_transfer.py`); 00017/00018 (9 Nov) had also been entered OW→SM for pieces already in SM, so on-hand read SM 3 / OW −2; now every piece is 1 in SM (GRF8-0143 sold); DNL8-0032 and DNL8-0033 set by adjustment; draft 00019 left as is |
 | Recheck against full count ST/0005 (SM, from 13 Nov) | 41 of the 46 scanned found in SM; GCF8-0117 (SC/0048) and GRF8-0057/0139/0142 (SC/0054) not scanned yet; sold GRF8-0143 removed from SC/0054 (listed only because of the wrong-way transfers) |
+| MJ-1617: GDF8-0003 to its own invoice (2026-11-15) | MJ-1617 now GNF8-0174 + GBF8-0350 = 108,400; MJ-1618 GDF8-0003 = 13,500, same customer (ريهام شريف); the one InstaPay payment (121,900) covers both; POS order Sway Mall-000031 unchanged |
 
 ## 6. Open items
 
