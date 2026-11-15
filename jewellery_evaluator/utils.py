@@ -710,9 +710,9 @@ def rap_stone_price_usd(
 # 2.00 ct and up -40 %. The Rap editor's per-cell discounts do NOT apply to
 # center stones; they keep pricing diamond jewellery.
 CENTER_STONE_RAP_DISCOUNT_BANDS = ((2.0, 40.0), (0.30, 20.0), (RAP_MIN_CARAT, 10.0))
-# POS floor for a Center Stone: the cashier may go down to 50 % of the price
+# POS floor for a Center Stone: the cashier may discount up to 30 % (floor 70 % of the price)
 # without a manager override (diamond jewellery keeps diamond_min_sale_pct).
-CENTER_STONE_MIN_SALE_PCT = 0.5
+CENTER_STONE_MIN_SALE_PCT = 0.7
 
 
 def center_stone_rap_discount_pct(carat: float) -> float | None:

@@ -626,7 +626,7 @@ class ProductTemplate(models.Model):
             'fee_per_gram_usd': fee_per_gram,
             'ticket_multiplier': 1.0 if is_cs else multiplier,
             'ticket_discount': 0.0 if is_cs else discount,
-            # Center Stone: the cashier may discount to 50 % without a manager.
+            # Center Stone: the cashier may discount up to 30 % without a manager.
             'min_sale_pct': CENTER_STONE_MIN_SALE_PCT if is_cs else min_pct,
         }
 

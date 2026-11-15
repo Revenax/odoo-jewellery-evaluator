@@ -191,4 +191,4 @@ class TestCenterStone:
             get_stone_tier_price(_env, 0.20)
 
     def test_floor_is_half(self):
-        assert CENTER_STONE_MIN_SALE_PCT == 0.5
+        assert CENTER_STONE_MIN_SALE_PCT == 0.7
