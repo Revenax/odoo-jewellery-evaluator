@@ -162,7 +162,9 @@ Piece titles come from `product.template.website_title`. Line totals come from t
 
 **Why:** WhatsApp lets a business message someone first **only with a template Meta has approved** (anti-spam). Free text and files work only within 24 hours of the customer's last message.
 
-**Submitted 2026-11-15.** English only, wording approved by the owner. All are UTILITY (transactional). Messaging account `1109104548407047`.
+**Submitted 2026-11-15, all APPROVED the same day.** English only, wording approved by the owner. Messaging account `1109104548407047`.
+
+All were submitted as UTILITY. **Meta re-categorised `welcome_contact` to MARKETING**: a message not tied to a specific order, payment or pickup counts as promotional. Marketing costs more per message, the customer can opt out, and Meta may limit how often marketing reaches a person. The other 4 stayed UTILITY.
 
 The script is [scripts/whatsapp/submit_templates.py](../scripts/whatsapp/submit_templates.py). It is idempotent and skips templates that already exist. `--status` lists the approval state; a document header needs an example PDF, set with `EXAMPLE_PDF=`.
 
@@ -176,7 +178,7 @@ The script is [scripts/whatsapp/submit_templates.py](../scripts/whatsapp/submit_
 
 - **Arabic versions** were drafted and dropped (owner decision). If they are ever added, use gender-neutral "عزيزنا العميل {{1}}".
 - **Promotions** need separate MARKETING templates: they cost more and customers can opt out.
-- Meta may re-categorise `welcome_contact` as MARKETING.
+- A template stays UTILITY only if it is about a specific transaction (it names an order, a payment or a pickup). Anything general ("thanks for visiting", "new pieces") becomes MARKETING.
 
 To add or edit a template:
 1. Change `TEMPLATES` in the script.
@@ -257,7 +259,7 @@ Check without revealing: compare the token length to the count of `EAA` occurren
 - [ ] Display name approval ("Marjaan Jewellery").
 - [ ] Business verification (in review), then Meta Verified (blue tick, the owner subscribes).
 - [ ] Card "Verify" and VAT tax info on the billing page (owner).
-- [ ] Template approval: 5 submitted 2026-11-15 (section 6), check with `submit_templates.py --status`.
+- [x] Templates: 5 approved 2026-11-15 (4 UTILITY; `welcome_contact` moved to MARKETING by Meta). Decide whether to keep `welcome_contact`.
 - [ ] Odoo hook: on POS order or invoice post, call `127.0.0.1:8076/send` with the template and the invoice PDF. Customer mobile is needed on the partner.
 - [ ] Business profile text (about, address, hours, email): owner's wording.
 - [ ] Landline +20 2 2635 7935: coexistence after verification, or keep it on the app.
