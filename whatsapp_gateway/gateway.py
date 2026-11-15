@@ -24,6 +24,7 @@ their code/subcode/message with the token scrubbed (a malformed-token error echo
 
 Standard library only. Installed by scripts/install-whatsapp-gateway.sh.
 """
+import base64
 import hashlib
 import hmac
 import json
@@ -35,6 +36,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -42,7 +44,7 @@ GRAPH_VERSION = os.environ.get('WHATSAPP_GRAPH_VERSION', 'v25.0')
 HOST = os.environ.get('WHATSAPP_HOST', '127.0.0.1')
 PORT = int(os.environ.get('WHATSAPP_PORT', '8076'))
 DB_PATH = os.environ.get('WHATSAPP_DB', '/var/lib/marjaan-whatsapp/whatsapp.db')
-MAX_BODY = 1024 * 1024
+MAX_BODY = 8 * 1024 * 1024  # JSON with a base64 invoice PDF fits easily
 TIMEOUT = 20
 
 log = logging.getLogger('whatsapp-gateway')
@@ -129,20 +131,44 @@ def parse_webhook(payload):
     return events
 
 
-def build_message(to, template=None, language='en_US', params=None, text=None):
-    """Cloud API /messages body for a template (with body params) or a plain text."""
+def build_message(to, template=None, language='en_US', params=None, text=None,
+                  document_id=None, filename=None):
+    """Cloud API /messages body.
+
+    - template (+ body params), optionally with a DOCUMENT header (``document_id`` = uploaded media id);
+    - text alone; or text + ``document_id`` = a document message with the text as caption.
+    """
     if bool(template) == bool(text):
         raise ValueError('give exactly one of template or text')
     body = {'messaging_product': 'whatsapp', 'to': to}
+    doc = {'id': document_id, 'filename': filename or 'document.pdf'} if document_id else None
     if text:
-        body.update(type='text', text={'body': text, 'preview_url': False})
+        if doc:
+            body.update(type='document', document={**doc, 'caption': text[:1024]})
+        else:
+            body.update(type='text', text={'body': text, 'preview_url': False})
         return body
     tpl = {'name': template, 'language': {'code': language}}
+    components = []
+    if doc:
+        components.append({'type': 'header', 'parameters': [{'type': 'document', 'document': doc}]})
     if params:
-        tpl['components'] = [{'type': 'body', 'parameters': [
-            {'type': 'text', 'text': str(p)} for p in params]}]
+        components.append({'type': 'body', 'parameters': [{'type': 'text', 'text': str(p)} for p in params]})
+    if components:
+        tpl['components'] = components
     body.update(type='template', template=tpl)
     return body
+
+
+def multipart_media(data, filename, mime='application/pdf', boundary=None):
+    """(body, content_type) for the Cloud API /media upload."""
+    b = boundary or uuid.uuid4().hex
+    safe_name = re.sub(r'["\r\n]', '', filename)
+    head = (f'--{b}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n'
+            f'--{b}\r\nContent-Disposition: form-data; name="type"\r\n\r\n{mime}\r\n'
+            f'--{b}\r\nContent-Disposition: form-data; name="file"; filename="{safe_name}"\r\n'
+            f'Content-Type: {mime}\r\n\r\n').encode()
+    return head + data + f'\r\n--{b}--\r\n'.encode(), f'multipart/form-data; boundary={b}'
 
 
 def safe_graph_error(raw, token):
@@ -243,15 +269,47 @@ class Gateway:
                     log.info('status %s for a message not sent through the gateway', ev['status'])
         return 200, {'ok': True}
 
+    def _upload(self, data, filename, mime):
+        """Upload media to the Cloud API; returns (200, media_id) or (status, safe error)."""
+        body, ctype = multipart_media(data, filename, mime)
+        req = urllib.request.Request(f'https://graph.facebook.com/{GRAPH_VERSION}/{self.phone_number_id}/media',
+                                     data=body, method='POST',
+                                     headers={'Authorization': f'Bearer {self.token}', 'Content-Type': ctype})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                return 200, json.loads(resp.read()).get('id')
+        except urllib.error.HTTPError as err:
+            safe = safe_graph_error(err.read().decode(errors='replace'), self.token)
+            self.last_error = safe
+            log.warning('media upload failed: %s', safe)
+            return 502, safe
+        except (urllib.error.URLError, TimeoutError) as err:
+            self.last_error = {'message': type(err).__name__}
+            return 504, 'Graph API unreachable'
+
     def send(self, req):
         to = normalize_phone(str(req.get('to') or ''))
         if not to:
             return 400, {'error': 'invalid "to" number'}
         if not (self.token and self.phone_number_id):
             return 503, {'error': 'gateway not configured (token / phone number id)'}
+        document_id = filename = None
+        doc = req.get('document') or {}
+        if doc:
+            try:
+                data = base64.b64decode(doc.get('base64') or '', validate=True)
+            except ValueError:
+                return 400, {'error': 'document.base64 is not valid base64'}
+            if not data:
+                return 400, {'error': 'empty document'}
+            filename = str(doc.get('filename') or 'document.pdf')[:120]
+            status, document_id = self._upload(data, filename, doc.get('mime') or 'application/pdf')
+            if status != 200:
+                return status, {'error': document_id}
         try:
             body = build_message(to, template=req.get('template'), language=req.get('language') or 'en_US',
-                                 params=req.get('params'), text=req.get('text'))
+                                 params=req.get('params'), text=req.get('text'),
+                                 document_id=document_id, filename=filename)
         except ValueError as err:
             return 400, {'error': str(err)}
         url = f'https://graph.facebook.com/{GRAPH_VERSION}/{self.phone_number_id}/messages'
@@ -259,6 +317,8 @@ class Gateway:
             'Authorization': f'Bearer {self.token}', 'Content-Type': 'application/json'})
         source = str(req.get('source') or '')[:40] or None
         summary = req.get('text') or f"template:{req.get('template')}"
+        if filename:
+            summary = f'{summary} + {filename}'
         try:
             with urllib.request.urlopen(http_req, timeout=TIMEOUT) as resp:
                 data = json.loads(resp.read())

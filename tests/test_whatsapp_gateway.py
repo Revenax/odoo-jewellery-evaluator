@@ -181,3 +181,33 @@ def test_send_refuses_bad_number_and_missing_config(tmp_path):
     g = gw.Gateway(gw.Store(str(tmp_path / "wa.db")), env={})
     assert g.send({"to": "12", "text": "x"})[0] == 400
     assert g.send({"to": "01063864994", "text": "x"})[0] == 503
+
+
+# ---- documents (POS invoice PDFs)
+
+def test_template_with_document_header():
+    body = gw.build_message("201063864994", template="order_confirmation", language="en",
+                            params=["Sara", "MJ-1619", "13,500"], document_id="MEDIA1", filename="Invoice.pdf")
+    comps = body["template"]["components"]
+    assert comps[0] == {"type": "header", "parameters": [
+        {"type": "document", "document": {"id": "MEDIA1", "filename": "Invoice.pdf"}}]}
+    assert [p["text"] for p in comps[1]["parameters"]] == ["Sara", "MJ-1619", "13,500"]
+
+
+def test_text_with_document_becomes_captioned_document():
+    body = gw.build_message("201063864994", text="Your invoice", document_id="M2", filename="a.pdf")
+    assert body["type"] == "document" and body["document"] == {"id": "M2", "filename": "a.pdf", "caption": "Your invoice"}
+
+
+def test_multipart_media_layout():
+    data, ctype = gw.multipart_media(b"%PDF-1.4", 'inv"oice.pdf', boundary="BOUND")
+    assert ctype == "multipart/form-data; boundary=BOUND"
+    assert b'name="messaging_product"\r\n\r\nwhatsapp' in data
+    assert b'filename="invoice.pdf"' in data and b"%PDF-1.4" in data and data.endswith(b"--BOUND--\r\n")
+
+
+def test_send_rejects_bad_document(tmp_path):
+    g = gw.Gateway(gw.Store(str(tmp_path / "wa.db")),
+                   env={"WHATSAPP_TOKEN": "t", "WHATSAPP_PHONE_NUMBER_ID": "1"})
+    assert g.send({"to": "01063864994", "template": "x", "document": {"base64": "not base64!!"}})[0] == 400
+    assert g.send({"to": "01063864994", "template": "x", "document": {"base64": ""}})[0] == 400

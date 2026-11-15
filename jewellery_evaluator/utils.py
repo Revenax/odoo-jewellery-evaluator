@@ -1281,3 +1281,28 @@ def price_board(snapshot, sell: dict) -> dict:
             buy = None
         board[key] = {'sell': value or None, 'buy': buy}
     return board
+
+
+_EG_MOBILE = re.compile(r'1[0125]\d{8}')
+
+
+def whatsapp_mobile(phone) -> str:
+    """An Egyptian mobile number in WhatsApp form (``201XXXXXXXXX``), or ``''``.
+
+    Accepts the usual ways staff type it: ``01063864994``, ``+20 106 386 4994``,
+    ``0020106...``, ``20106...``. Landlines (``02...``) and malformed numbers
+    (wrong length, unknown operator prefix) return ``''`` so no message is attempted.
+    """
+    digits = re.sub(r'\D', '', str(phone or ''))
+    for prefix in ('0020', '20', '0'):
+        if digits.startswith(prefix) and _EG_MOBILE.fullmatch(digits[len(prefix):]):
+            return '20' + digits[len(prefix):]
+    return '20' + digits if _EG_MOBILE.fullmatch(digits) else ''
+
+
+def format_egp_amount(amount) -> str:
+    """Thousands-separated EGP amount for customer messages: 13500 -> '13,500', 99.5 -> '99.50'."""
+    value = Decimal(str(amount or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if value == value.to_integral_value():
+        return f'{int(value):,}'
+    return f'{value:,.2f}'
