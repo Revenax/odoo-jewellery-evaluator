@@ -184,7 +184,21 @@ To add or edit a template:
 1. Change `TEMPLATES` in the script.
 2. Copy the script to the box and run it. An already-approved template cannot be edited in place: create a new name.
 
-Sending an approved template with a document header is a Graph call to `/{phone-id}/messages`. In the template components, set `{"type":"header","parameters":[{"type":"document","document":{"id": <media id>, "filename": "..."}}]}` plus the body parameters. The gateway's `/send` covers text-only templates; document templates go through the Graph call, until the Odoo hook is built.
+**Send an approved template (with or without a document header):** [scripts/whatsapp/send_template.py](../scripts/whatsapp/send_template.py), run on the box. Templates may be sent at any time, with no 24-hour window:
+
+```bash
+scripts/ops/run_odoo.sh scripts/whatsapp/render_invoice_pdf.py INV=MJ-1619       # from the Mac
+# on the box:
+sudo TO=01007709545 TEMPLATE=order_confirmation PARAMS='["Name","MJ-1619","13,500"]' \
+     FILE=/tmp/wa_invoice.pdf FILENAME="Marjaan Invoice MJ-1619.pdf" python3 send_template.py
+sudo rm -f /tmp/wa_invoice.pdf
+```
+
+First business-initiated message: 2026-11-15, `order_confirmation` with MJ-1619 to +20 100 770 9545, **delivered**. The owner chose to send MJ-1619 although that number belongs to a different customer (عزة احمد), as a test.
+
+**Privacy rule:** before sending an invoice, check that the recipient's number is the invoice customer's (`res.partner.phone`). Never send one customer's invoice to another customer unless the owner explicitly says so.
+
+Under the hood, sending an approved template with a document header is a Graph call to `/{phone-id}/messages`. In the template components, set `{"type":"header","parameters":[{"type":"document","document":{"id": <media id>, "filename": "..."}}]}` plus the body parameters. The gateway's `/send` covers text-only templates; document templates go through the Graph call, until the Odoo hook is built.
 
 ---
 
