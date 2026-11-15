@@ -71,10 +71,18 @@ if ! grep -q 'location = /whatsapp/webhook' "$SITE"; then
     # First server block (the 443 one): right after its error_log line.
     awk '!done && /error_log/ { print; print "    # WhatsApp Cloud API webhook -> marjaan-whatsapp gateway (scripts/install-whatsapp-gateway.sh)";
          print "    location = /whatsapp/webhook {"; print "        proxy_pass http://127.0.0.1:8076;";
-         print "        client_max_body_size 1m;"; print "    }"; done=1; next } { print }' "$BAK" > "$SITE"
+         print "        client_max_body_size 1m;"; print "        access_log off;  # the verify token rides in the query string";
+         print "    }"; done=1; next } { print }' "$BAK" > "$SITE"
     if ! nginx -t 2>/dev/null; then cp -a "$BAK" "$SITE"; nginx -t; echo "nginx -t failed, restored $BAK" >&2; exit 1; fi
     echo "nginx route added (backup $BAK)"
 fi
+# Older installs: add access_log off to an existing route.
+if grep -q 'location = /whatsapp/webhook' "$SITE" && ! grep -A4 'location = /whatsapp/webhook' "$SITE" | grep -q 'access_log off'; then
+    cp -a "$SITE" "$SITE.bak-$(date +%Y%m%d-%H%M%S)"
+    sed -i '/location = \/whatsapp\/webhook {/a\        access_log off;  # the verify token rides in the query string' "$SITE"
+fi
+# Scrub any verify token already written to the logs.
+sed -i -E 's/(hub[._]verify_token=)[^& "]+/\1[redacted]/g' /var/log/nginx/odoo.access.log /var/log/nginx/odoo.access.log.1 2>/dev/null || true
 nginx -t 2>/dev/null && systemctl reload nginx
 sleep 2
 systemctl is-active marjaan-whatsapp
