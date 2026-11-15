@@ -92,6 +92,14 @@ def test_parses_text_message_with_contact_name():
     assert ev[0]["kind"] == "message" and ev[0]["text"] == "Hello" and ev[0]["name"] == "Mohamed"
 
 
+def test_parses_business_scoped_user_id_sender():
+    ev = gw.parse_webhook(_wrap({
+        "contacts": [{"user_id": "EG.1125565290080476", "profile": {"name": "Mohamed A. Abdallah"}}],
+        "messages": [{"id": "wamid.X", "from_user_id": "EG.1125565290080476", "type": "text",
+                      "text": {"body": "Good evening"}}]}))
+    assert ev[0]["from"] == "EG.1125565290080476" and ev[0]["name"] == "Mohamed A. Abdallah"
+
+
 def test_parses_button_reply_and_caption():
     ev = gw.parse_webhook(_wrap({"messages": [
         {"id": "a", "from": "1", "type": "interactive", "interactive": {"button_reply": {"title": "Yes"}}},

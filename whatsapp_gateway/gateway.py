@@ -96,8 +96,14 @@ def parse_webhook(payload):
     for entry in payload.get('entry') or []:
         for change in entry.get('changes') or []:
             value = change.get('value') or {}
-            names = {c.get('wa_id'): (c.get('profile') or {}).get('name')
-                     for c in value.get('contacts') or []}
+            # Meta's usernames rollout (2026): a sender may come as a business-scoped
+            # user id (from_user_id / user_id, e.g. "EG.1125...") instead of a phone number.
+            names = {}
+            for c in value.get('contacts') or []:
+                name = (c.get('profile') or {}).get('name')
+                for key in (c.get('wa_id'), c.get('user_id')):
+                    if key:
+                        names[key] = name
             for m in value.get('messages') or []:
                 mtype = m.get('type')
                 text = None
@@ -111,12 +117,14 @@ def parse_webhook(payload):
                     text = reply.get('title')
                 elif mtype in ('image', 'document', 'video', 'audio', 'sticker'):
                     text = (m.get(mtype) or {}).get('caption')
-                events.append({'kind': 'message', 'wamid': m.get('id'), 'from': m.get('from'),
-                               'name': names.get(m.get('from')), 'type': mtype, 'text': text,
+                sender = m.get('from') or m.get('from_user_id')
+                events.append({'kind': 'message', 'wamid': m.get('id'), 'from': sender,
+                               'name': names.get(sender), 'type': mtype, 'text': text,
                                'timestamp': m.get('timestamp'), 'raw': m})
             for s in value.get('statuses') or []:
                 events.append({'kind': 'status', 'wamid': s.get('id'), 'status': s.get('status'),
-                               'recipient': s.get('recipient_id'), 'timestamp': s.get('timestamp'),
+                               'recipient': s.get('recipient_id') or s.get('recipient_user_id'),
+                               'timestamp': s.get('timestamp'),
                                'errors': s.get('errors'), 'raw': s})
     return events
 
