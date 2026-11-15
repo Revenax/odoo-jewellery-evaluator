@@ -665,13 +665,17 @@ def _rap_json(env, param: str) -> dict:
         return {}
 
 
-def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str) -> float | None:
+def rap_stone_price_usd(
+    env, shape: str, carat: float, colour: str, clarity: str,
+    discount_pct: float | None = None,
+) -> float | None:
     """Per-stone (one unit) NET USD from the Rap grid, or None if no usable cell.
 
     net = list(hundreds USD/ct) x 100 x carat x (1 - disc%/100), where `list` is the
     Rapaport LIST cell and `disc` is the per-cell discount percent (0..100, default
     0 = full list). Round shape -> round grid; every other (fancy) shape ->
-    fancy grid.
+    fancy grid. ``discount_pct`` (0..100), when given, replaces the per-cell
+    discount (Center Stones price from the raw list with their own size bands).
     """
     sheet = 'round' if shape == 'Round' else 'fancy'
     bucket, grouped = rap_bucket_for_carat(carat)
@@ -685,7 +689,10 @@ def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str
         return None
     if cell <= 0:
         return None
-    disc_cell = (_rap_disc_grid(env, sheet).get(bucket) or {}).get(row, {}).get(col)
+    disc_cell = (
+        discount_pct if discount_pct is not None
+        else (_rap_disc_grid(env, sheet).get(bucket) or {}).get(row, {}).get(col)
+    )
     try:
         disc = max(0.0, min(100.0, float(disc_cell)))
     except (TypeError, ValueError):
@@ -697,12 +704,37 @@ def rap_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str
     return float(price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
 
-def get_stone_price_usd(env, shape: str, carat: float, colour: str, clarity: str) -> float:
+# Center Stone (loose diamond) discount off the RAW Rap list, by per-stone carat
+# (owner decision 2026-11-15). Bands are (from_carat_inclusive, discount %),
+# checked from the largest down: 0.25-0.29 ct -10 %, 0.30-1.99 ct -20 %,
+# 2.00 ct and up -40 %. The Rap editor's per-cell discounts do NOT apply to
+# center stones; they keep pricing diamond jewellery.
+CENTER_STONE_RAP_DISCOUNT_BANDS = ((2.0, 40.0), (0.30, 20.0), (RAP_MIN_CARAT, 10.0))
+# POS floor for a Center Stone: the cashier may go down to 50 % of the price
+# without a manager override (diamond jewellery keeps diamond_min_sale_pct).
+CENTER_STONE_MIN_SALE_PCT = 0.5
+
+
+def center_stone_rap_discount_pct(carat: float) -> float | None:
+    """Discount % off the raw Rap list for a center stone of ``carat`` per stone,
+    or None below the Rap grid (< 0.25 ct, priced by the tiers)."""
+    for lo, pct in CENTER_STONE_RAP_DISCOUNT_BANDS:
+        if carat >= lo:
+            return pct
+    return None
+
+
+def get_stone_price_usd(
+    env, shape: str, carat: float, colour: str, clarity: str, center_stone: bool = False,
+) -> float:
     """Per-stone (one unit) USD. Routes: < 0.25 ct -> 5 tiers; >= 0.25 ct -> Rap
-    grid, falling back to the tier price when the grid has no cell (never zero)."""
+    grid, falling back to the tier price when the grid has no cell (never zero).
+    For a Center Stone the Rap price is the raw list less its size band
+    (``center_stone_rap_discount_pct``), not the editor's per-cell discount."""
     if carat < RAP_MIN_CARAT:
         return get_stone_tier_price(env, carat)
-    rap = rap_stone_price_usd(env, shape, carat, colour, clarity)
+    band = center_stone_rap_discount_pct(carat) if center_stone else None
+    rap = rap_stone_price_usd(env, shape, carat, colour, clarity, discount_pct=band)
     if rap is not None:
         return rap
     return get_stone_tier_price(env, carat)

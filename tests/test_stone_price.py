@@ -9,6 +9,8 @@ import sys
 
 try:
     from jewellery_evaluator_utils import (
+        CENTER_STONE_MIN_SALE_PCT,
+        center_stone_rap_discount_pct,
         get_stone_price_usd,
         get_stone_tier_price,
         rap_bucket_for_carat,
@@ -25,6 +27,8 @@ except ImportError:
     utils = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(utils)
     get_stone_price_usd = utils.get_stone_price_usd
+    center_stone_rap_discount_pct = utils.center_stone_rap_discount_pct
+    CENTER_STONE_MIN_SALE_PCT = utils.CENTER_STONE_MIN_SALE_PCT
     get_stone_tier_price = utils.get_stone_tier_price
     rap_bucket_for_carat = utils.rap_bucket_for_carat
     rap_keys = utils.rap_keys
@@ -150,3 +154,41 @@ class TestRouter:
         # K/SI2 not in the test grid -> tier price for 1.20 ct
         assert get_stone_price_usd(_env, "Round", 1.20, "K", "SI2") == \
             get_stone_tier_price(_env, 1.20)
+
+
+class TestCenterStone:
+    """Center Stones: raw Rap list less a size band, never the per-cell discount."""
+
+    def test_bands(self):
+        assert center_stone_rap_discount_pct(0.24) is None    # tiers below the grid
+        assert center_stone_rap_discount_pct(0.25) == 10.0
+        assert center_stone_rap_discount_pct(0.29) == 10.0
+        assert center_stone_rap_discount_pct(0.30) == 20.0
+        assert center_stone_rap_discount_pct(1.99) == 20.0
+        assert center_stone_rap_discount_pct(2.00) == 40.0
+        assert center_stone_rap_discount_pct(5.00) == 40.0
+
+    def test_025_029_is_list_less_10(self):
+        # 0.25 ct G VS1 -> grouped cell 10.8 x100 x0.25 = 270 list -> 243
+        assert get_stone_price_usd(_env, "Round", 0.25, "G", "VS1", center_stone=True) == 243.0
+
+    def test_030_199_is_list_less_20(self):
+        # 1.20 ct G VS1 list 6480 -> 5184
+        assert get_stone_price_usd(_env, "Round", 1.20, "G", "VS1", center_stone=True) == 5184.0
+
+    def test_ignores_per_cell_discount(self):
+        # F/VS1 carries a 25 % per-cell discount for jewellery (5670); a center stone
+        # uses the RAW list 7560 less its 20 % band = 6048.
+        assert get_stone_price_usd(_env, "Round", 1.20, "F", "VS1") == 5670.0
+        assert get_stone_price_usd(_env, "Round", 1.20, "F", "VS1", center_stone=True) == 6048.0
+
+    def test_2ct_and_up_is_list_less_40(self):
+        # 2.5 ct N P3 -> M/I3 cell 15 x100 x2.5 = 3750 -> 2250
+        assert get_stone_price_usd(_env, "Round", 2.50, "N", "P3", center_stone=True) == 2250.0
+
+    def test_below_025_keeps_tiers(self):
+        assert get_stone_price_usd(_env, "Round", 0.20, "G", "VS1", center_stone=True) == \
+            get_stone_tier_price(_env, 0.20)
+
+    def test_floor_is_half(self):
+        assert CENTER_STONE_MIN_SALE_PCT == 0.5

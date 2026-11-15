@@ -155,7 +155,7 @@ class JewelleryStone(models.Model):
                     f'Quantity must be at least 1 (got {stone.quantity}).'
                 )
 
-    @api.depends('carat', 'quantity', 'shape', 'color', 'clarity')
+    @api.depends('carat', 'quantity', 'shape', 'color', 'clarity', 'product_tmpl_id.jewellery_type')
     def _compute_unit_price_usd(self):
         # < 0.25 ct -> 5 carat tiers; >= 0.25 ct -> Rapaport grid (Round/Pear),
         # falling back to the tier price when the grid has no matching cell.
@@ -163,8 +163,10 @@ class JewelleryStone(models.Model):
         # edit is propagated by the editor's save (which recomputes stones) and,
         # for prices, by the diamond cron.
         for stone in self:
+            # A Center Stone prices from the raw Rap list less its size band.
             price = get_stone_price_usd(
-                self.env, stone.shape, stone.carat, stone.color, stone.clarity
+                self.env, stone.shape, stone.carat, stone.color, stone.clarity,
+                center_stone=stone.product_tmpl_id.jewellery_type == 'center_stone',
             )
             stone.unit_price_usd = price
             stone.total_price_usd = price * stone.quantity
