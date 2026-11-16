@@ -10,6 +10,7 @@ from odoo import api, fields, models
 
 from ..website_utils import (
     NEW_ARRIVAL_DAYS,
+    OFF_SHOP_WAREHOUSE_CODES,
     PUBLIC_TREE,
     is_banned_online,
     public_category_keys,
@@ -126,8 +127,11 @@ class ProductTemplate(models.Model):
         # Free stock, not on-hand: a piece reserved by a confirmed web order (or
         # an inter-branch transfer) is already spoken for and must leave the shop.
         free = defaultdict(float)
+        off_shop = self.env['stock.warehouse'].sudo().with_context(active_test=False).search(
+            [('code', 'in', OFF_SHOP_WAREHOUSE_CODES)])
         for product, qty, reserved in self.env['stock.quant'].sudo()._read_group(
             [('location_id.usage', '=', 'internal'),
+             ('location_id.warehouse_id', 'not in', off_shop.ids),
              ('product_id.product_tmpl_id', 'in', templates.ids)],
             ['product_id'], ['quantity:sum', 'reserved_quantity:sum'],
         ):

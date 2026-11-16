@@ -66,6 +66,10 @@ _NOT_IN_COLLECTIONS = {'loose_diamonds'}
 # Bullion (bars, ingots, coins) may not be sold online, for legal reasons
 # (owner, 2026-10-06): never mapped, never published, whatever the category.
 BANNED_JEWELLERY_TYPES = {'gold_bars'}
+
+# Warehouses whose stock the shop never sells: On Memo (برانية) pieces are with
+# another trader on approval, so they cannot be shipped or collected.
+OFF_SHOP_WAREHOUSE_CODES = ('OM',)
 _BANNED_WORDS = ('bar', 'ingot', 'coin', 'bullion')
 
 
