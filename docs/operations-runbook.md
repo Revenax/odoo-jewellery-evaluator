@@ -310,6 +310,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Center Stone pricing: raw Rap less 10/20/40 % by size, 50 % cashier floor (2026-11-15) | b9d0ee5; 62 DS repriced 6,504,150 -> 4,877,050 EGP (-25 %); DS-0042 1,812,250 -> 1,087,350; cost follows (owner chose), nightly close books the drop to 500102 |
 | Center Stone cashier limit 30 % (floor 70 %) instead of 50 % (2026-11-15) | constant CENTER_STONE_MIN_SALE_PCT 0.7; all 62 floors rewritten (DS-0042 floor 761,145) |
 | Correction (same evening): Sway had already rung GDF8-0003 again as Sway Mall-000224 / MJ-1619 for نهال توفيق (13,500 InstaPay). Owner: InstaPay received was 108,400 (ريهام) + 13,500 (نهال) | GDF8-0003 removed from order 000031 (now 108,400 InstaPay, matches MJ-1617), its first delivery undone (on hand 0, sold once), MJ-1618 cancelled (cannot be deleted, MJ-1619 follows it) |
+| POS Transfer helper (2026-11-16): send/receive with owners (OW/*), branches, On Memo (name required); scan with photo; confirm weights | Odoo 46e3a46, ops 7c15cfa (`/api/odoo/warehouse`); record = picking tab "Register Transfer" + chatter table; tested end to end on a restored copy (SM/INT/00022 there, not on prod) |
 
 ## 6. Open items
 
