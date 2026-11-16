@@ -1,0 +1,247 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+//
+// The register helpers' one look (Marjaan: navy ink, cream surfaces, gold
+// accent). Every helper window and the burger-menu block use these classes.
+// Scoped under .o_mjh / .o_mjh_menu_* so nothing leaks into the POS.
+// No Sass min()/max() with mixed units (breaks Odoo's libsass, see CLAUDE.md).
+
+$mjh-navy: #0f1138;
+$mjh-navy-2: #1c2260;
+$mjh-cream: #fff4ee;
+$mjh-cream-2: #fef0e8;
+$mjh-gold: #c8860a;
+$mjh-gold-2: #e8a200;
+$mjh-gold-3: #f5c842;
+$mjh-text-2: #4a4f7a;
+$mjh-muted: #8890b8;
+$mjh-line: rgba(15, 17, 56, 0.12);
+$mjh-danger: #b42335;
+$mjh-success: #1d7a4a;
+
+// ── Burger menu block ───────────────────────────────────────────────────────
+.o_mjh_menu_section {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.55rem 0.75rem 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $mjh-muted;
+
+    .o_mjh_ar { text-transform: none; letter-spacing: 0; font-size: 0.78rem; }
+}
+
+.o_mjh_menu_item {
+    display: flex !important;
+    align-items: center;
+    gap: 0.6rem;
+
+    .o_mjh_menu_icon { color: $mjh-gold; width: 1.2rem; text-align: center; }
+    .o_mjh_menu_label { flex: 1 1 auto; }
+    .o_mjh_ar { color: $mjh-muted; font-size: 0.85em; }
+}
+
+.o_mjh_menu_rule {
+    border-top: 1px solid $mjh-line;
+    margin: 0.4rem 0.5rem;
+}
+
+// ── The window ──────────────────────────────────────────────────────────────
+.o_mjh {
+    overflow: hidden;
+    border: 0;
+    border-radius: 14px;
+    background: #fff;
+    color: $mjh-navy;
+
+    .o_mjh_head {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.85rem 1rem;
+        background: $mjh-navy;
+        color: #fff;
+    }
+
+    .o_mjh_icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.3rem;
+        height: 2.3rem;
+        flex: 0 0 2.3rem;
+        border-radius: 10px;
+        background: rgba(245, 200, 66, 0.16);
+        color: $mjh-gold-3;
+        font-size: 1.05rem;
+    }
+
+    .o_mjh_titles {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        min-width: 0;
+    }
+    .o_mjh_title { font-size: 1.05rem; font-weight: 700; }
+    .o_mjh_title_ar { font-size: 1.05rem; font-weight: 600; color: $mjh-gold-3; }
+
+    .o_mjh_close {
+        border: 0;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 1.1rem;
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: 8px;
+        &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    }
+
+    .o_mjh_toolbar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        padding: 0.7rem 1rem;
+        background: $mjh-cream;
+        border-bottom: 1px solid $mjh-line;
+    }
+
+    .o_mjh_body {
+        padding: 1rem;
+        overflow: auto;
+    }
+    &.o_mjh_xl .o_mjh_body { max-height: calc(100vh - 16rem); }
+
+    .o_mjh_state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 2.5rem 1rem;
+        color: $mjh-muted;
+        text-align: center;
+        .fa { font-size: 1.6rem; }
+    }
+    .o_mjh_state_error { color: $mjh-danger; }
+
+    .o_mjh_foot {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.6rem;
+        padding: 0.75rem 1rem;
+        border-top: 1px solid $mjh-line;
+        background: #fff;
+    }
+    .o_mjh_foot_note { margin-inline-end: auto; color: $mjh-muted; font-size: 0.82rem; }
+}
+
+// ── Building blocks ─────────────────────────────────────────────────────────
+.o_mjh {
+    .o_mjh_btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        min-height: 2.6rem;
+        padding: 0 1.1rem;
+        border-radius: 10px;
+        border: 1px solid $mjh-line;
+        background: #fff;
+        color: $mjh-navy;
+        font-weight: 600;
+        &:hover { background: $mjh-cream; }
+        &:disabled { opacity: 0.55; }
+    }
+    .o_mjh_btn_primary {
+        background: $mjh-navy;
+        border-color: $mjh-navy;
+        color: #fff;
+        &:hover { background: $mjh-navy-2; }
+    }
+    .o_mjh_btn_icon { min-width: 2.6rem; padding: 0; }
+
+    // Two or more mutually exclusive options (direction, sheet, scope).
+    .o_mjh_segment {
+        display: inline-flex;
+        padding: 4px;
+        gap: 4px;
+        border-radius: 12px;
+        background: $mjh-cream-2;
+        border: 1px solid $mjh-line;
+
+        button {
+            border: 0;
+            background: transparent;
+            border-radius: 9px;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            color: $mjh-text-2;
+            white-space: nowrap;
+            &.active {
+                background: $mjh-navy;
+                color: #fff;
+            }
+        }
+    }
+    .o_mjh_segment_block { display: flex; width: 100%; button { flex: 1 1 0; } }
+
+    .o_mjh_field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin-bottom: 0.85rem;
+
+        > label {
+            margin: 0;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: $mjh-text-2;
+        }
+        .o_mjh_hint { font-weight: 400; color: $mjh-muted; }
+
+        input, select {
+            min-height: 2.7rem;
+            padding: 0.45rem 0.75rem;
+            border: 1px solid $mjh-line;
+            border-radius: 10px;
+            background: #fff;
+            color: $mjh-navy;
+            font-size: 1rem;
+            font-variant-numeric: tabular-nums;
+            &:focus {
+                outline: 0;
+                border-color: $mjh-gold-2;
+                box-shadow: 0 0 0 3px rgba(232, 162, 0, 0.18);
+            }
+            &[readonly] { background: $mjh-cream; color: $mjh-text-2; }
+        }
+    }
+    .o_mjh_inline { flex-direction: row; align-items: center; margin-bottom: 0; }
+    .o_mjh_row { display: flex; gap: 0.75rem; > * { flex: 1 1 0; } }
+
+    .o_mjh_note {
+        padding: 0.7rem 0.85rem;
+        border-radius: 10px;
+        background: $mjh-cream;
+        border-inline-start: 4px solid $mjh-gold-2;
+        color: $mjh-navy;
+        font-size: 0.92rem;
+    }
+    .o_mjh_error {
+        margin-top: 0.7rem;
+        padding: 0.6rem 0.85rem;
+        border-radius: 10px;
+        background: rgba(180, 35, 53, 0.08);
+        color: $mjh-danger;
+        font-size: 0.9rem;
+    }
+    .o_mjh_spacer { flex: 1 1 auto; }
+}

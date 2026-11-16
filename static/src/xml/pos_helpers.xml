@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Shared base for the register's helpers: the window (HelperDialog) and the
+    burger-menu block that lists every registered helper by section.
+    Logic: pos_helpers.js. Styling: pos_helpers.scss.
+-->
+<templates xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.HelperDialog">
+        <Dialog size="props.size" header="false" footer="false" withBodyPadding="false"
+                contentClass="'o_mjh o_mjh_' + props.size">
+            <div class="o_mjh_head">
+                <span class="o_mjh_icon"><i t-attf-class="fa {{ props.icon }}"/></span>
+                <div class="o_mjh_titles">
+                    <span class="o_mjh_title" t-esc="props.title"/>
+                    <span t-if="props.titleAr" class="o_mjh_title_ar" dir="rtl" t-esc="props.titleAr"/>
+                </div>
+                <button type="button" class="o_mjh_close" aria-label="Close" t-on-click="() => this.props.close()">
+                    <i class="fa fa-times"/>
+                </button>
+            </div>
+            <div t-if="props.slots and props.slots.toolbar" class="o_mjh_toolbar">
+                <t t-slot="toolbar"/>
+            </div>
+            <div class="o_mjh_body">
+                <div t-if="props.status !== 'ready'" t-attf-class="o_mjh_state o_mjh_state_{{ props.status }}">
+                    <i t-if="props.status === 'loading'" class="fa fa-circle-o-notch fa-spin"/>
+                    <i t-elif="props.status === 'error'" class="fa fa-exclamation-triangle"/>
+                    <i t-else="" class="fa fa-inbox"/>
+                    <span t-esc="statusText"/>
+                </div>
+                <t t-else="" t-slot="default"/>
+            </div>
+            <div t-if="props.slots and props.slots.footer" class="o_mjh_foot">
+                <t t-slot="footer"/>
+            </div>
+        </Dialog>
+    </t>
+
+    <t t-inherit="point_of_sale.Navbar" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[@onSelected=&quot;() =&gt; this.pos.cashMove()&quot;]" position="after">
+            <t t-foreach="jewelleryHelperSections" t-as="section" t-key="section.id">
+                <div class="o_mjh_menu_section">
+                    <span t-esc="section.label"/>
+                    <span class="o_mjh_ar" dir="rtl" t-esc="section.labelAr"/>
+                </div>
+                <t t-foreach="section.items" t-as="helper" t-key="helper.id">
+                    <DropdownItem class="'o_mjh_menu_item'" onSelected="() => this.runJewelleryHelper(helper)">
+                        <i t-attf-class="fa fa-fw {{ helper.icon }} o_mjh_menu_icon"/>
+                        <span class="o_mjh_menu_label" t-esc="helper.label"/>
+                        <span class="o_mjh_ar" dir="rtl" t-esc="helper.labelAr"/>
+                    </DropdownItem>
+                </t>
+            </t>
+            <div class="o_mjh_menu_rule"/>
+        </xpath>
+        <!-- Odoo's own Cash In/Out now lives in the Cash section above. -->
+        <xpath expr="//DropdownItem[@onSelected=&quot;() =&gt; this.pos.cashMove()&quot;]" position="attributes">
+            <attribute name="t-if">false</attribute>
+        </xpath>
+    </t>
+
+</templates>

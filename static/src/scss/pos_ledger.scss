@@ -2,120 +2,118 @@
 // Author: Mohamed A. Abdallah
 // Website: https://www.revenax.com
 //
-// اليومية — styled to read like the paper day book: ruled grid, boxed header,
-// tabular figures. Scoped under .o_pos_ledger so nothing leaks into the POS.
+// اليومية sheet inside the shared HelperDialog: reads like the paper day book
+// (ruled grid, boxed header, tabular figures) in the Marjaan palette. Scoped
+// under .o_pos_ledger; the window chrome comes from pos_helpers.scss.
+
+$pl-navy: #0f1138;
+$pl-cream: #fff4ee;
+$pl-paper: #fffaf6;
+$pl-rule: rgba(15, 17, 56, 0.22);
+$pl-muted: #8890b8;
+$pl-gold: #c8860a;
+$pl-red: #b42335;
+
+.o_mjh .o_pl_date {
+    min-height: 2.6rem;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid rgba(15, 17, 56, 0.12);
+    border-radius: 10px;
+    background: #fff;
+    color: $pl-navy;
+    font-variant-numeric: tabular-nums;
+}
 
 .o_pos_ledger {
     direction: rtl;
-    font-size: 0.9rem;
-
-    .o_pl_toolbar {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.75rem;
-        flex-wrap: wrap;
-
-        .o_pl_spacer { flex: 1 1 auto; }
-        .o_pl_date { width: auto; }
-    }
-
-    .o_pl_msg {
-        padding: 2rem;
-        text-align: center;
-        color: #6c757d;
-    }
+    font-size: 0.92rem;
+    color: $pl-navy;
 
     .o_pl_sheet {
-        background: #fffdf7;          // the book's cream paper
-        border: 1px solid #b9b19a;
-        padding: 0.75rem 1rem 1rem;
+        background: $pl-paper;
+        border: 1px solid $pl-rule;
+        border-radius: 10px;
+        padding: 0.9rem 1rem 1rem;
     }
 
     .o_pl_basmala {
         text-align: center;
         font-weight: 600;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.7rem;
     }
 
-    // Boxed header cells, as ruled on the page.
     .o_pl_head {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0;
-        border: 1.5px solid #000;
-        margin-bottom: 0.6rem;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border: 1.5px solid $pl-navy;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 0.7rem;
+        background: #fff;
 
         .o_pl_headbox {
-            flex: 1 1 0;
-            min-width: 140px;
-            padding: 0.3rem 0.6rem;
-            border-inline-start: 1px solid #000;
             display: flex;
-            align-items: baseline;
-            gap: 0.5rem;
-
+            flex-direction: column;
+            gap: 0.15rem;
+            padding: 0.45rem 0.7rem;
+            border-inline-start: 1px solid $pl-rule;
             &:first-child { border-inline-start: 0; }
         }
-
-        .o_pl_lbl { font-weight: 700; }
-        .o_pl_val { font-variant-numeric: tabular-nums; }
-        .o_pl_hint { color: #6c757d; }
-
-        // The pre-printed serial is red in the book.
-        .o_pl_serial .o_pl_val { color: #c1121f; font-weight: 700; }
+        .o_pl_lbl { font-size: 0.78rem; font-weight: 700; color: $pl-gold; }
+        .o_pl_val { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .o_pl_hint { font-size: 0.75rem; font-weight: 400; color: $pl-muted; margin-inline-start: 0.35rem; }
+        .o_pl_register { font-size: 0.9rem; }
     }
 
-    .o_pl_diff { margin-bottom: 0.5rem; font-weight: 700; }
-    .o_pl_bad { color: #b02a37; }
+    .o_pl_diff { margin-bottom: 0.6rem; font-weight: 700; color: $pl-red; }
 
     .o_pl_table {
         width: 100%;
+        table-layout: fixed;
         border-collapse: collapse;
         font-variant-numeric: tabular-nums;
+        background: #fff;
+
+        .o_pl_c_money { width: 9%; }
+        .o_pl_c_narrow { width: 5%; }
+        .o_pl_c_desc { width: 22%; }
+        .o_pl_c_src { width: 13%; }
+        .o_pl_c_notes { width: 29%; }
 
         th, td {
-            border: 1px solid #6f6a5c;
-            padding: 0.22rem 0.45rem;
+            border: 1px solid $pl-rule;
+            padding: 0.3rem 0.45rem;
             vertical-align: top;
+            overflow-wrap: break-word;
         }
-
         thead th {
-            background: #f3efe2;
+            background: $pl-navy;
+            color: #fff;
             font-weight: 700;
             text-align: center;
-            white-space: nowrap;
         }
+        tbody tr:nth-child(even) td { background: #fdf7f2; }
 
         .o_pl_num { text-align: center; white-space: nowrap; }
-        .o_pl_narrow { width: 4.5rem; }
-        .o_pl_out { color: #b02a37; }
-
-        .o_pl_desc { min-width: 14rem; }
-        .o_pl_notes { min-width: 10rem; color: #333; }
-
-        .o_pl_qty { color: #6c757d; margin-inline-start: 0.3rem; }
+        .o_pl_out { color: $pl-red; }
+        .o_pl_qty { color: $pl-muted; margin-inline-start: 0.3rem; }
         .o_pl_time {
-            color: #8a8577;
-            font-size: 0.78rem;
-            margin-inline-start: 0.4rem;
+            display: block;
+            color: $pl-muted;
+            font-size: 0.75rem;
             direction: ltr;
-            unicode-bidi: embed;
+            text-align: right;
         }
+        .o_pl_notes { color: #333; font-size: 0.85rem; }
+        .o_pl_empty { text-align: center; color: $pl-muted; padding: 1.8rem; }
 
-        .o_pl_empty {
-            text-align: center;
-            color: #8a8577;
-            padding: 1.5rem;
-        }
-
-        // Returns and cash-outs are written in red in the book.
-        .o_pl_row_return td, .o_pl_row_cash .o_pl_out { color: #b02a37; }
+        // Returns are written in red in the book.
+        .o_pl_row_return td { color: $pl-red; }
 
         .o_pl_totals td {
             font-weight: 700;
-            border-top: 2px solid #000;
-            background: #f8f5ea;
+            border-top: 2px solid $pl-navy;
+            background: $pl-cream;
         }
     }
 
@@ -123,23 +121,25 @@
         display: flex;
         justify-content: space-between;
         gap: 1rem;
-        margin-top: 0.5rem;
+        margin-top: 0.6rem;
         font-size: 0.8rem;
-        color: #6c757d;
+        color: $pl-muted;
     }
-
-    .o_pl_openbadge { color: #146c43; font-weight: 600; }
+    .o_pl_open { color: #1d7a4a; font-weight: 600; }
 }
 
-// Print: just the sheet, edge to edge, no chrome.
+// Print: only the sheet, edge to edge (print() adds the body class).
 @media print {
-    .o_pos_ledger .o_pl_toolbar { display: none !important; }
-
-    .o_pos_ledger .o_pl_sheet {
+    body.o_mjh_printing_ledger * { visibility: hidden; }
+    body.o_mjh_printing_ledger .o_pl_sheet,
+    body.o_mjh_printing_ledger .o_pl_sheet * { visibility: visible; }
+    body.o_mjh_printing_ledger .o_pl_sheet {
+        position: fixed;
+        inset: 0;
         border: 0;
+        border-radius: 0;
         padding: 0;
         background: #fff;
     }
-
-    .o_pos_ledger .o_pl_table { font-size: 11px; }
+    body.o_mjh_printing_ledger .o_pl_table { font-size: 11px; }
 }

@@ -88,6 +88,35 @@ class JewelleryLedger(models.AbstractModel):
             return tmpl.gross_jewellery_weight_g or 0.0
         return tmpl.jewellery_weight_g or 0.0
 
+    def _drawer_cash_at(self, session, when):
+        """Cash in one session's drawer at `when` (naive UTC).
+
+        Opening float + cash payments + Cash In/Out lines + the other Vault
+        movements the vault sync folds into the shift (buy-backs, owner
+        transfers, currency), each counted only if it happened before `when`.
+        Once the session is closed and `when` is past its close, the counted
+        cash is the truth.
+        """
+        session = session.sudo()
+        if session.state == 'closed' and session.stop_at and when >= session.stop_at:
+            return session.cash_register_balance_end_real
+        cash_methods = session.payment_method_ids.filtered('is_cash_count')
+        total = session.cash_register_balance_start
+        if cash_methods:
+            total += sum(self.env['pos.payment'].sudo().search([
+                ('session_id', '=', session.id),
+                ('payment_method_id', 'in', cash_methods.ids),
+                ('payment_date', '<', when),
+            ]).mapped('amount'))
+        total += sum(
+            line.amount for line in session.statement_line_ids if line.create_date < when
+        )
+        total += sum(
+            line.balance for line in session._vault_foreign_move_lines()
+            if line.move_id.create_date < when
+        )
+        return total
+
     @api.model
     def ledger_rows(self, date_str, config_id=None):
         """The day book as the shop keeps it on paper.
@@ -232,12 +261,19 @@ class JewelleryLedger(models.AbstractModel):
 
         rows.sort(key=lambda r: r['time'] or '')
 
-        opening = sum(s.cash_register_balance_start for s in sessions)
-        expected = sum(s.cash_register_balance_end for s in sessions)
-        counted = sum(
-            s.cash_register_balance_end_real for s in sessions if s.state == 'closed'
+        # The drawer at the start and end of THIS day. A session's own
+        # start/end totals are useless here: a shift left open for weeks would
+        # report its whole life as one day's closing.
+        now = fields.Datetime.now()
+        opening = sum(
+            self._drawer_cash_at(s, max(start, s.start_at)) for s in sessions
         )
-        closed_all = bool(sessions) and all(s.state == 'closed' for s in sessions)
+        expected = sum(
+            self._drawer_cash_at(s, min(end, s.stop_at or now, now)) for s in sessions
+        )
+        closed_today = [s for s in sessions if s.state == 'closed' and s.stop_at and s.stop_at < end]
+        counted = sum(s.cash_register_balance_end_real for s in closed_today)
+        closed_all = bool(sessions) and len(closed_today) == len(sessions)
         g_in, m_in = self._split_weight(weight_in)
         g_out, m_out = self._split_weight(weight_out)
         currency = self.env.company.currency_id
@@ -248,7 +284,7 @@ class JewelleryLedger(models.AbstractModel):
             # ASCII twin of day_name. The book stays Arabic; notifications must
             # not, so they read this instead. See utils.english_day_name.
             'day_name_en': english_day_name(day),
-            'serial': ' / '.join(str(s.id) for s in sessions) or '—',
+            'serial': ' / '.join(s.name for s in sessions) or '—',
             'registers': ', '.join(s.config_id.name for s in sessions) or '—',
             'currency': currency.symbol or currency.name,
             'opening': opening,

@@ -3,110 +3,110 @@
     Copyright 2026 Revenax Digital Services
     Author: Mohamed A. Abdallah
     Website: https://www.revenax.com
+
+    Currency + Transfer to Owner windows, on the shared HelperDialog
+    (pos_helpers.xml / pos_helpers.scss). Menu entries: pos_cash_ops.js.
 -->
 <templates id="template" xml:space="preserve">
 
     <t t-name="jewellery_evaluator.CurrencyConvertPopup">
-        <Dialog title="'Currency Conversion'" size="'sm'">
-            <div class="p-2">
-                <div class="btn-group w-100 mb-3" role="group">
-                    <button type="button" class="btn"
-                            t-att-class="state.direction === 'buy' ? 'btn-primary' : 'btn-outline-primary'"
-                            t-on-click="() => this.state.direction = 'buy'">Buy foreign</button>
-                    <button type="button" class="btn"
-                            t-att-class="state.direction === 'sell' ? 'btn-primary' : 'btn-outline-primary'"
-                            t-on-click="() => this.state.direction = 'sell'">Sell foreign</button>
-                </div>
-                <label class="fw-bold">Currency</label>
-                <select class="form-select mb-2" t-model="state.journalId">
-                    <t t-foreach="props.journals" t-as="j" t-key="j.id">
-                        <option t-att-value="j.id" t-esc="j.name"/>
-                    </t>
-                </select>
-                <label>
-                    EGP amount
-                    <span class="text-muted" t-if="state.direction === 'buy'"> (out of drawer)</span>
-                    <span class="text-muted" t-else=""> (into drawer)</span>
-                </label>
-                <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.amountEgp"/>
-                <label>
-                    <t t-esc="selectedCcy"/> amount
-                    <span class="text-muted" t-if="state.direction === 'buy'"> (into box)</span>
-                    <span class="text-muted" t-else=""> (out of box)</span>
-                </label>
-                <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.toAmount"/>
-                <label>Rate</label>
-                <input type="text" class="form-control mb-2" readonly="readonly" t-att-value="rateText" placeholder="—"/>
-                <p t-if="summary" class="alert alert-info py-2 mb-0" t-esc="summary"/>
-                <p t-if="state.error" class="text-danger mt-2 mb-0" t-esc="state.error"/>
+        <HelperDialog title.translate="Currency" titleAr="'تحويل عملة'" icon="'fa-exchange'" close="props.close">
+            <div class="o_mjh_segment o_mjh_segment_block mb-3">
+                <button type="button" t-att-class="{ active: state.direction === 'buy' }"
+                        t-on-click="() => this.state.direction = 'buy'">Buy foreign</button>
+                <button type="button" t-att-class="{ active: state.direction === 'sell' }"
+                        t-on-click="() => this.state.direction = 'sell'">Sell foreign</button>
             </div>
+            <div t-on-input="() => this.state.error = ''" t-on-change="() => this.state.error = ''">
+                <div class="o_mjh_field">
+                    <label>Currency box</label>
+                    <select t-model="state.journalId">
+                        <t t-foreach="props.journals" t-as="j" t-key="j.id">
+                            <option t-att-value="j.id" t-esc="j.name"/>
+                        </t>
+                    </select>
+                </div>
+                <div class="o_mjh_row">
+                    <div class="o_mjh_field">
+                        <label>EGP <span class="o_mjh_hint" t-if="state.direction === 'buy'">out of drawer</span><span class="o_mjh_hint" t-else="">into drawer</span></label>
+                        <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.amountEgp"/>
+                    </div>
+                    <div class="o_mjh_field">
+                        <label><t t-esc="selectedCcy"/> <span class="o_mjh_hint" t-if="state.direction === 'buy'">into box</span><span class="o_mjh_hint" t-else="">out of box</span></label>
+                        <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.toAmount"/>
+                    </div>
+                </div>
+                <div class="o_mjh_field">
+                    <label>Rate</label>
+                    <input type="text" readonly="readonly" t-att-value="rateText" placeholder="—"/>
+                </div>
+            </div>
+            <div t-if="summary" class="o_mjh_note" t-esc="summary"/>
+            <div t-if="state.error" class="o_mjh_error" t-esc="state.error"/>
             <t t-set-slot="footer">
-                <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
-                    <t t-if="state.busy">Working…</t>
+                <button class="o_mjh_btn" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
+                <button class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
+                    <i t-if="state.busy" class="fa fa-circle-o-notch fa-spin"/>
+                    <t t-if="state.busy">Saving…</t>
                     <t t-else="">Confirm</t>
                 </button>
-                <button class="btn btn-secondary" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
             </t>
-        </Dialog>
+        </HelperDialog>
     </t>
 
     <t t-name="jewellery_evaluator.OwnerTransferPopup">
-        <Dialog title="'Transfer to Owner'" size="'sm'">
-            <div class="p-2">
-                <div class="btn-group w-100 mb-3" role="group">
-                    <button type="button" class="btn"
-                            t-att-class="state.direction === 'out' ? 'btn-primary' : 'btn-outline-primary'"
-                            t-on-click="() => this.state.direction = 'out'">Owner takes out</button>
-                    <button type="button" class="btn"
-                            t-att-class="state.direction === 'in' ? 'btn-primary' : 'btn-outline-primary'"
-                            t-on-click="() => this.state.direction = 'in'">Owner deposits in</button>
-                </div>
-                <label class="fw-bold">Owner</label>
-                <select class="form-select mb-2" t-model="state.ownerId">
-                    <t t-foreach="props.owners" t-as="o" t-key="o.id">
-                        <option t-att-value="o.id" t-esc="o.name"/>
-                    </t>
-                </select>
-                <label class="fw-bold">Box</label>
-                <select class="form-select mb-2" t-model="state.boxId">
-                    <t t-foreach="props.boxes" t-as="b" t-key="b.id">
-                        <option t-att-value="b.id" t-esc="b.name"/>
-                    </t>
-                </select>
-                <label>
-                    Amount
-                    <t t-if="isForeign"> (<t t-esc="ccy"/>)</t>
-                    <t t-else=""> (EGP)</t>
-                </label>
-                <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.amount"/>
-                <t t-if="isForeign">
-                    <label>EGP value</label>
-                    <input type="number" step="0.01" min="0" class="form-control mb-2" t-model="state.amountEgp"/>
-                    <label>Rate</label>
-                    <input type="text" class="form-control mb-2" readonly="readonly" t-att-value="rateText" placeholder="—"/>
-                </t>
-                <p t-if="summary" class="alert alert-info py-2 mb-0" t-esc="summary"/>
-                <p t-if="state.error" class="text-danger mt-2 mb-0" t-esc="state.error"/>
+        <HelperDialog title.translate="Transfer to Owner" titleAr="'تحويل للمالك'" icon="'fa-user-circle-o'" close="props.close">
+            <div class="o_mjh_segment o_mjh_segment_block mb-3">
+                <button type="button" t-att-class="{ active: state.direction === 'out' }"
+                        t-on-click="() => this.state.direction = 'out'">Owner takes out</button>
+                <button type="button" t-att-class="{ active: state.direction === 'in' }"
+                        t-on-click="() => this.state.direction = 'in'">Owner puts in</button>
             </div>
+            <div t-on-input="() => this.state.error = ''" t-on-change="() => this.state.error = ''">
+                <div class="o_mjh_row">
+                    <div class="o_mjh_field">
+                        <label>Owner</label>
+                        <select t-model="state.ownerId">
+                            <t t-foreach="props.owners" t-as="o" t-key="o.id">
+                                <option t-att-value="o.id" t-esc="o.name"/>
+                            </t>
+                        </select>
+                    </div>
+                    <div class="o_mjh_field">
+                        <label>Box</label>
+                        <select t-model="state.boxId">
+                            <t t-foreach="props.boxes" t-as="b" t-key="b.id">
+                                <option t-att-value="b.id" t-esc="b.name"/>
+                            </t>
+                        </select>
+                    </div>
+                </div>
+                <div class="o_mjh_field">
+                    <label>Amount <span class="o_mjh_hint" t-esc="ccy"/></label>
+                    <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.amount"/>
+                </div>
+                <div t-if="isForeign" class="o_mjh_row">
+                    <div class="o_mjh_field">
+                        <label>EGP value</label>
+                        <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.amountEgp"/>
+                    </div>
+                    <div class="o_mjh_field">
+                        <label>Rate</label>
+                        <input type="text" readonly="readonly" t-att-value="rateText" placeholder="—"/>
+                    </div>
+                </div>
+            </div>
+            <div t-if="summary" class="o_mjh_note" t-esc="summary"/>
+            <div t-if="state.error" class="o_mjh_error" t-esc="state.error"/>
             <t t-set-slot="footer">
-                <button class="btn btn-primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
-                    <t t-if="state.busy">Working…</t>
+                <button class="o_mjh_btn" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
+                <button class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="state.busy" t-on-click="() => this.confirm()">
+                    <i t-if="state.busy" class="fa fa-circle-o-notch fa-spin"/>
+                    <t t-if="state.busy">Saving…</t>
                     <t t-else="">Confirm</t>
                 </button>
-                <button class="btn btn-secondary" t-att-disabled="state.busy" t-on-click="() => this.props.close()">Cancel</button>
             </t>
-        </Dialog>
-    </t>
-
-    <t t-inherit="point_of_sale.Navbar" t-inherit-mode="extension">
-        <xpath expr="//DropdownItem[@onSelected=&quot;() =&gt; this.pos.cashMove()&quot;]" position="after">
-            <DropdownItem t-if="showCashMoveButton" onSelected="() => this.onClickCurrency()">
-                Currency
-            </DropdownItem>
-            <DropdownItem t-if="showCashMoveButton" onSelected="() => this.onClickOwnerTransfer()">
-                Transfer to Owner
-            </DropdownItem>
-        </xpath>
+        </HelperDialog>
     </t>
 
 </templates>

@@ -56,11 +56,13 @@
     'assets': {
         'point_of_sale._assets_pos': [
             'jewellery_evaluator/static/src/scss/orderline_below_min.scss',
+            'jewellery_evaluator/static/src/scss/pos_helpers.scss',
             'jewellery_evaluator/static/src/scss/pos_rap_viewer.scss',
             'jewellery_evaluator/static/src/scss/pos_ledger.scss',
             'jewellery_evaluator/static/src/scss/pos_saver_logo.scss',
             'jewellery_evaluator/static/src/scss/pos_price_board.scss',
             'jewellery_evaluator/static/src/js/pos_discount_override.js',
+            'jewellery_evaluator/static/src/js/pos_helpers.js',
             'jewellery_evaluator/static/src/js/pos_cash_ops.js',
             'jewellery_evaluator/static/src/js/pos_gift_invoice.js',
             'jewellery_evaluator/static/src/js/pos_rap_viewer.js',
@@ -69,6 +71,7 @@
             'jewellery_evaluator/static/src/js/pos_price_board.js',
             'jewellery_evaluator/static/src/xml/manager_override_popup.xml',
             'jewellery_evaluator/static/src/xml/orderline_below_min.xml',
+            'jewellery_evaluator/static/src/xml/pos_helpers.xml',
             'jewellery_evaluator/static/src/xml/pos_cash_ops.xml',
             'jewellery_evaluator/static/src/xml/pos_gift_invoice.xml',
             'jewellery_evaluator/static/src/xml/pos_product_info.xml',
