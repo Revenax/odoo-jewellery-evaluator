@@ -4,14 +4,14 @@
     Author: Mohamed A. Abdallah
     Website: https://www.revenax.com
 
-    اليومية — the paper day book, in the register, on the shared HelperDialog.
-    RTL, columns in the book's own order (right to left): وارد | منصرف | مللي |
-    جرام | فئة | بيان | مصدر | ملاحظات. Styling: pos_ledger.scss.
+    Daily Ledger in the register, on the shared HelperDialog. English, left to
+    right: Description | Source | Karat | Weight | In | Out | Notes.
+    Styling: pos_ledger.scss.
 -->
 <templates xml:space="preserve">
 
     <t t-name="jewellery_evaluator.LedgerPopup">
-        <HelperDialog title.translate="Daily Ledger" titleAr="'اليومية'" icon="'fa-book'" size="'xl'"
+        <HelperDialog title.translate="Daily Ledger" icon="'fa-book'" size="'xl'"
                       status="state.status" close="props.close">
             <t t-set-slot="toolbar">
                 <button type="button" class="o_mjh_btn o_mjh_btn_icon" title="Previous day"
@@ -21,7 +21,7 @@
                 <button type="button" class="o_mjh_btn o_mjh_btn_icon" title="Next day"
                         t-on-click="() => this.shiftDay(1)"><i class="fa fa-chevron-right"/></button>
                 <button type="button" class="o_mjh_btn" t-att-disabled="isToday"
-                        t-on-click="() => this.goToday()">Today · اليوم</button>
+                        t-on-click="() => this.goToday()">Today</button>
                 <span class="o_mjh_spacer"/>
                 <div class="o_mjh_segment">
                     <button type="button" t-att-class="{ active: state.thisRegisterOnly }"
@@ -33,97 +33,92 @@
                         t-on-click="() => this.print()"><i class="fa fa-print"/> Print</button>
             </t>
 
-            <div class="o_pos_ledger" dir="rtl" t-if="state.data">
+            <div class="o_pos_ledger" t-if="state.data">
                 <div class="o_pl_sheet">
-                    <div class="o_pl_basmala">بسم الله الرحمن الرحيم وبه نستعين توكلت على الله</div>
-
                     <div class="o_pl_head">
                         <div class="o_pl_headbox">
-                            <span class="o_pl_lbl">التاريخ</span>
-                            <span class="o_pl_val"><t t-esc="state.data.day_name"/> <t t-esc="state.data.date"/></span>
+                            <span class="o_pl_lbl">Date</span>
+                            <span class="o_pl_val"><t t-esc="state.data.day_name_en"/> <t t-esc="state.data.date"/></span>
                         </div>
                         <div class="o_pl_headbox">
-                            <span class="o_pl_lbl">إفتتاح</span>
+                            <span class="o_pl_lbl">Opening cash</span>
                             <span class="o_pl_val" t-esc="fmt(state.data.opening) or '0'"/>
                         </div>
                         <div class="o_pl_headbox">
-                            <span class="o_pl_lbl">إقفال</span>
+                            <span class="o_pl_lbl">Closing cash</span>
                             <span class="o_pl_val">
                                 <t t-if="state.data.counted_close === false">
                                     <t t-esc="fmt(state.data.expected_close) or '0'"/>
-                                    <small class="o_pl_hint">متوقع</small>
+                                    <small class="o_pl_hint">expected</small>
                                 </t>
                                 <t t-else="" t-esc="fmt(state.data.counted_close) or '0'"/>
                             </span>
                         </div>
                         <div class="o_pl_headbox">
-                            <span class="o_pl_lbl">الخزنة</span>
-                            <span class="o_pl_val o_pl_register" dir="ltr" t-esc="state.data.serial"/>
+                            <span class="o_pl_lbl">Register</span>
+                            <span class="o_pl_val o_pl_register" t-esc="state.data.serial"/>
                         </div>
                     </div>
 
                     <div t-if="state.data.difference" class="o_pl_diff">
-                        فرق الإقفال: <t t-esc="fmt(state.data.difference)"/>
+                        Closing difference: <t t-esc="fmt(state.data.difference)"/>
                     </div>
 
                     <table class="o_pl_table">
                         <colgroup>
-                            <col class="o_pl_c_money"/><col class="o_pl_c_money"/>
-                            <col class="o_pl_c_narrow"/><col class="o_pl_c_narrow"/><col class="o_pl_c_narrow"/>
-                            <col class="o_pl_c_desc"/><col class="o_pl_c_src"/><col class="o_pl_c_notes"/>
+                            <col class="o_pl_c_desc"/><col class="o_pl_c_src"/><col class="o_pl_c_narrow"/>
+                            <col class="o_pl_c_weight"/><col class="o_pl_c_money"/><col class="o_pl_c_money"/>
+                            <col class="o_pl_c_notes"/>
                         </colgroup>
                         <thead>
                             <tr>
-                                <th>وارد</th>
-                                <th>منصرف</th>
-                                <th>مللي</th>
-                                <th>جرام</th>
-                                <th>فئة</th>
-                                <th>بيان</th>
-                                <th>مصدر</th>
-                                <th>ملاحظات</th>
+                                <th>Description</th>
+                                <th>Source</th>
+                                <th>Karat</th>
+                                <th>Weight (g)</th>
+                                <th>In</th>
+                                <th>Out</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr t-foreach="state.data.rows" t-as="r" t-key="r_index" t-attf-class="o_pl_row_{{ r.kind }}">
-                                <td class="o_pl_num o_pl_in" t-esc="fmt(r.in)"/>
-                                <td class="o_pl_num o_pl_out" t-esc="fmt(r.out)"/>
-                                <td class="o_pl_num" t-esc="fmtCell(r.milli)"/>
-                                <td class="o_pl_num" t-esc="fmtCell(r.grams)"/>
-                                <td class="o_pl_num" t-esc="r.karat"/>
                                 <td class="o_pl_desc">
-                                    <span dir="ltr" t-esc="r.desc"/>
+                                    <span t-esc="r.desc"/>
                                     <span t-if="r.qty and r.qty != 1" class="o_pl_qty">×<t t-esc="r.qty"/></span>
                                     <span t-if="r.time" class="o_pl_time" t-esc="r.time"/>
                                 </td>
-                                <td t-esc="r.source"/>
+                                <td t-esc="sourceLabel(r)"/>
+                                <td class="o_pl_num" t-esc="r.karat"/>
+                                <td class="o_pl_num" t-esc="weight(r.grams, r.milli)"/>
+                                <td class="o_pl_num o_pl_in" t-esc="fmt(r.in)"/>
+                                <td class="o_pl_num o_pl_out" t-esc="fmt(r.out)"/>
                                 <td class="o_pl_notes" t-esc="r.notes"/>
                             </tr>
                             <tr t-if="!state.data.rows.length">
-                                <td colspan="8" class="o_pl_empty">لا توجد حركات في هذا اليوم</td>
+                                <td colspan="7" class="o_pl_empty">No movements on this day</td>
                             </tr>
                         </tbody>
                         <tfoot>
                             <tr class="o_pl_totals">
+                                <td colspan="3">Total · net <t t-esc="fmt(state.data.totals.net) or '0'"/> <t t-esc="state.data.currency"/></td>
+                                <td class="o_pl_num" t-esc="weight(state.data.totals.grams_in, state.data.totals.milli_in)"/>
                                 <td class="o_pl_num" t-esc="fmt(state.data.totals.in)"/>
                                 <td class="o_pl_num o_pl_out" t-esc="fmt(state.data.totals.out)"/>
-                                <td class="o_pl_num" t-esc="fmtCell(state.data.totals.milli_in)"/>
-                                <td class="o_pl_num" t-esc="fmtCell(state.data.totals.grams_in)"/>
                                 <td/>
-                                <td colspan="3">الإجمالي · صافي <t t-esc="fmt(state.data.totals.net) or '0'"/> <t t-esc="state.data.currency"/></td>
                             </tr>
                         </tfoot>
                     </table>
 
                     <div class="o_pl_foot">
-                        <span t-if="state.data.open_session" class="o_pl_open">الخزنة مفتوحة · الإقفال متوقع وليس فعلي</span>
+                        <span t-if="state.data.open_session" class="o_pl_open">Register still open · closing is expected, not counted</span>
                         <span><t t-esc="state.data.registers"/></span>
                     </div>
                 </div>
             </div>
 
             <t t-set-slot="footer">
-                <span class="o_mjh_foot_note">Read-only · من واقع السيستم</span>
+                <span class="o_mjh_foot_note">Read-only</span>
                 <button class="o_mjh_btn o_mjh_btn_primary" t-on-click="() => this.props.close()">Close</button>
             </t>
         </HelperDialog>

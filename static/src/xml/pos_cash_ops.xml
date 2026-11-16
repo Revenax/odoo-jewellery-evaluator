@@ -10,7 +10,7 @@
 <templates id="template" xml:space="preserve">
 
     <t t-name="jewellery_evaluator.CurrencyConvertPopup">
-        <HelperDialog title.translate="Currency" titleAr="'تحويل عملة'" icon="'fa-exchange'" close="props.close">
+        <HelperDialog title.translate="Currency" icon="'fa-exchange'" close="props.close">
             <div class="o_mjh_segment o_mjh_segment_block mb-3">
                 <button type="button" t-att-class="{ active: state.direction === 'buy' }"
                         t-on-click="() => this.state.direction = 'buy'">Buy foreign</button>
@@ -55,7 +55,7 @@
     </t>
 
     <t t-name="jewellery_evaluator.OwnerTransferPopup">
-        <HelperDialog title.translate="Transfer to Owner" titleAr="'تحويل للمالك'" icon="'fa-user-circle-o'" close="props.close">
+        <HelperDialog title.translate="Transfer to Owner" icon="'fa-user-circle-o'" close="props.close">
             <div class="o_mjh_segment o_mjh_segment_block mb-3">
                 <button type="button" t-att-class="{ active: state.direction === 'out' }"
                         t-on-click="() => this.state.direction = 'out'">Owner takes out</button>

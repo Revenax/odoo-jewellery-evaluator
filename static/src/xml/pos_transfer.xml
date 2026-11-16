@@ -10,14 +10,14 @@
 <templates xml:space="preserve">
 
     <t t-name="jewellery_evaluator.TransferPopup">
-        <HelperDialog title.translate="Transfer" titleAr="'تحويل بضاعة'" icon="'fa-truck'" size="'xl'"
+        <HelperDialog title.translate="Transfer" icon="'fa-truck'" size="'xl'"
                       status="state.status" statusText="state.error or ''" close="props.close">
             <t t-set-slot="toolbar">
                 <div class="o_tr_steps">
-                    <t t-foreach="[[1, 'Who', 'مع مين'], [2, 'Scan', 'سكان'], [3, 'Confirm', 'تأكيد']]" t-as="s" t-key="s[0]">
+                    <t t-foreach="[[1, 'Who'], [2, 'Scan'], [3, 'Confirm']]" t-as="s" t-key="s[0]">
                         <div t-attf-class="o_tr_step {{ state.step === s[0] ? 'active' : '' }} {{ state.step > s[0] ? 'done' : '' }}">
                             <span class="o_tr_step_no"><i t-if="state.step > s[0]" class="fa fa-check"/><t t-else="" t-esc="s[0]"/></span>
-                            <span t-esc="s[1]"/><span class="o_tr_ar" t-esc="s[2]"/>
+                            <span t-esc="s[1]"/>
                         </div>
                     </t>
                 </div>
@@ -53,7 +53,7 @@
                 </t>
 
                 <div t-if="isMemo" class="o_mjh_field o_tr_memo_field">
-                    <label>Who takes the pieces on memo? <span class="o_mjh_hint">required · الاسم مطلوب</span></label>
+                    <label>Who takes the pieces on memo? <span class="o_mjh_hint">required</span></label>
                     <input type="text" t-model="state.memoPerson" placeholder="Full name"/>
                 </div>
 
@@ -98,7 +98,7 @@
                         </div>
                         <div class="o_tr_panel_sku" t-esc="current.sku"/>
                         <div class="o_tr_panel_name" t-esc="current.name"/>
-                        <div t-if="current.refused" class="o_tr_refused">Not added · لم يضاف</div>
+                        <div t-if="current.refused" class="o_tr_refused">Not added</div>
                         <dl class="o_tr_specs">
                             <dt>Type</dt><dd><t t-esc="current.type"/> <t t-esc="current.karat"/></dd>
                             <dt>Jewellery</dt><dd><t t-esc="w(current.jewellery)"/> g</dd>
@@ -155,7 +155,7 @@
                 </table>
                 <label class="o_tr_check">
                     <input type="checkbox" t-model="state.weightsChecked"/>
-                    I counted the pieces and the scale matches these weights · العدد والوزن مطابقين
+                    I counted the pieces and the scale matches these weights
                 </label>
                 <div t-if="state.error" class="o_mjh_error" t-esc="state.error"/>
             </div>
@@ -176,7 +176,7 @@
                     <button class="o_mjh_btn o_mjh_btn_primary" t-on-click="() => this.props.close()">Close</button>
                 </t>
                 <t t-else="">
-                    <span class="o_mjh_foot_note" t-if="state.step === 2">Scanner works anywhere in this window · السكانر شغال في الشاشة دي</span>
+                    <span class="o_mjh_foot_note" t-if="state.step === 2">The scanner works anywhere in this window</span>
                     <button t-if="state.step > 1" class="o_mjh_btn" t-att-disabled="state.busy" t-on-click="() => this.back()"><i class="fa fa-chevron-left"/> Back</button>
                     <button t-if="state.step === 1" class="o_mjh_btn" t-on-click="() => this.props.close()">Cancel</button>
                     <button t-if="state.step === 1" class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="!step1Ready" t-on-click="() => this.next()">Next: scan <i class="fa fa-chevron-right"/></button>

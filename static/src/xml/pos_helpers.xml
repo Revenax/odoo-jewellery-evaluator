@@ -46,13 +46,11 @@
             <t t-foreach="jewelleryHelperSections" t-as="section" t-key="section.id">
                 <div class="o_mjh_menu_section">
                     <span t-esc="section.label"/>
-                    <span class="o_mjh_ar" dir="rtl" t-esc="section.labelAr"/>
                 </div>
                 <t t-foreach="section.items" t-as="helper" t-key="helper.id">
                     <DropdownItem class="'o_mjh_menu_item'" onSelected="() => this.runJewelleryHelper(helper)">
                         <i t-attf-class="fa fa-fw {{ helper.icon }} o_mjh_menu_icon"/>
                         <span class="o_mjh_menu_label" t-esc="helper.label"/>
-                        <span class="o_mjh_ar" dir="rtl" t-esc="helper.labelAr"/>
                     </DropdownItem>
                 </t>
             </t>

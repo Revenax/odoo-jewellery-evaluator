@@ -2,7 +2,7 @@
 // Author: Mohamed A. Abdallah
 // Website: https://www.revenax.com
 //
-// اليومية sheet inside the shared HelperDialog: reads like the paper day book
+// Daily Ledger sheet inside the shared HelperDialog: reads like the paper day book
 // (ruled grid, boxed header, tabular figures) in the Marjaan palette. Scoped
 // under .o_pos_ledger; the window chrome comes from pos_helpers.scss.
 
@@ -25,7 +25,6 @@ $pl-red: #b42335;
 }
 
 .o_pos_ledger {
-    direction: rtl;
     font-size: 0.92rem;
     color: $pl-navy;
 
@@ -36,11 +35,6 @@ $pl-red: #b42335;
         padding: 0.9rem 1rem 1rem;
     }
 
-    .o_pl_basmala {
-        text-align: center;
-        font-weight: 600;
-        margin-bottom: 0.7rem;
-    }
 
     .o_pl_head {
         display: grid;
@@ -74,11 +68,12 @@ $pl-red: #b42335;
         font-variant-numeric: tabular-nums;
         background: #fff;
 
-        .o_pl_c_money { width: 9%; }
-        .o_pl_c_narrow { width: 5%; }
-        .o_pl_c_desc { width: 22%; }
-        .o_pl_c_src { width: 13%; }
-        .o_pl_c_notes { width: 29%; }
+        .o_pl_c_desc { width: 24%; }
+        .o_pl_c_src { width: 14%; }
+        .o_pl_c_narrow { width: 6%; }
+        .o_pl_c_weight { width: 9%; }
+        .o_pl_c_money { width: 10%; }
+        .o_pl_c_notes { width: 27%; }
 
         th, td {
             border: 1px solid $pl-rule;
@@ -101,8 +96,6 @@ $pl-red: #b42335;
             display: block;
             color: $pl-muted;
             font-size: 0.75rem;
-            direction: ltr;
-            text-align: right;
         }
         .o_pl_notes { color: #333; font-size: 0.85rem; }
         .o_pl_empty { text-align: center; color: $pl-muted; padding: 1.8rem; }

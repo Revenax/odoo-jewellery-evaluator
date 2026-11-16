@@ -182,7 +182,6 @@ posHelpers.add("currency", {
     sequence: 20,
     icon: "fa-exchange",
     label: _t("Currency"),
-    labelAr: "تحويل عملة",
     isVisible: (nav) => nav.jewelleryCanMoveCash,
     run(nav) {
         const journals = parseList(nav.pos.config.jewellery_vault_foreign_journals);
@@ -211,7 +210,6 @@ posHelpers.add("owner_transfer", {
     sequence: 30,
     icon: "fa-user-circle-o",
     label: _t("Transfer to Owner"),
-    labelAr: "تحويل للمالك",
     isVisible: (nav) => nav.jewelleryCanMoveCash,
     run(nav) {
         const owners = parseList(nav.pos.config.jewellery_owner_journals);

@@ -328,7 +328,6 @@ posHelpers.add("transfer", {
     sequence: 10,
     icon: "fa-truck",
     label: _t("Transfer"),
-    labelAr: "تحويل بضاعة",
     isVisible: (nav) => nav.pos.cashier?._role !== "minimal",
     run: (nav) => nav.pos.dialog.add(TransferPopup, { pos: nav.pos }),
 });

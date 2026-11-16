@@ -12,7 +12,7 @@
 <templates xml:space="preserve">
 
     <t t-name="jewellery_evaluator.RapViewerPopup">
-        <HelperDialog title.translate="Diamond Rap Prices" titleAr="'أسعار الألماس'" icon="'fa-diamond'" size="'xl'"
+        <HelperDialog title.translate="Diamond Rap Prices" icon="'fa-diamond'" size="'xl'"
                       status="state.status" close="props.close">
             <t t-set-slot="toolbar">
                 <div class="o_mjh_segment">

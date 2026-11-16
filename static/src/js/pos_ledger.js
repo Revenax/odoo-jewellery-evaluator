@@ -4,10 +4,9 @@
  * Author: Mohamed A. Abdallah
  * Website: https://www.revenax.com
  *
- * اليومية — the Daily Ledger inside the register (Look-ups section, shared
- * HelperDialog). The sheet keeps the paper book's layout: إفتتاح / إقفال in the
- * header, one row per movement with BOTH money (وارد / منصرف) and gold weight
- * (جرام / مللي), then فئة / بيان / مصدر / ملاحظات.
+ * Daily Ledger inside the register (Look-ups section, shared HelperDialog), in
+ * English: opening / closing cash in the header, then one row per movement with
+ * both money (in / out) and gold weight, karat, source and notes.
  *
  * Read-only. Scoped to THIS register by default, with a toggle for every
  * register. Data: jewellery.ledger.ledger_rows (never writes).
@@ -74,9 +73,15 @@ export class LedgerPopup extends Component {
         }
     }
 
-    /** Weight cells stay blank rather than printing 0, as in the book. */
-    fmtCell(value) {
-        return value ? String(value) : "";
+    /** Grams + thousandths as one weight; blank rather than 0. */
+    weight(grams, milli) {
+        const g = (grams || 0) + (milli || 0) / 1000;
+        return g ? g.toFixed(3) : "";
+    }
+
+    /** The backend's book sources, in English. */
+    sourceLabel(row) {
+        return { sale: "Sale", return: "Return", invoice: "Invoice" }[row.kind] || row.source || "";
     }
 
     print() {
@@ -91,6 +96,5 @@ posHelpers.add("daily_ledger", {
     sequence: 10,
     icon: "fa-book",
     label: _t("Daily Ledger"),
-    labelAr: "اليومية",
     run: (nav) => nav.pos.dialog.add(LedgerPopup, { pos: nav.pos }),
 });

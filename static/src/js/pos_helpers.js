@@ -26,9 +26,9 @@ export const posHelpers = registry.category("jewellery_pos_helpers");
 
 /** Menu sections, in display order. */
 export const HELPER_SECTIONS = [
-    { id: "cash", label: _t("Cash"), labelAr: "الخزنة" },
-    { id: "stock", label: _t("Stock"), labelAr: "البضاعة" },
-    { id: "lookup", label: _t("Look-ups"), labelAr: "استعلام" },
+    { id: "cash", label: _t("Cash") },
+    { id: "stock", label: _t("Stock") },
+    { id: "lookup", label: _t("Look-ups") },
 ];
 
 // ── Utilities ───────────────────────────────────────────────────────────────
@@ -137,7 +137,6 @@ posHelpers.add("cash_move", {
     sequence: 10,
     icon: "fa-money",
     label: _t("Cash In / Out"),
-    labelAr: "وارد / منصرف",
     isVisible: (nav) => nav.jewelleryCanMoveCash,
     run: (nav) => nav.pos.cashMove(),
 });

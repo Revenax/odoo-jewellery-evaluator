@@ -102,6 +102,5 @@ posHelpers.add("rap_prices", {
     sequence: 20,
     icon: "fa-diamond",
     label: _t("Diamond Rap Prices"),
-    labelAr: "أسعار الألماس",
     run: (nav) => nav.pos.dialog.add(RapViewerPopup, { pos: nav.pos }),
 });
