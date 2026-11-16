@@ -23,6 +23,7 @@ from . import (
     pos_price_board,  # noqa: F401
     pos_product_info,  # noqa: F401
     pos_session,  # noqa: F401
+    pos_transfer,  # noqa: F401
     product_product,  # noqa: F401
     product_template,  # noqa: F401
     product_template_actor,  # noqa: F401

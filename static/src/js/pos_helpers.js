@@ -27,6 +27,7 @@ export const posHelpers = registry.category("jewellery_pos_helpers");
 /** Menu sections, in display order. */
 export const HELPER_SECTIONS = [
     { id: "cash", label: _t("Cash"), labelAr: "الخزنة" },
+    { id: "stock", label: _t("Stock"), labelAr: "البضاعة" },
     { id: "lookup", label: _t("Look-ups"), labelAr: "استعلام" },
 ];
 

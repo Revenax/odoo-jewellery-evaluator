@@ -1355,3 +1355,36 @@ def format_egp_amount(amount) -> str:
     if value == value.to_integral_value():
         return f'{int(value):,}'
     return f'{value:,.2f}'
+
+
+# --- POS internal transfer ----------------------------------------------------
+
+def transfer_route(direction: str, here_id: int, party_id: int) -> tuple[int, int]:
+    """(source, destination) location ids of a register transfer.
+
+    ``send`` moves pieces from the register's own stock to the other party;
+    ``receive`` brings them from the other party into the register's stock.
+    """
+    if direction == 'send':
+        return here_id, party_id
+    if direction == 'receive':
+        return party_id, here_id
+    raise ValueError(f'unknown transfer direction: {direction!r}')
+
+
+def transfer_totals(pieces: list[dict]) -> dict:
+    """Pieces, units and weight totals (grams, 3 dp) of a transfer.
+
+    Each piece: ``{qty, jewellery, net_gold, stones, reading}``; weights are per
+    unit, so a bulk line of qty 3 counts three times.
+    """
+    totals = {'pieces': len(pieces), 'units': 0.0,
+              'jewellery': 0.0, 'net_gold': 0.0, 'stones': 0.0, 'reading': 0.0}
+    for piece in pieces:
+        qty = float(piece.get('qty') or 0)
+        totals['units'] += qty
+        for key in ('jewellery', 'net_gold', 'stones', 'reading'):
+            totals[key] += qty * float(piece.get(key) or 0)
+    for key in ('units', 'jewellery', 'net_gold', 'stones', 'reading'):
+        totals[key] = round(totals[key], 3)
+    return totals

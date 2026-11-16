@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Register transfers (POS "Transfer" helper): who, where, the weights the
+    cashier checked and a snapshot of every piece handed over.
+-->
+<odoo>
+    <record id="view_picking_form_register_transfer" model="ir.ui.view">
+        <field name="name">stock.picking.form.register.transfer</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='extra']" position="before">
+                <page string="Register Transfer" name="jewellery_register_transfer" invisible="not jewellery_pos_transfer">
+                    <group>
+                        <group>
+                            <field name="jewellery_pos_transfer" invisible="1"/>
+                            <field name="jewellery_transfer_direction"/>
+                            <field name="jewellery_party_kind"/>
+                            <field name="jewellery_memo_person" invisible="jewellery_party_kind != 'memo'"/>
+                            <field name="jewellery_pos_config_id"/>
+                            <field name="jewellery_pos_session_id"/>
+                            <field name="jewellery_cashier_name"/>
+                            <field name="jewellery_employee_id"/>
+                        </group>
+                        <group>
+                            <field name="jewellery_total_pieces"/>
+                            <field name="jewellery_total_units"/>
+                            <field name="jewellery_total_jewellery_g"/>
+                            <field name="jewellery_total_net_gold_g"/>
+                            <field name="jewellery_total_stones_g"/>
+                            <field name="jewellery_total_reading_g"/>
+                            <field name="jewellery_weights_checked"/>
+                        </group>
+                    </group>
+                    <field name="jewellery_transfer_line_ids">
+                        <list>
+                            <field name="sku"/>
+                            <field name="name"/>
+                            <field name="karat"/>
+                            <field name="qty"/>
+                            <field name="jewellery_weight_g" sum="Total"/>
+                            <field name="net_gold_weight_g" sum="Total"/>
+                            <field name="stones_weight_g" sum="Total"/>
+                            <field name="weight_reading_g" sum="Total"/>
+                            <field name="stones"/>
+                            <field name="list_price"/>
+                            <field name="scanned_at"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_picking_search_register_transfer" model="ir.ui.view">
+        <field name="name">stock.picking.search.register.transfer</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_internal_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <filter name="jewellery_register_transfers" string="Register transfers"
+                        domain="[('jewellery_pos_transfer', '=', True)]"/>
+                <field name="jewellery_memo_person"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

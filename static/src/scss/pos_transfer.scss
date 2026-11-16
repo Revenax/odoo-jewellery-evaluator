@@ -1,0 +1,282 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+//
+// Register "Transfer" window (pos_transfer.xml), on the shared HelperDialog.
+// Window chrome, buttons, segment and fields: pos_helpers.scss.
+
+$tr-navy: #0f1138;
+$tr-cream: #fff4ee;
+$tr-cream-2: #fef0e8;
+$tr-gold: #c8860a;
+$tr-gold-3: #f5c842;
+$tr-text-2: #4a4f7a;
+$tr-muted: #8890b8;
+$tr-line: rgba(15, 17, 56, 0.12);
+$tr-red: #b42335;
+$tr-green: #1d7a4a;
+
+.o_mjh {
+    // ── Stepper + route (toolbar) ──
+    .o_tr_steps { display: flex; gap: 0.4rem; }
+    .o_tr_step {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.8rem 0.35rem 0.4rem;
+        border-radius: 999px;
+        color: $tr-muted;
+        font-weight: 600;
+        font-size: 0.9rem;
+        .o_tr_ar { font-weight: 400; font-size: 0.8rem; }
+        &.active { background: $tr-navy; color: #fff; .o_tr_step_no { background: $tr-gold-3; color: $tr-navy; } }
+        &.done { color: $tr-navy; .o_tr_step_no { background: $tr-green; color: #fff; } }
+    }
+    .o_tr_step_no {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: $tr-cream-2;
+        border: 1px solid $tr-line;
+        font-size: 0.8rem;
+    }
+    .o_tr_route {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        .fa { color: $tr-gold; }
+        .o_tr_memo { color: $tr-text-2; font-weight: 600; }
+    }
+}
+
+// ── 1. Who ──
+.o_tr_who {
+    .o_tr_direction { margin-bottom: 1rem; button { padding: 0.75rem 1rem; font-size: 1rem; } }
+    .o_tr_group_label {
+        margin: 0.9rem 0 0.45rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: $tr-muted;
+    }
+    .o_tr_parties { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .o_tr_party {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+        min-width: 9.5rem;
+        padding: 0.7rem 0.9rem;
+        border: 1.5px solid $tr-line;
+        border-radius: 12px;
+        background: #fff;
+        color: $tr-navy;
+        text-align: left;
+        .fa { color: $tr-gold; margin-bottom: 0.2rem; }
+        .o_tr_party_label { font-weight: 700; font-size: 1rem; }
+        .o_tr_party_loc { font-size: 0.78rem; color: $tr-muted; }
+        &.active {
+            border-color: $tr-navy;
+            background: $tr-navy;
+            color: #fff;
+            .fa { color: $tr-gold-3; }
+            .o_tr_party_loc { color: rgba(255, 255, 255, 0.7); }
+        }
+    }
+    .o_tr_memo_field { margin-top: 1rem; max-width: 26rem; }
+    .o_mjh_note { margin-top: 1rem; }
+}
+
+// ── 2. Scan ──
+.o_tr_scan {
+    display: grid;
+    grid-template-columns: 1fr 19rem;
+    gap: 1rem;
+    align-items: start;
+
+    .o_tr_scanbox {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.4rem 0.4rem 0.4rem 0.9rem;
+        border: 2px solid $tr-navy;
+        border-radius: 12px;
+        background: #fff;
+        > .fa { font-size: 1.4rem; color: $tr-gold; }
+        input {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            font-size: 1.15rem;
+            padding: 0.45rem 0;
+            color: $tr-navy;
+        }
+        .o_tr_count {
+            padding: 0.45rem 0.8rem;
+            border-radius: 8px;
+            background: $tr-cream;
+            color: $tr-text-2;
+            white-space: nowrap;
+        }
+    }
+    .o_tr_msg {
+        margin-top: 0.6rem;
+        padding: 0.55rem 0.8rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .o_tr_msg_ok { background: rgba(29, 122, 74, 0.1); color: $tr-green; }
+    .o_tr_msg_warn { background: rgba(200, 134, 10, 0.14); color: #8a5c00; }
+    .o_tr_msg_error { background: rgba(180, 35, 53, 0.1); color: $tr-red; }
+
+    .o_tr_list {
+        margin-top: 0.7rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .o_tr_empty {
+        padding: 2.5rem 1rem;
+        text-align: center;
+        color: $tr-muted;
+        border: 1.5px dashed $tr-line;
+        border-radius: 12px;
+        .fa { margin-right: 0.4rem; }
+    }
+    .o_tr_item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.45rem 0.5rem;
+        border: 1px solid $tr-line;
+        border-radius: 12px;
+        background: #fff;
+        cursor: pointer;
+        img, .o_tr_noimg {
+            width: 3rem;
+            height: 3rem;
+            flex: 0 0 3rem;
+            border-radius: 8px;
+            object-fit: cover;
+            background: $tr-cream;
+        }
+        .o_tr_noimg { display: inline-flex; align-items: center; justify-content: center; color: $tr-muted; }
+        &.active { border-color: $tr-gold; box-shadow: 0 0 0 2px rgba(232, 162, 0, 0.25); }
+    }
+    .o_tr_item_main { flex: 1 1 auto; min-width: 0; }
+    .o_tr_item_sku { font-weight: 700; }
+    .o_tr_qty { color: $tr-gold; }
+    .o_tr_remove {
+        border: 0;
+        background: transparent;
+        color: $tr-red;
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 8px;
+        &:hover { background: rgba(180, 35, 53, 0.08); }
+    }
+
+    .o_tr_panel {
+        position: sticky;
+        top: 0;
+        padding: 0.8rem;
+        border: 1px solid $tr-line;
+        border-radius: 14px;
+        background: $tr-cream;
+        &.refused { border-color: $tr-red; background: rgba(180, 35, 53, 0.05); }
+    }
+    .o_tr_photo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 16rem;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #fff;
+        margin-bottom: 0.6rem;
+        img { width: 100%; height: 100%; object-fit: cover; }
+        .fa { font-size: 3rem; color: $tr-muted; }
+    }
+    .o_tr_panel_sku { font-size: 1.2rem; font-weight: 800; }
+    .o_tr_panel_name { color: $tr-text-2; font-size: 0.88rem; margin-bottom: 0.5rem; }
+    .o_tr_refused { color: $tr-red; font-weight: 700; margin-bottom: 0.4rem; }
+    .o_tr_specs {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.2rem 0.7rem;
+        margin: 0;
+        font-size: 0.88rem;
+        dt { color: $tr-muted; font-weight: 600; }
+        dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+    }
+    .o_tr_stones { margin-top: 0.5rem; font-size: 0.8rem; color: $tr-text-2; }
+    .o_tr_panel_empty { padding: 3rem 0.5rem; text-align: center; color: $tr-muted; }
+}
+
+.o_tr_item_sub { color: $tr-muted; font-size: 0.82rem; }
+
+// ── 3. Confirm ──
+.o_tr_confirm {
+    .o_tr_summary {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 0.7rem;
+        > div {
+            display: flex;
+            flex-direction: column;
+            padding: 0.6rem 0.8rem;
+            border-radius: 12px;
+            background: $tr-cream;
+            span { font-size: 0.75rem; color: $tr-muted; font-weight: 700; text-transform: uppercase; }
+            b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+        }
+    }
+    .o_tr_karats { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; }
+    .o_tr_karat {
+        padding: 0.3rem 0.7rem;
+        border-radius: 999px;
+        background: $tr-navy;
+        color: #fff;
+        font-size: 0.85rem;
+        b { color: $tr-gold-3; }
+    }
+    .o_tr_table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+        th, td { padding: 0.4rem 0.5rem; border-bottom: 1px solid $tr-line; vertical-align: middle; }
+        thead th { background: $tr-navy; color: #fff; font-size: 0.8rem; font-weight: 600; }
+        tfoot td { font-weight: 800; background: $tr-cream; border-top: 2px solid $tr-navy; }
+        .num { text-align: right; white-space: nowrap; }
+        .o_tr_thumb { width: 3rem; img { width: 2.6rem; height: 2.6rem; border-radius: 6px; object-fit: cover; } }
+        .o_tr_stones_cell { font-size: 0.78rem; color: $tr-text-2; }
+    }
+    .o_tr_check {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-top: 0.9rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 12px;
+        border: 2px solid $tr-gold;
+        background: rgba(245, 200, 66, 0.12);
+        font-weight: 700;
+        input { width: 1.3rem; height: 1.3rem; }
+    }
+}
+
+// ── Done ──
+.o_tr_done {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    > .fa { font-size: 3rem; color: $tr-green; }
+    .o_tr_done_title { margin-top: 0.6rem; font-size: 1.3rem; }
+    .o_tr_done_sub { margin-top: 0.4rem; color: $tr-text-2; }
+}

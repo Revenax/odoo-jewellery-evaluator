@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Register "Transfer" window (pos_transfer.js) on the shared HelperDialog:
+    1 Who · 2 Scan · 3 Confirm, then Done. Styling: pos_transfer.scss.
+-->
+<templates xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.TransferPopup">
+        <HelperDialog title.translate="Transfer" titleAr="'تحويل بضاعة'" icon="'fa-truck'" size="'xl'"
+                      status="state.status" statusText="state.error or ''" close="props.close">
+            <t t-set-slot="toolbar">
+                <div class="o_tr_steps">
+                    <t t-foreach="[[1, 'Who', 'مع مين'], [2, 'Scan', 'سكان'], [3, 'Confirm', 'تأكيد']]" t-as="s" t-key="s[0]">
+                        <div t-attf-class="o_tr_step {{ state.step === s[0] ? 'active' : '' }} {{ state.step > s[0] ? 'done' : '' }}">
+                            <span class="o_tr_step_no"><i t-if="state.step > s[0]" class="fa fa-check"/><t t-else="" t-esc="s[0]"/></span>
+                            <span t-esc="s[1]"/><span class="o_tr_ar" t-esc="s[2]"/>
+                        </div>
+                    </t>
+                </div>
+                <span class="o_mjh_spacer"/>
+                <div t-if="party and state.step > 1" class="o_tr_route">
+                    <span t-esc="fromText"/><i class="fa fa-long-arrow-right"/><span t-esc="toText"/>
+                    <span t-if="isMemo" class="o_tr_memo"> · <t t-esc="state.memoPerson"/></span>
+                </div>
+            </t>
+
+            <!-- ── 1. Who ───────────────────────────────────────────────── -->
+            <div t-if="state.step === 1" class="o_tr_who">
+                <div class="o_mjh_segment o_mjh_segment_block o_tr_direction">
+                    <button type="button" t-att-class="{ active: state.direction === 'send' }" t-on-click="() => this.setDirection('send')">
+                        <i class="fa fa-arrow-up"/> Send from <t t-esc="state.here.label"/>
+                    </button>
+                    <button type="button" t-att-class="{ active: state.direction === 'receive' }" t-on-click="() => this.setDirection('receive')">
+                        <i class="fa fa-arrow-down"/> Receive into <t t-esc="state.here.label"/>
+                    </button>
+                </div>
+
+                <t t-foreach="groups" t-as="g" t-key="g.kind">
+                    <div class="o_tr_group_label" t-esc="g.label"/>
+                    <div class="o_tr_parties">
+                        <button t-foreach="g.parties" t-as="p" t-key="p.id" type="button"
+                                t-attf-class="o_tr_party {{ state.partyId === p.id ? 'active' : '' }}"
+                                t-on-click="() => this.pickParty(p.id)">
+                            <i t-attf-class="fa {{ p.kind === 'owner' ? 'fa-user' : p.kind === 'memo' ? 'fa-file-text-o' : 'fa-building' }}"/>
+                            <span class="o_tr_party_label" t-esc="p.label"/>
+                            <span class="o_tr_party_loc" t-esc="p.location"/>
+                        </button>
+                    </div>
+                </t>
+
+                <div t-if="isMemo" class="o_mjh_field o_tr_memo_field">
+                    <label>Who takes the pieces on memo? <span class="o_mjh_hint">required · الاسم مطلوب</span></label>
+                    <input type="text" t-model="state.memoPerson" placeholder="Full name"/>
+                </div>
+
+                <div t-if="party" class="o_mjh_note">
+                    <b>From</b> <t t-esc="fromText"/> <b>to</b> <t t-esc="toText"/><t t-if="isMemo and state.memoPerson.trim()"> · <t t-esc="state.memoPerson.trim()"/></t>
+                </div>
+            </div>
+
+            <!-- ── 2. Scan ──────────────────────────────────────────────── -->
+            <div t-elif="state.step === 2" class="o_tr_scan">
+                <div class="o_tr_scan_main">
+                    <div class="o_tr_scanbox">
+                        <i class="fa fa-barcode"/>
+                        <input t-ref="scan" type="text" autocomplete="off" placeholder="Scan or type a code, then Enter"
+                               t-on-keydown="onScanKey"/>
+                        <span class="o_tr_count"><b t-esc="totals.pieces"/> pieces · <t t-esc="w(totals.jewellery)"/> g</span>
+                    </div>
+                    <div t-if="state.message" t-attf-class="o_tr_msg o_tr_msg_{{ state.message.kind }}" t-esc="state.message.text"/>
+                    <div class="o_tr_list">
+                        <div t-if="!state.pieces.length" class="o_tr_empty">
+                            <i class="fa fa-barcode"/> Scan the first piece
+                        </div>
+                        <div t-foreach="state.pieces" t-as="p" t-key="p.product_id"
+                             t-attf-class="o_tr_item {{ current and current.product_id === p.product_id and !current.refused ? 'active' : '' }}"
+                             t-on-click="() => this.select(p)">
+                            <img t-if="p.image" t-att-src="p.image" alt=""/>
+                            <span t-else="" class="o_tr_noimg"><i class="fa fa-diamond"/></span>
+                            <div class="o_tr_item_main">
+                                <div class="o_tr_item_sku"><t t-esc="p.sku"/> <span t-if="p.qty > 1" class="o_tr_qty">×<t t-esc="p.qty"/></span></div>
+                                <div class="o_tr_item_sub"><t t-esc="p.karat"/> · <t t-esc="w(p.jewellery)"/> g<t t-if="p.stones_g"> · stones <t t-esc="w(p.stones_g)"/> g</t></div>
+                            </div>
+                            <button type="button" class="o_tr_remove" title="Remove" t-on-click.stop="() => this.remove(p)"><i class="fa fa-trash-o"/></button>
+                        </div>
+                    </div>
+                </div>
+
+                <aside t-attf-class="o_tr_panel {{ current and current.refused ? 'refused' : '' }}">
+                    <t t-if="current">
+                        <div class="o_tr_photo">
+                            <img t-if="current.image" t-att-src="current.image" alt=""/>
+                            <i t-else="" class="fa fa-diamond"/>
+                        </div>
+                        <div class="o_tr_panel_sku" t-esc="current.sku"/>
+                        <div class="o_tr_panel_name" t-esc="current.name"/>
+                        <div t-if="current.refused" class="o_tr_refused">Not added · لم يضاف</div>
+                        <dl class="o_tr_specs">
+                            <dt>Type</dt><dd><t t-esc="current.type"/> <t t-esc="current.karat"/></dd>
+                            <dt>Jewellery</dt><dd><t t-esc="w(current.jewellery)"/> g</dd>
+                            <dt>Net gold</dt><dd><t t-esc="w(current.net_gold)"/> g</dd>
+                            <dt>Stones</dt><dd><t t-esc="w(current.stones_g)"/> g</dd>
+                            <dt>Scale reading</dt><dd><t t-esc="w(current.reading)"/> g</dd>
+                            <dt>Price</dt><dd><t t-esc="fmtMoney(current.price) or '—'"/></dd>
+                            <dt>On hand</dt>
+                            <dd><t t-foreach="current.on_hand" t-as="q" t-key="q_index"><t t-esc="q.location"/> (<t t-esc="q.qty"/>) </t><t t-if="!current.on_hand.length">—</t></dd>
+                        </dl>
+                        <div t-if="current.stones and current.stones.length" class="o_tr_stones" t-esc="stonesText(current)"/>
+                    </t>
+                    <div t-else="" class="o_tr_panel_empty">The last scanned piece shows here</div>
+                </aside>
+            </div>
+
+            <!-- ── 3. Confirm ───────────────────────────────────────────── -->
+            <div t-elif="state.step === 3" class="o_tr_confirm">
+                <div class="o_tr_summary">
+                    <div><span>Pieces</span><b t-esc="totals.pieces"/></div>
+                    <div><span>Units</span><b t-esc="totals.units"/></div>
+                    <div><span>Jewellery</span><b><t t-esc="w(totals.jewellery)"/> g</b></div>
+                    <div><span>Net gold</span><b><t t-esc="w(totals.net_gold)"/> g</b></div>
+                    <div><span>Stones</span><b><t t-esc="w(totals.stones)"/> g</b></div>
+                    <div><span>Scale reading</span><b><t t-esc="w(totals.reading)"/> g</b></div>
+                </div>
+                <div class="o_tr_karats">
+                    <span t-foreach="byKarat" t-as="k" t-key="k.karat" class="o_tr_karat">
+                        <b t-esc="k.karat"/> · <t t-esc="k.units"/> pcs · <t t-esc="w(k.jewellery)"/> g
+                    </span>
+                </div>
+                <table class="o_tr_table">
+                    <thead>
+                        <tr><th></th><th>SKU</th><th>Karat</th><th>Qty</th><th>Jewellery g</th><th>Net gold g</th><th>Stones g</th><th>Reading g</th><th>Stones</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="state.pieces" t-as="p" t-key="p.product_id">
+                            <td class="o_tr_thumb"><img t-if="p.image" t-att-src="p.image" alt=""/></td>
+                            <td><b t-esc="p.sku"/><div class="o_tr_item_sub" t-esc="p.name"/></td>
+                            <td t-esc="p.karat"/>
+                            <td class="num" t-esc="p.qty"/>
+                            <td class="num" t-esc="w(p.jewellery * p.qty)"/>
+                            <td class="num" t-esc="w(p.net_gold * p.qty)"/>
+                            <td class="num" t-esc="w(p.stones_g * p.qty)"/>
+                            <td class="num" t-esc="w(p.reading * p.qty)"/>
+                            <td class="o_tr_stones_cell" t-esc="stonesText(p)"/>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr><td></td><td>Total</td><td></td><td class="num" t-esc="totals.units"/>
+                            <td class="num" t-esc="w(totals.jewellery)"/><td class="num" t-esc="w(totals.net_gold)"/>
+                            <td class="num" t-esc="w(totals.stones)"/><td class="num" t-esc="w(totals.reading)"/><td></td></tr>
+                    </tfoot>
+                </table>
+                <label class="o_tr_check">
+                    <input type="checkbox" t-model="state.weightsChecked"/>
+                    I counted the pieces and the scale matches these weights · العدد والوزن مطابقين
+                </label>
+                <div t-if="state.error" class="o_mjh_error" t-esc="state.error"/>
+            </div>
+
+            <!-- ── Done ─────────────────────────────────────────────────── -->
+            <div t-else="" class="o_tr_done">
+                <i class="fa fa-check-circle"/>
+                <div class="o_tr_done_title">Transfer <b t-esc="state.result.name"/> done</div>
+                <div class="o_tr_done_sub">
+                    <t t-esc="totals.pieces"/> pieces · <t t-esc="w(totals.jewellery)"/> g ·
+                    <t t-esc="fromText"/> → <t t-esc="toText"/><t t-if="isMemo"> · <t t-esc="state.memoPerson"/></t>
+                </div>
+            </div>
+
+            <t t-set-slot="footer">
+                <t t-if="state.step === 4">
+                    <button class="o_mjh_btn" t-on-click="() => this.startAgain()"><i class="fa fa-plus"/> New transfer</button>
+                    <button class="o_mjh_btn o_mjh_btn_primary" t-on-click="() => this.props.close()">Close</button>
+                </t>
+                <t t-else="">
+                    <span class="o_mjh_foot_note" t-if="state.step === 2">Scanner works anywhere in this window · السكانر شغال في الشاشة دي</span>
+                    <button t-if="state.step > 1" class="o_mjh_btn" t-att-disabled="state.busy" t-on-click="() => this.back()"><i class="fa fa-chevron-left"/> Back</button>
+                    <button t-if="state.step === 1" class="o_mjh_btn" t-on-click="() => this.props.close()">Cancel</button>
+                    <button t-if="state.step === 1" class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="!step1Ready" t-on-click="() => this.next()">Next: scan <i class="fa fa-chevron-right"/></button>
+                    <button t-if="state.step === 2" class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="!state.pieces.length" t-on-click="() => this.next()">Next: confirm <i class="fa fa-chevron-right"/></button>
+                    <button t-if="state.step === 3" class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="state.busy or !state.weightsChecked" t-on-click="() => this.confirm()">
+                        <i t-attf-class="fa {{ state.busy ? 'fa-circle-o-notch fa-spin' : 'fa-check' }}"/> Create transfer
+                    </button>
+                </t>
+            </t>
+        </HelperDialog>
+    </t>
+
+</templates>
