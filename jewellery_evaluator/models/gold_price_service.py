@@ -425,6 +425,8 @@ class GoldPriceService(models.Model):
             # refreshes the jewellery_evaluator.fallback_price cache used by the
             # @api.depends compute methods.
             base_gold_price = self._fetch_gold_price_from_api()
+            # G24/G21/G18 gram currencies follow the same base (no-op when unchanged).
+            self.env['res.currency']._jewellery_sync_metal_rates(base_21k_egp=base_gold_price)
 
             gold_products = self.env['product.template'].search([
                 ('jewellery_type', 'in', [

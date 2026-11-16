@@ -168,6 +168,9 @@ class SilverPriceService(models.Model):
                     'message': msg,
                 }
 
+            # S99 gram currency follows the same price (no-op when unchanged).
+            self.env['res.currency']._jewellery_sync_metal_rates(silver_999_egp=base_silver_price)
+
             silver_products = self.env['product.template'].search([
                 ('jewellery_type', '=', 'silver'),
                 ('silver_purity', '!=', False),

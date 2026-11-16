@@ -14,6 +14,7 @@ from . import (
     jewellery_purchase,  # noqa: F401
     jewellery_stone,  # noqa: F401
     karat_accounts,  # noqa: F401
+    metal_currency,  # noqa: F401
     ops_sold_sync,  # noqa: F401
     pos_cash_ops,  # noqa: F401
     pos_config,  # noqa: F401

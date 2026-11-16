@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One gram of each gold karat and of silver 999 as a currency. Rates (grams
+  per 1 EGP) are written by the gold and silver price crons from the same
+  prices the shop prices with (res.currency._jewellery_sync_metal_rates).
+  Rounding 0.001 = one milligram. noupdate: names/symbols may be edited.
+-->
+<odoo noupdate="1">
+    <record id="currency_gold_24k" model="res.currency">
+        <field name="name">G24</field>
+        <field name="full_name">Gold 24K (gram)</field>
+        <field name="symbol">g 24K</field>
+        <field name="position">after</field>
+        <field name="rounding">0.001</field>
+        <field name="currency_unit_label">Gram 24K</field>
+        <field name="currency_subunit_label">Milligram</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="currency_gold_21k" model="res.currency">
+        <field name="name">G21</field>
+        <field name="full_name">Gold 21K (gram)</field>
+        <field name="symbol">g 21K</field>
+        <field name="position">after</field>
+        <field name="rounding">0.001</field>
+        <field name="currency_unit_label">Gram 21K</field>
+        <field name="currency_subunit_label">Milligram</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="currency_gold_18k" model="res.currency">
+        <field name="name">G18</field>
+        <field name="full_name">Gold 18K (gram)</field>
+        <field name="symbol">g 18K</field>
+        <field name="position">after</field>
+        <field name="rounding">0.001</field>
+        <field name="currency_unit_label">Gram 18K</field>
+        <field name="currency_subunit_label">Milligram</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="currency_silver_999" model="res.currency">
+        <field name="name">S99</field>
+        <field name="full_name">Silver 999 (gram)</field>
+        <field name="symbol">g Ag</field>
+        <field name="position">after</field>
+        <field name="rounding">0.001</field>
+        <field name="currency_unit_label">Gram Silver</field>
+        <field name="currency_subunit_label">Milligram</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

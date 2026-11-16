@@ -1210,6 +1210,33 @@ def pegged_currency_rates(usd_egp: float) -> dict:
     return {code: float(peg / usd) for code, peg in USD_PEGS.items()}
 
 
+# Metal "currencies": one gram of each karat (and of silver 999) as an Odoo
+# currency, so gold and silver can be held and owed in grams (customer gold,
+# workshop gold) with amount_currency in grams and the EGP value following the
+# market. ISO codes are 3 letters, so these are private codes.
+GOLD_GRAM_CURRENCIES = {'G24': '24K', 'G21': '21K', 'G18': '18K'}
+SILVER_GRAM_CURRENCY = 'S99'
+
+
+def metal_currency_rates(base_21k_egp: float | None = None,
+                         silver_999_egp: float | None = None) -> dict:
+    """Odoo rates (grams per 1 EGP) for the metal currencies.
+
+    Gold grams follow the 21K base the pricing uses, times the karat's purity
+    factor; silver 999 is its own per-gram price. A missing or non-positive
+    price is left out, so its rate is not touched.
+    """
+    rates = {}
+    base = Decimal(str(base_21k_egp or 0))
+    if base > 0:
+        for code, purity in GOLD_GRAM_CURRENCIES.items():
+            rates[code] = float(1 / (base * GOLD_PURITY_FACTORS[purity]))
+    silver = Decimal(str(silver_999_egp or 0))
+    if silver > 0:
+        rates[SILVER_GRAM_CURRENCY] = float(1 / silver)
+    return rates
+
+
 # Chart of accounts by karat (codes created by scripts/accounting/configure_accounting.py).
 # Gold metal is tracked per karat whatever the piece is (jewellery, bar or
 # coin): inventory ("gold in stock"), metal sales and cost of gold sold. What
