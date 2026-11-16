@@ -457,10 +457,12 @@ if quants and hist and not Move.search([('ref', '=', LABEL + ' since go-live'), 
 
 # 10. gold by karat and making fee (target state per month)
 from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import (
-    GOLD_KARAT_ACCOUNTS, MAKING_FEE_ACCOUNTS, SILVER_ACCOUNTS, jewellery_account_codes, making_fee_split)
+    ALL_MAKING_FEE_ACCOUNTS, GOLD_KARAT_ACCOUNTS, SILVER_ACCOUNTS, jewellery_account_codes, making_fee_split)
 
+# All making-fee accounts, the two pre-karat-split ones included: their
+# target is 0, so a re-run moves their history to the karat fee accounts.
 KARAT_SALES = {c['income'] for c in GOLD_KARAT_ACCOUNTS.values()} | {SILVER_ACCOUNTS['income']} \
-    | set(MAKING_FEE_ACCOUNTS.values())
+    | ALL_MAKING_FEE_ACCOUNTS
 KARAT_COST = {c['expense'] for c in GOLD_KARAT_ACCOUNTS.values()} | {SILVER_ACCOUNTS['expense']}
 SALES_SET = KARAT_SALES | {SALES['Gold'], SALES['Bullion']}
 COST_SET = KARAT_COST | {COST['Gold'], COST['Bullion']}

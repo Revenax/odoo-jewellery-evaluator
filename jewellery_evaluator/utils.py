@@ -1248,12 +1248,32 @@ GOLD_KARAT_ACCOUNTS = {
     '18K': {'stock': '132113', 'income': '500113', 'expense': '400213'},
 }
 SILVER_ACCOUNTS = {'stock': '132103', 'income': '500105', 'expense': '400203'}
-MAKING_FEE_ACCOUNTS = {
-    'gold_local': '500121',
-    'gold_foreign': '500121',
-    'gold_bars': '500122',
-    'silver': '500123',
+# Making fee per karat (2026-11-16): gold jewellery and the bullion premium.
+GOLD_MAKING_FEE_ACCOUNTS = {
+    '24K': {'jewellery': '500124', 'bullion': '500127'},
+    '21K': {'jewellery': '500125', 'bullion': '500128'},
+    '18K': {'jewellery': '500126', 'bullion': '500129'},
 }
+SILVER_MAKING_FEE_ACCOUNT = '500123'
+# Before the karat split every gold making fee went to these two; they keep
+# their history and receive nothing new.
+LEGACY_MAKING_FEE_ACCOUNTS = {'jewellery': '500121', 'bullion': '500122'}
+ALL_MAKING_FEE_ACCOUNTS = (
+    {c for fees in GOLD_MAKING_FEE_ACCOUNTS.values() for c in fees.values()}
+    | {SILVER_MAKING_FEE_ACCOUNT} | set(LEGACY_MAKING_FEE_ACCOUNTS.values()))
+# Every other gold account, one per karat. revaluation = where the nightly
+# re-mark of that karat's stock lands (its inventory account's stock
+# variation account; diamonds and silver keep 500102). The workshop and
+# customer-gold accounts are kept in grams (currency G24/G21/G18).
+GOLD_KARAT_OTHER_ACCOUNTS = {
+    '24K': {'revaluation': '500151', 'workshop_manufacturing': '132121', 'workshop_repair': '132131',
+            'owed_to_customers': '201041', 'manufacturing_loss': '400111', 'purity_difference': '400121'},
+    '21K': {'revaluation': '500152', 'workshop_manufacturing': '132122', 'workshop_repair': '132132',
+            'owed_to_customers': '201042', 'manufacturing_loss': '400112', 'purity_difference': '400122'},
+    '18K': {'revaluation': '500153', 'workshop_manufacturing': '132123', 'workshop_repair': '132133',
+            'owed_to_customers': '201043', 'manufacturing_loss': '400113', 'purity_difference': '400123'},
+}
+GOLD_KARAT_CURRENCY = {'24K': 'G24', '21K': 'G21', '18K': 'G18'}
 
 
 def jewellery_account_codes(jewellery_type: str | None, gold_purity: str | None) -> dict | None:
@@ -1265,11 +1285,13 @@ def jewellery_account_codes(jewellery_type: str | None, gold_purity: str | None)
     """
     if jewellery_type == 'silver':
         codes = dict(SILVER_ACCOUNTS)
+        codes['making_fee'] = SILVER_MAKING_FEE_ACCOUNT
     elif jewellery_type in GOLD_JEWELLERY_TYPES and gold_purity in GOLD_KARAT_ACCOUNTS:
         codes = dict(GOLD_KARAT_ACCOUNTS[gold_purity])
+        kind = 'bullion' if jewellery_type == 'gold_bars' else 'jewellery'
+        codes['making_fee'] = GOLD_MAKING_FEE_ACCOUNTS[gold_purity][kind]
     else:
         return None
-    codes['making_fee'] = MAKING_FEE_ACCOUNTS[jewellery_type]
     return codes
 
 

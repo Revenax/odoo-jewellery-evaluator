@@ -70,7 +70,10 @@ def account(code, name, account_type, old_names=(), **extra):
 
 
 # ── accounts ────────────────────────────────────────────────────────────
-revaluation = account('500102', 'Metal Price Revaluation', 'income_other')
+# Gold karats have their own revaluation accounts (below); this one keeps
+# diamonds, silver and gold without a karat.
+revaluation = account('500102', 'Metal Price Revaluation - Diamond, Silver, Other', 'income_other',
+                      old_names=('Metal Price Revaluation',))
 capital = account('300001', "Owners' Capital", 'equity')
 # Pieces marked Lost on an approved stock count (jewellery_inventory_management).
 inventory_loss = account('400071', 'Inventory Loss', 'expense')
@@ -79,19 +82,15 @@ inventory_loss = account('400071', 'Inventory Loss', 'expense')
 EXTRA_ACCOUNTS = [
     ('105020', 'Petty Cash', 'asset_cash'),
     ('102016', 'Staff Advances', 'asset_current'),
-    ('132104', 'Gold at Workshops - Manufacturing', 'asset_current'),
-    ('132105', 'Gold at Workshops - Repair', 'asset_current'),
     ('201030', 'Customer Deposits', 'liability_current'),
-    ('201031', 'Gold Owed to Customers', 'liability_current'),
-    ('400073', 'Purity Differences', 'expense'),
-    ('400110', 'Approved Manufacturing Loss', 'expense'),
     ('500107', 'Repair & Alteration Revenue', 'income'),
     ('500108', 'Appraisal & Other Services', 'income'),
 ]
 for _code, _name, _type in EXTRA_ACCOUNTS:
     account(_code, _name, _type)
-from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import (
-    GOLD_KARAT_ACCOUNTS, MAKING_FEE_ACCOUNTS, SILVER_ACCOUNTS)
+from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import (  # noqa: E402
+    ALL_MAKING_FEE_ACCOUNTS, GOLD_KARAT_ACCOUNTS, GOLD_KARAT_CURRENCY, GOLD_KARAT_OTHER_ACCOUNTS,
+    GOLD_MAKING_FEE_ACCOUNTS, LEGACY_MAKING_FEE_ACCOUNTS, SILVER_ACCOUNTS, SILVER_MAKING_FEE_ACCOUNT)
 
 # Category accounts. Gold and silver pieces are booked on their karat's
 # accounts below (models/karat_accounts.py); these only catch a gold piece
@@ -128,19 +127,50 @@ MATERIALS['Bullion'] = {
     'stock': MATERIALS['Gold']['stock'],
 }
 
-# Gold by karat: what is in stock, metal sales, cost of gold sold.
+# Gold by karat (every gold account, 2026-11-16): what is in stock, metal
+# sales, cost of gold sold, making fee, revaluation, workshops, gold owed to
+# customers, manufacturing loss, purity differences.
+OTHER_NAMES = {
+    'revaluation': ('Metal Price Revaluation - Gold {k}', 'income_other'),
+    'workshop_manufacturing': ('Gold at Workshops - Manufacturing {k}', 'asset_current'),
+    'workshop_repair': ('Gold at Workshops - Repair {k}', 'asset_current'),
+    'owed_to_customers': ('Gold Owed to Customers {k}', 'liability_current'),
+    'manufacturing_loss': ('Approved Manufacturing Loss - Gold {k}', 'expense'),
+    'purity_difference': ('Purity Differences - Gold {k}', 'expense'),
+}
+# Held in grams of the karat (the metal currencies, data/metal_currencies.xml).
+IN_GRAMS = ('workshop_manufacturing', 'workshop_repair', 'owed_to_customers')
+Currency = env['res.currency'].with_context(active_test=False)
 for karat, codes in GOLD_KARAT_ACCOUNTS.items():
+    other = {kind: account(code, OTHER_NAMES[kind][0].format(k=karat), OTHER_NAMES[kind][1])
+             for kind, code in GOLD_KARAT_OTHER_ACCOUNTS[karat].items()}
     account(codes['stock'], f'Inventory - Gold {karat}', 'asset_current',
-            account_stock_variation_id=revaluation.id)
+            account_stock_variation_id=other['revaluation'].id)
     account(codes['income'], f'Sales - Gold {karat} (metal value)', 'income')
     account(codes['expense'], f'Cost of Gold Sold - {karat}', 'expense_direct_cost')
-# What the customer pays above the metal value.
-FEE_NAMES = {'500121': 'Making Fee - Gold Jewellery', '500122': 'Making Fee - Gold Bullion (premium)',
-             '500123': 'Making Fee - Silver'}
-for code in sorted(set(MAKING_FEE_ACCOUNTS.values())):
-    account(code, FEE_NAMES[code], 'income')
+    fees = GOLD_MAKING_FEE_ACCOUNTS[karat]
+    account(fees['jewellery'], f'Making Fee - Gold Jewellery {karat}', 'income')
+    account(fees['bullion'], f'Making Fee - Gold Bullion {karat} (premium)', 'income')
+    grams = Currency.search([('name', '=', GOLD_KARAT_CURRENCY[karat])], limit=1)
+    if grams:
+        for kind in IN_GRAMS:
+            if other[kind].currency_id != grams:
+                other[kind].currency_id = grams
+                log(f'account {other[kind].code} kept in {grams.name} (grams)')
+    else:
+        log(f'currency {GOLD_KARAT_CURRENCY[karat]} missing: {karat} gram accounts left in EGP')
+# What the customer pays above the metal value. The two legacy gold accounts
+# keep their history (correcting_entries section 10 moves it by karat).
+account(SILVER_MAKING_FEE_ACCOUNT, 'Making Fee - Silver', 'income')
+account(LEGACY_MAKING_FEE_ACCOUNTS['jewellery'], 'Making Fee - Gold Jewellery (before karat split)', 'income',
+        old_names=('Making Fee - Gold Jewellery',))
+account(LEGACY_MAKING_FEE_ACCOUNTS['bullion'], 'Making Fee - Gold Bullion (before karat split)', 'income',
+        old_names=('Making Fee - Gold Bullion (premium)',))
 KARAT_CODES = {c for codes in GOLD_KARAT_ACCOUNTS.values() for c in codes.values()} \
-    | set(SILVER_ACCOUNTS.values()) | set(MAKING_FEE_ACCOUNTS.values())
+    | {c for codes in GOLD_KARAT_OTHER_ACCOUNTS.values() for c in codes.values()} \
+    | set(SILVER_ACCOUNTS.values()) | ALL_MAKING_FEE_ACCOUNTS
+# The single gold accounts of 2026-11-07 (never used) are replaced by the
+# karat ones above and archived by the sweep below.
 
 # ── company ─────────────────────────────────────────────────────────────
 wanted = {
@@ -299,8 +329,7 @@ for code in ('BNK1', 'IFRS'):
 # categories, payment methods, payroll rules, asset models...), and the
 # ones below that a 4-branch jeweller will use.
 KEEP = {
-    '400071', '105020', '102016', '132104', '132105', '201030', '201031', '400073', '400110',
-    '500107', '500108',
+    '400071', '105020', '102016', '201030', '500107', '500108',
     '100001', '101002', '101003', '101008', '102014', '104023', '104035', '104037', '104040',
     '106001', '106002', '106003', '106004', '106006', '106007', '106008', '106009', '132103',
     '201001', '201002', '201004', '201007', '201011', '201015', '201016', '201018', '202001',
@@ -360,13 +389,18 @@ GROUPS = [
     ('106', '106', 'Fixed Assets'),
     ('132', '132', 'Inventory'),
     ('13211', '13211', 'Gold in Stock by Karat'),
+    ('13212', '13212', 'Gold at Workshops - Manufacturing by Karat'),
+    ('13213', '13213', 'Gold at Workshops - Repair by Karat'),
     ('2', '2', 'Liabilities'),
     ('201', '201', 'Current Liabilities'),
+    ('20104', '20104', 'Gold Owed to Customers by Karat'),
     ('202', '202', 'Non-current Liabilities'),
     ('3', '3', 'Equity'),
     ('3001', '3001', "Owners' Current Accounts"),
     ('4', '4', 'Expenses'),
     ('4000', '4001', 'Operating Expenses'),
+    ('40011', '40011', 'Approved Manufacturing Loss by Karat'),
+    ('40012', '40012', 'Purity Differences by Karat'),
     ('4002', '4002', 'Cost of Goods Sold'),
     ('40021', '40021', 'Cost of Gold Sold by Karat'),
     ('5', '5', 'Income'),
@@ -374,6 +408,7 @@ GROUPS = [
     ('5001', '5001', 'Jewellery Sales & Metal Revaluation'),
     ('50011', '50011', 'Gold Sales by Karat (metal value)'),
     ('50012', '50012', 'Making Fees'),
+    ('50015', '50015', 'Gold Revaluation by Karat'),
     ('9', '9', 'Cash Differences & Closing'),
 ]
 Group = env['account.group'].sudo()
