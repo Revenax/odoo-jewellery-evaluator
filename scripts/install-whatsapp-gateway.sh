@@ -16,6 +16,9 @@
 #   WHATSAPP_APP_SECRET   Meta app secret          (pasted by the owner, never by script)
 #   WHATSAPP_VERIFY_TOKEN webhook verify token     (generated here once if missing)
 #   WHATSAPP_PHONE_NUMBER_ID                       (set here if missing; not a secret)
+#   WHATSAPP_OPS_KEY      staff inbox API key      (generated here once if missing; the ops app
+#                                                  holds the same value in Vercel env)
+#   WHATSAPP_OPS_NOTIFY_URL  ops app endpoint told about each incoming message (staff push)
 # This script never prints any of them.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -36,6 +39,8 @@ install -d -o odoo -g odoo -m 750 /var/lib/marjaan-whatsapp
 
 touch "$ENVF"; chown root:root "$ENVF"; chmod 600 "$ENVF"
 grep -q '^WHATSAPP_VERIFY_TOKEN=' "$ENVF" || echo "WHATSAPP_VERIFY_TOKEN=$(openssl rand -hex 24)" >> "$ENVF"
+grep -q '^WHATSAPP_OPS_KEY=' "$ENVF" || echo "WHATSAPP_OPS_KEY=$(openssl rand -hex 32)" >> "$ENVF"
+grep -q '^WHATSAPP_OPS_NOTIFY_URL=' "$ENVF" || echo "WHATSAPP_OPS_NOTIFY_URL=https://operations.marjaanjewellery.com/api/whatsapp/notify" >> "$ENVF"
 grep -q '^WHATSAPP_PHONE_NUMBER_ID=' "$ENVF" || echo "WHATSAPP_PHONE_NUMBER_ID=$PHONE_NUMBER_ID" >> "$ENVF"
 
 cat > /etc/systemd/system/marjaan-whatsapp.service <<'UNIT'
@@ -80,6 +85,16 @@ fi
 if grep -q 'location = /whatsapp/webhook' "$SITE" && ! grep -A4 'location = /whatsapp/webhook' "$SITE" | grep -q 'access_log off'; then
     cp -a "$SITE" "$SITE.bak-$(date +%Y%m%d-%H%M%S)"
     sed -i '/location = \/whatsapp\/webhook {/a\        access_log off;  # the verify token rides in the query string' "$SITE"
+fi
+# Staff inbox API for the ops app (bearer key checked by the gateway itself).
+if ! grep -q 'location /whatsapp/api/' "$SITE"; then
+    BAK="$SITE.bak-$(date +%Y%m%d-%H%M%S)"
+    cp -a "$SITE" "$BAK"
+    awk '!done && /location = \/whatsapp\/webhook/ { print "    # WhatsApp staff inbox API (ops app; Bearer WHATSAPP_OPS_KEY)";
+         print "    location /whatsapp/api/ {"; print "        proxy_pass http://127.0.0.1:8076;";
+         print "        client_max_body_size 64k;"; print "    }"; done=1 } { print }' "$BAK" > "$SITE"
+    if ! nginx -t 2>/dev/null; then cp -a "$BAK" "$SITE"; nginx -t; echo "nginx -t failed, restored $BAK" >&2; exit 1; fi
+    echo "nginx inbox route added (backup $BAK)"
 fi
 # Scrub any verify token already written to the logs.
 sed -i -E 's/(hub[._]verify_token=)[^& "]+/\1[redacted]/g' /var/log/nginx/odoo.access.log /var/log/nginx/odoo.access.log.1 2>/dev/null || true

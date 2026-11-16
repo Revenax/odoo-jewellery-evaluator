@@ -211,3 +211,103 @@ def test_send_rejects_bad_document(tmp_path):
                    env={"WHATSAPP_TOKEN": "t", "WHATSAPP_PHONE_NUMBER_ID": "1"})
     assert g.send({"to": "01063864994", "template": "x", "document": {"base64": "not base64!!"}})[0] == 400
     assert g.send({"to": "01063864994", "template": "x", "document": {"base64": ""}})[0] == 400
+
+
+# ---- staff inbox (ops app)
+
+BSUID = "EG.1154488940450454"
+
+
+def test_bsuid_kept_and_sent_as_recipient():
+    assert gw.normalize_peer(BSUID) == BSUID
+    assert gw.normalize_peer(" 01063864994 ") == "201063864994"
+    body = gw.build_message(BSUID, text="Hi")
+    assert body["recipient"] == BSUID and "to" not in body
+    assert gw.build_message("201063864994", text="Hi")["to"] == "201063864994"
+
+
+@pytest.mark.parametrize("header,ok", [
+    ("Bearer k3y", True), ("Bearer wrong", False), ("k3y", False), (None, False), ("", False)])
+def test_bearer_check(header, ok):
+    assert gw.check_bearer(header, "k3y") is ok
+
+
+def test_bearer_never_matches_empty_key():
+    assert not gw.check_bearer("Bearer ", "")
+
+
+def test_window_open():
+    assert gw.window_open(1000.0, 1000.0 + 3600)
+    assert not gw.window_open(1000.0, 1000.0 + 24 * 3600)
+    assert not gw.window_open(None, 1000.0)
+
+
+def _inbox(tmp_path):
+    store = gw.Store(str(tmp_path / "wa.db"))
+    g = gw.Gateway(store, env={"WHATSAPP_APP_SECRET": SECRET})
+    store.add(wamid="w1", direction="in", peer=BSUID, name="Nina", type="text", text="Hello", status="received")
+    store.add(wamid="w2", direction="out", peer="201007709545", type="template", text="template:x", status="read")
+    store.add(wamid="w3", direction="in", peer=BSUID, name=None, type="image", text=None, status="received")
+    return store, g
+
+
+def test_conversations_grouped_with_unread_and_window(tmp_path):
+    store, g = _inbox(tmp_path)
+    status, rows = g.conversations()
+    assert status == 200 and [r["peer"] for r in rows] == [BSUID, "201007709545"]
+    nina = rows[0]
+    assert nina["name"] == "Nina" and nina["unread"] == 2 and nina["window_open"]
+    assert nina["last"]["type"] == "image"
+    assert rows[1]["unread"] == 0 and not rows[1]["window_open"]
+
+
+def test_thread_oldest_first_and_seen_clears_unread(tmp_path):
+    store, g = _inbox(tmp_path)
+    status, t = g.thread(BSUID)
+    assert status == 200 and [m["text"] for m in t["messages"]] == ["Hello", None] and t["window_open"]
+    assert g.seen({"peer": BSUID}) == (200, {"ok": True, "marked": 2})
+    assert g.conversations()[1][0]["unread"] == 0
+    assert g.seen({"peer": BSUID})[1]["marked"] == 0
+
+
+def test_reply_validation_and_closed_window(tmp_path):
+    store, g = _inbox(tmp_path)
+    assert g.reply({"peer": BSUID, "text": "  "})[0] == 400
+    assert g.reply({"peer": "x", "text": "hi"})[0] == 400
+    assert g.reply({"peer": BSUID, "text": "x" * 5000})[0] == 400
+    assert g.reply({"peer": "201007709545", "text": "hi"})[0] == 409  # never wrote to us
+    assert g.reply({"peer": BSUID, "text": "hi"}, now=10**10)[0] == 409  # window long closed
+    assert g.reply({"peer": BSUID, "text": "We open at 11"})[0] == 503  # open window; no token here
+
+
+def test_store_migrates_seen_at(tmp_path):
+    import sqlite3
+    path = str(tmp_path / "old.db")
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE messages (id INTEGER PRIMARY KEY, wamid TEXT, direction TEXT NOT NULL, peer TEXT, "
+                   "name TEXT, type TEXT, text TEXT, status TEXT, error TEXT, source TEXT, payload TEXT, "
+                   "created_at REAL NOT NULL, updated_at REAL NOT NULL)")
+    store = gw.Store(path)
+    store.add(wamid="w", direction="in", peer=BSUID, status="received")
+    assert store.mark_seen(BSUID) == ["w"]
+
+
+def test_media_id_only_for_incoming_media():
+    assert gw.media_id_of("image", json.dumps({"image": {"id": "12345678", "mime_type": "image/jpeg"}})) == "12345678"
+    assert gw.media_id_of("text", json.dumps({"text": {"body": "x"}})) is None
+    assert gw.media_id_of("image", "not json") is None
+
+
+def test_thread_exposes_media_id_and_media_is_whitelisted(tmp_path):
+    store = gw.Store(str(tmp_path / "wa.db"))
+    g = gw.Gateway(store, env={"WHATSAPP_TOKEN": "t"})
+    store.add(wamid="w", direction="in", peer=BSUID, type="image", status="received",
+              payload=json.dumps({"type": "image", "image": {"id": "99887766"}}))
+    assert g.thread(BSUID)[1]["messages"][0]["media_id"] == "99887766"
+    assert g.media("11112222")[0] == 404  # never sent to us
+    assert g.media("../etc")[0] == 404
+
+
+def test_notify_is_off_without_url(tmp_path):
+    g = gw.Gateway(gw.Store(str(tmp_path / "wa.db")), env={"WHATSAPP_OPS_KEY": "k"})
+    g._notify({"from": BSUID, "name": "Nina", "type": "text", "text": "hi"})  # no URL: no thread, no error
