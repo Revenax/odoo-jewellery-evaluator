@@ -19,7 +19,11 @@ WhatsApp, kept separate from Odoo's own WhatsApp app on purpose:
     GET  /whatsapp/api/thread?peer=P          that customer's messages, oldest first
     POST /whatsapp/api/reply  {peer,text,staff}  free text, only inside the 24-hour window
     POST /whatsapp/api/seen   {peer}          mark read here + blue ticks on the customer's phone
-    GET  /whatsapp/api/media?id=M             a photo/document/voice note a customer sent
+    GET  /whatsapp/api/media?id=M             a photo/document/voice note in a conversation
+    GET  /whatsapp/api/templates              approved templates (body text, parameter count)
+    POST /whatsapp/api/template {peer,template,params,staff}  a template: works outside the window
+    POST /whatsapp/api/unread {peer}          mark the latest incoming message unread again
+    /reply also takes ``image: {base64, mime, filename}`` (text becomes the caption).
 
 When WHATSAPP_OPS_NOTIFY_URL is set, each incoming message is also POSTed there (same
 bearer key, in a background thread) so the ops app can push a notification to staff.
@@ -64,6 +68,9 @@ REPLY_WINDOW = 24 * 3600  # free-form replies are allowed for 24 h after the cus
 WINDOW_MARGIN = 60        # stop a minute early: Meta rejects a reply that lands after the window
 MAX_TEXT = 4096
 MEDIA_TYPES = ('image', 'document', 'video', 'audio', 'sticker')
+IMAGE_MIMES = ('image/jpeg', 'image/png')  # what the Cloud API accepts for image messages
+TEMPLATE_TTL = 600
+PARAM_RE = re.compile(r'{{\s*(\d+)\s*}}')
 MAX_MEDIA = 4 * 1024 * 1024  # what the ops app (a Vercel function) can pass back
 BSUID_RE = re.compile(r'^[A-Z]{2}\.[0-9A-Za-z]{6,}$')
 
@@ -177,6 +184,47 @@ def media_id_of(message_type, payload):
         return None
 
 
+def decode_image(img):
+    """(bytes, mime, None) for a JPEG/PNG under 5 MB given as base64, else (None, None, error)."""
+    mime = str((img or {}).get('mime') or 'image/jpeg')
+    if mime not in IMAGE_MIMES:
+        return None, None, 'photos must be JPEG or PNG'
+    try:
+        data = base64.b64decode((img or {}).get('base64') or '', validate=True)
+    except ValueError:
+        return None, None, 'image.base64 is not valid base64'
+    if not data or len(data) > 5 * 1024 * 1024:
+        return None, None, 'photo empty or larger than 5 MB'
+    return data, mime, None
+
+
+def summarize_templates(data):
+    """Graph message_templates -> approved templates staff can send from the inbox."""
+    out = []
+    for t in (data or {}).get('data') or []:
+        if t.get('status') != 'APPROVED':
+            continue
+        body, header = '', None
+        for c in t.get('components') or []:
+            if c.get('type') == 'BODY':
+                body = c.get('text') or ''
+            elif c.get('type') == 'HEADER':
+                header = c.get('format')
+        out.append({'name': t.get('name'), 'language': t.get('language'), 'category': t.get('category'),
+                    'body': body, 'params': len(set(PARAM_RE.findall(body))), 'header': header})
+    return sorted(out, key=lambda x: x['name'] or '')
+
+
+def render_template(body, params):
+    """The template text the customer sees, with {{n}} filled in."""
+    params = [str(p) for p in params or []]
+
+    def sub(m):
+        i = int(m.group(1)) - 1
+        return params[i] if 0 <= i < len(params) else m.group(0)
+    return PARAM_RE.sub(sub, body or '')
+
+
 def check_bearer(header, key):
     """True when header is 'Bearer <key>' (constant time). An empty key never matches."""
     if not key or not header or not header.startswith('Bearer '):
@@ -185,12 +233,20 @@ def check_bearer(header, key):
 
 
 def build_message(to, template=None, language='en_US', params=None, text=None,
-                  document_id=None, filename=None):
+                  document_id=None, filename=None, image_id=None):
     """Cloud API /messages body.
 
     - template (+ body params), optionally with a DOCUMENT header (``document_id`` = uploaded media id);
     - text alone; or text + ``document_id`` = a document message with the text as caption.
     """
+    if image_id and not template:
+        body = {'messaging_product': 'whatsapp'}
+        body['recipient' if is_bsuid(to) else 'to'] = to
+        img = {'id': image_id}
+        if text:
+            img['caption'] = text[:1024]
+        body.update(type='image', image=img)
+        return body
     if bool(template) == bool(text):
         raise ValueError('give exactly one of template or text')
     body = {'messaging_product': 'whatsapp'}
@@ -314,8 +370,7 @@ class Store:
         with self._db() as db:
             db.row_factory = sqlite3.Row
             rows = db.execute('SELECT id, direction, name, type, text, status, error, source, created_at, seen_at, '
-                              "CASE WHEN direction = 'in' THEN payload END AS payload "
-                              'FROM messages WHERE peer = ? ORDER BY id DESC LIMIT ?', (peer, limit)).fetchall()
+                              'payload FROM messages WHERE peer = ? ORDER BY id DESC LIMIT ?', (peer, limit)).fetchall()
         out = []
         for r in reversed(rows):
             d = dict(r)
@@ -326,7 +381,7 @@ class Store:
     def has_media(self, peer_media_id):
         """Only media that a customer actually sent us can be fetched through the inbox."""
         with self._db() as db:
-            return db.execute("SELECT 1 FROM messages WHERE direction = 'in' AND payload LIKE ? LIMIT 1",
+            return db.execute('SELECT 1 FROM messages WHERE payload LIKE ? LIMIT 1',
                               (f'%"{peer_media_id}"%',)).fetchone() is not None
 
     def last_in_at(self, peer):
@@ -345,6 +400,13 @@ class Store:
                        (time.time(), peer))
         return [w for w in wamids if w]
 
+    def mark_unread(self, peer):
+        """Flag the peer's latest incoming message unread again (staff triage); returns 1 or 0."""
+        with self._db() as db:
+            cur = db.execute("UPDATE messages SET seen_at = NULL WHERE id = (SELECT MAX(id) FROM messages "
+                             "WHERE peer = ? AND direction = 'in')", (peer,))
+            return cur.rowcount
+
 
 # ---------------------------------------------------------------- service
 
@@ -357,6 +419,8 @@ class Gateway:
         self.phone_number_id = env.get('WHATSAPP_PHONE_NUMBER_ID', '')
         self.ops_key = env.get('WHATSAPP_OPS_KEY', '')
         self.notify_url = env.get('WHATSAPP_OPS_NOTIFY_URL', '')
+        self.waba_id = env.get('WHATSAPP_WABA_ID', '1109104548407047')  # the Messaging account (templates)
+        self._templates = (0.0, None)
         self.last_error = None
         self.lock = threading.Lock()
 
@@ -426,7 +490,15 @@ class Gateway:
             return 400, {'error': 'invalid "to" number'}
         if not (self.token and self.phone_number_id):
             return 503, {'error': 'gateway not configured (token / phone number id)'}
-        document_id = filename = None
+        document_id = filename = image_id = None
+        img = req.get('image') or {}
+        if img:
+            data, mime, err = decode_image(img)
+            if err:
+                return 400, {'error': err}
+            status, image_id = self._upload(data, str(img.get('filename') or 'photo.jpg')[:120], mime)
+            if status != 200:
+                return status, {'error': image_id}
         doc = req.get('document') or {}
         if doc:
             try:
@@ -442,14 +514,16 @@ class Gateway:
         try:
             body = build_message(to, template=req.get('template'), language=req.get('language') or 'en_US',
                                  params=req.get('params'), text=req.get('text'),
-                                 document_id=document_id, filename=filename)
+                                 document_id=document_id, filename=filename, image_id=image_id)
         except ValueError as err:
             return 400, {'error': str(err)}
         url = f'https://graph.facebook.com/{GRAPH_VERSION}/{self.phone_number_id}/messages'
         http_req = urllib.request.Request(url, data=json.dumps(body).encode(), method='POST', headers={
             'Authorization': f'Bearer {self.token}', 'Content-Type': 'application/json'})
         source = str(req.get('source') or '')[:40] or None
-        summary = req.get('text') or f"template:{req.get('template')}"
+        summary = req.get('summary') or req.get('text') or f"template:{req.get('template')}"
+        if image_id and not req.get('text'):
+            summary = None
         if filename:
             summary = f'{summary} + {filename}'
         try:
@@ -459,7 +533,7 @@ class Gateway:
             safe = safe_graph_error(err.read().decode(errors='replace'), self.token)
             self.last_error = safe
             self.store.add(direction='out', peer=to, type=body['type'], text=summary, status='failed',
-                           error=json.dumps(safe), source=source)
+                           error=json.dumps(safe), source=source, payload=json.dumps(body))
             log.warning('send to %s failed: %s', to, safe)
             return 502, {'error': safe}
         except (urllib.error.URLError, TimeoutError) as err:
@@ -467,7 +541,7 @@ class Gateway:
             return 504, {'error': 'Graph API unreachable'}
         wamid = ((data.get('messages') or [{}])[0]).get('id')
         self.store.add(wamid=wamid, direction='out', peer=to, type=body['type'], text=summary,
-                       status='accepted', source=source)
+                       status='accepted', source=source, payload=json.dumps(body))
         return 200, {'ok': True, 'wamid': wamid, 'to': to}
 
     # ------------------------------------------------------------ staff inbox
@@ -492,16 +566,78 @@ class Gateway:
     def reply(self, req, now=None):
         peer = normalize_peer(str(req.get('peer') or ''))
         text = str(req.get('text') or '').strip()
+        image = req.get('image') or None
         if not peer:
             return 400, {'error': 'invalid peer'}
-        if not text:
+        if not text and not image:
             return 400, {'error': 'empty message'}
+        if image and len(text) > 1024:
+            return 400, {'error': 'a photo caption is limited to 1024 characters'}
+        if image and decode_image(image)[2]:
+            return 400, {'error': decode_image(image)[2]}
         if len(text) > MAX_TEXT:
             return 400, {'error': f'message longer than {MAX_TEXT} characters'}
         if not window_open(self.store.last_in_at(peer), now or time.time()):
             return 409, {'error': 'The 24-hour reply window is closed: the customer has to message us first.'}
         staff = re.sub(r'[^\w .@-]', '', str(req.get('staff') or ''))[:30]
-        return self.send({'to': peer, 'text': text, 'source': f'ops:{staff}' if staff else 'ops'})
+        out = {'to': peer, 'source': f'ops:{staff}' if staff else 'ops'}
+        if image:
+            out['image'] = image
+            if text:
+                out['text'] = text
+        else:
+            out['text'] = text
+        return self.send(out)
+
+    def templates(self, now=None):
+        """(status, list) of approved templates, cached for 10 minutes."""
+        now = now or time.time()
+        fetched, cached = self._templates
+        if cached is not None and now - fetched < TEMPLATE_TTL:
+            return 200, cached
+        if not self.token:
+            return 503, {'error': 'gateway not configured'}
+        url = (f'https://graph.facebook.com/{GRAPH_VERSION}/{self.waba_id}/message_templates'
+               '?fields=name,status,language,category,components&limit=100')
+        try:
+            with urllib.request.urlopen(urllib.request.Request(
+                    url, headers={'Authorization': f'Bearer {self.token}'}), timeout=TIMEOUT) as resp:
+                data = json.loads(resp.read())
+        except urllib.error.HTTPError as err:
+            return 502, {'error': safe_graph_error(err.read().decode(errors='replace'), self.token)}
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as err:
+            return 504, {'error': f'templates unavailable ({type(err).__name__})'}
+        self._templates = (now, summarize_templates(data))
+        return 200, self._templates[1]
+
+    def send_template(self, req):
+        """Staff send an approved template (no 24-hour window needed). Document-header ones are for Odoo."""
+        peer = normalize_peer(str(req.get('peer') or ''))
+        if not peer:
+            return 400, {'error': 'invalid number'}
+        status, items = self.templates()
+        if status != 200:
+            return status, items
+        tpl = next((t for t in items if t['name'] == req.get('template')), None)
+        if not tpl:
+            return 400, {'error': 'unknown or unapproved template'}
+        if tpl['header']:
+            return 400, {'error': 'this template needs an attachment and is sent by Odoo only'}
+        params = [str(p).strip() for p in (req.get('params') or [])]
+        if len(params) != tpl['params'] or any(not p for p in params):
+            return 400, {'error': f'fill in all {tpl["params"]} fields'}
+        if any(len(p) > 200 or '\n' in p for p in params):
+            return 400, {'error': 'template fields must be one short line each'}
+        staff = re.sub(r'[^\w .@-]', '', str(req.get('staff') or ''))[:30]
+        return self.send({'to': peer, 'template': tpl['name'], 'language': tpl['language'], 'params': params,
+                          'summary': render_template(tpl['body'], params),
+                          'source': f'ops:{staff}' if staff else 'ops'})
+
+    def unread(self, req):
+        peer = normalize_peer(str(req.get('peer') or ''))
+        if not peer:
+            return 400, {'error': 'invalid peer'}
+        return 200, {'ok': True, 'marked': self.store.mark_unread(peer)}
 
     def seen(self, req):
         peer = normalize_peer(str(req.get('peer') or ''))
@@ -581,6 +717,8 @@ def make_handler(gw):
                     return self._send(*gw.conversations())
                 if url.path == '/whatsapp/api/thread':
                     return self._send(*gw.thread((parse_qs(url.query).get('peer') or [''])[0]))
+                if url.path == '/whatsapp/api/templates':
+                    return self._send(*gw.templates())
                 if url.path == '/whatsapp/api/media':
                     status, data, mime = gw.media((parse_qs(url.query).get('id') or [''])[0])
                     if status != 200:
@@ -610,14 +748,16 @@ def make_handler(gw):
             if url.path == '/whatsapp/webhook':
                 status, resp = gw.receive(body, self.headers.get('X-Hub-Signature-256'))
                 return self._send(status, resp)
-            if url.path in ('/whatsapp/api/reply', '/whatsapp/api/seen'):
+            routes = {'/whatsapp/api/reply': gw.reply, '/whatsapp/api/seen': gw.seen,
+                      '/whatsapp/api/template': gw.send_template, '/whatsapp/api/unread': gw.unread}
+            if url.path in routes:
                 if not self._ops_ok():
                     return self._send(401, {'error': 'unauthorized'})
                 try:
                     req = json.loads(body or b'{}')
                 except ValueError:
                     return self._send(400, {'error': 'bad json'})
-                return self._send(*(gw.reply(req) if url.path.endswith('/reply') else gw.seen(req)))
+                return self._send(*routes[url.path](req))
             if url.path == '/send' and self._local_only():
                 try:
                     req = json.loads(body or b'{}')

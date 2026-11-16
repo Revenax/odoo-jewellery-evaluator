@@ -311,3 +311,70 @@ def test_thread_exposes_media_id_and_media_is_whitelisted(tmp_path):
 def test_notify_is_off_without_url(tmp_path):
     g = gw.Gateway(gw.Store(str(tmp_path / "wa.db")), env={"WHATSAPP_OPS_KEY": "k"})
     g._notify({"from": BSUID, "name": "Nina", "type": "text", "text": "hi"})  # no URL: no thread, no error
+
+
+# ---- inbox v2: templates, photos, unread
+
+GRAPH_TEMPLATES = {"data": [
+    {"name": "welcome_contact", "status": "APPROVED", "language": "en", "category": "MARKETING",
+     "components": [{"type": "BODY", "text": "Hi {{1}}, this is Marjaan."}]},
+    {"name": "order_confirmation", "status": "APPROVED", "language": "en", "category": "UTILITY",
+     "components": [{"type": "HEADER", "format": "DOCUMENT"},
+                    {"type": "BODY", "text": "Dear {{1}}, order {{2}} total {{3}}."}]},
+    {"name": "draft_one", "status": "PENDING", "language": "en", "components": []},
+]}
+
+
+def test_summarize_templates_keeps_approved_with_param_count():
+    out = gw.summarize_templates(GRAPH_TEMPLATES)
+    assert [t["name"] for t in out] == ["order_confirmation", "welcome_contact"]
+    assert out[0]["params"] == 3 and out[0]["header"] == "DOCUMENT"
+    assert out[1]["params"] == 1 and out[1]["header"] is None
+
+
+def test_render_template():
+    assert gw.render_template("Hi {{1}}, order {{2}}", ["Sara", "MJ-1"]) == "Hi Sara, order MJ-1"
+    assert gw.render_template("Hi {{1}} {{2}}", ["Sara"]) == "Hi Sara {{2}}"
+
+
+def test_image_message_with_caption_and_recipient():
+    body = gw.build_message(BSUID, text="Ring", image_id="IMG1")
+    assert body["recipient"] == BSUID and body["type"] == "image"
+    assert body["image"] == {"id": "IMG1", "caption": "Ring"}
+    assert gw.build_message("201063864994", image_id="IMG1")["image"] == {"id": "IMG1"}
+
+
+def _tpl_gateway(tmp_path):
+    g = gw.Gateway(gw.Store(str(tmp_path / "wa.db")), env={"WHATSAPP_TOKEN": "", "WHATSAPP_PHONE_NUMBER_ID": "1"})
+    g._templates = (10**12, gw.summarize_templates(GRAPH_TEMPLATES))  # cached, far future
+    return g
+
+
+def test_send_template_validation(tmp_path):
+    g = _tpl_gateway(tmp_path)
+    assert g.send_template({"peer": "x", "template": "welcome_contact", "params": ["A"]})[0] == 400
+    assert g.send_template({"peer": "01063864994", "template": "nope", "params": []})[0] == 400
+    assert "attachment" in g.send_template({"peer": "01063864994", "template": "order_confirmation",
+                                            "params": ["a", "b", "c"]})[1]["error"]
+    assert g.send_template({"peer": "01063864994", "template": "welcome_contact", "params": []})[0] == 400
+    assert g.send_template({"peer": "01063864994", "template": "welcome_contact", "params": ["a\nb"]})[0] == 400
+    # valid: reaches send(), which stops at the missing token
+    assert g.send_template({"peer": "01063864994", "template": "welcome_contact", "params": ["Sara"]})[0] == 503
+
+
+def test_reply_photo_validation(tmp_path):
+    store, g = _inbox(tmp_path)
+    assert g.reply({"peer": BSUID, "image": {"base64": "aGk=", "mime": "image/gif"}})[1]["error"].startswith("photos")
+    assert g.reply({"peer": BSUID, "image": {"base64": "!!", "mime": "image/jpeg"}})[0] == 400
+    assert g.reply({"peer": BSUID, "text": "x" * 2000, "image": {"base64": "aGk="}})[0] == 400
+
+
+def test_mark_unread_and_outbound_media(tmp_path):
+    store, g = _inbox(tmp_path)
+    g.seen({"peer": BSUID})
+    assert g.unread({"peer": BSUID}) == (200, {"ok": True, "marked": 1})
+    assert g.conversations()[1][0]["unread"] == 1
+    store.add(wamid="w9", direction="out", peer=BSUID, type="image", status="sent",
+              payload=json.dumps({"type": "image", "image": {"id": "55554444"}}))
+    assert g.thread(BSUID)[1]["messages"][-1]["media_id"] == "55554444"
+    assert store.has_media("55554444")

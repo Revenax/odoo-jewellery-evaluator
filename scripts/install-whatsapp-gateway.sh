@@ -92,9 +92,14 @@ if ! grep -q 'location /whatsapp/api/' "$SITE"; then
     cp -a "$SITE" "$BAK"
     awk '!done && /location = \/whatsapp\/webhook/ { print "    # WhatsApp staff inbox API (ops app; Bearer WHATSAPP_OPS_KEY)";
          print "    location /whatsapp/api/ {"; print "        proxy_pass http://127.0.0.1:8076;";
-         print "        client_max_body_size 64k;"; print "    }"; done=1 } { print }' "$BAK" > "$SITE"
+         print "        client_max_body_size 10m;  # photos staff send"; print "    }"; done=1 } { print }' "$BAK" > "$SITE"
     if ! nginx -t 2>/dev/null; then cp -a "$BAK" "$SITE"; nginx -t; echo "nginx -t failed, restored $BAK" >&2; exit 1; fi
     echo "nginx inbox route added (backup $BAK)"
+fi
+# Older installs: the inbox route needs room for photos staff send.
+if grep -A3 'location /whatsapp/api/' "$SITE" | grep -q 'client_max_body_size 64k'; then
+    cp -a "$SITE" "$SITE.bak-$(date +%Y%m%d-%H%M%S)"
+    sed -i '/location \/whatsapp\/api\/ {/,/}/ s/client_max_body_size 64k;/client_max_body_size 10m;  # photos staff send/' "$SITE"
 fi
 # Scrub any verify token already written to the logs.
 sed -i -E 's/(hub[._]verify_token=)[^& "]+/\1[redacted]/g' /var/log/nginx/odoo.access.log /var/log/nginx/odoo.access.log.1 2>/dev/null || true
