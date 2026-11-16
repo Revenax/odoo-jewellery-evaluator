@@ -11,6 +11,8 @@ the mark inside the centre. Uses Meta's resumable upload: an upload session on t
 (/{app-id}/uploads) gives a handle, which goes to /{phone-number-id}/whatsapp_business_profile.
 The 2026-11-15 photo (gold Marjaan mark on navy) was built from
 marjaan_branding/static/img/icon-512x512.png scaled to 86% on a 640px #0f1138 square.
+Since 2026-11-16 both numbers (1472843472580652 and 1506282735898255) use the owner's 3D
+rose-gold M on navy, uploaded as a 1600x1600 JPEG (q95). Meta stores and serves it at 640x640.
 """
 import json
 import os
