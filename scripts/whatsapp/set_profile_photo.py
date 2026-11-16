@@ -4,7 +4,7 @@
 # Website: https://www.revenax.com
 """Set the WhatsApp business profile photo. Runs ON the Odoo box as root.
 
-    sudo PHOTO=/tmp/wa_profile.jpg python3 set_profile_photo.py
+    sudo PHOTO=/tmp/wa_profile.jpg [PHONE_ID=<id>] python3 set_profile_photo.py
 
 The photo must be a square JPEG (640x640 works); WhatsApp crops it to a circle, so keep
 the mark inside the centre. Uses Meta's resumable upload: an upload session on the APP
@@ -19,7 +19,8 @@ import urllib.error
 import urllib.request
 
 ENV = dict(l.strip().split("=", 1) for l in open("/etc/marjaan-whatsapp.env") if "=" in l)
-TOKEN, PHONE_ID = ENV["WHATSAPP_TOKEN"], ENV["WHATSAPP_PHONE_NUMBER_ID"]
+TOKEN = ENV["WHATSAPP_TOKEN"]
+PHONE_ID = os.environ.get("PHONE_ID") or ENV["WHATSAPP_PHONE_NUMBER_ID"]  # PHONE_ID= for another number
 APP_ID = os.environ.get("APP_ID", "1149149594233355")
 GRAPH = "https://graph.facebook.com/v25.0"
 

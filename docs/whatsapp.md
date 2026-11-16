@@ -349,3 +349,12 @@ Tested before go-live: the gateway sent `order_confirmation` with the MJ-1619 PD
 - [ ] Landline +20 2 2635 7935: coexistence after verification, or keep it on the app.
 - [x] Staff inbox in the ops app (section 13). Not yet: sending templates from the inbox to reopen a closed window, assigning conversations to a branch or person.
 - [ ] Retire the Revenax test setup (app 1120768327231037, test number, system user 61596401169367). Ask first.
+
+## 14. Second number: send-only name sender (2026-11-16)
+
+- **+1 555-811-8776**, phone number id 1506282735898255, WhatsApp/Messaging account 1456056179283345, display name "Marjaan Jewellery" (review pending). Owner decision: **send-only**, no inbox.
+- System user "Marjaan Messaging" has full access to the account (assigned in Business settings). Registered on the Cloud API with a two-step PIN the owner chose (not stored anywhere by us).
+- `/register` and the profile calls returned **error 10** until the app was subscribed to the account (`POST /{waba}/subscribed_apps`). It was subscribed only for registration and profile setup, then unsubscribed again; profile access still works afterwards. Keep it **unsubscribed**: the gateway does not filter webhooks by `phone_number_id`, so a subscription would put this number's incoming messages in the staff inbox, answered from the Egyptian number.
+- Profile set like the main number (email info@, website, RETAIL, logo via `PHONE_ID=1506282735898255 scripts/whatsapp/set_profile_photo.py`).
+- The account has **no templates** yet; sending needs approved templates submitted on account 1456056179283345. The gateway sends from `WHATSAPP_PHONE_NUMBER_ID` only, so sending from this number needs a script or a gateway change.
+- Business verification is now **verified**; request the Official business account (name instead of number) once the display name is approved.
