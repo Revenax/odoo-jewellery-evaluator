@@ -262,7 +262,10 @@ class PosSession(models.Model):
             'picking_type_id': picking_type.id,
             'location_id': source.id,
             'location_dest_id': dest.id,
-            'origin': f'{config.name} · {"Send to" if direction == "send" else "Receive from"} {who}',
+            'origin': f'{config.name} · {"Send to" if direction == "send" else "Receive from"} {who} · by {cashier}',
+            # Responsible = the cashier's (archived) Odoo user, so lists and
+            # filters show who did it, not the shared register login.
+            'user_id': employee.user_id.id or self.env.user.id,
             'jewellery_pos_transfer': True,
             'jewellery_transfer_key': key or False,
             'jewellery_transfer_direction': direction,
