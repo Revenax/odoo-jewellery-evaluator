@@ -312,6 +312,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Correction (same evening): Sway had already rung GDF8-0003 again as Sway Mall-000224 / MJ-1619 for نهال توفيق (13,500 InstaPay). Owner: InstaPay received was 108,400 (ريهام) + 13,500 (نهال) | GDF8-0003 removed from order 000031 (now 108,400 InstaPay, matches MJ-1617), its first delivery undone (on hand 0, sold once), MJ-1618 cancelled (cannot be deleted, MJ-1619 follows it) |
 | POS Transfer helper (2026-11-16): send/receive with owners (OW/*), branches, On Memo (name required); scan with photo; confirm weights | Odoo 46e3a46, ops 7c15cfa (`/api/odoo/warehouse`); record = picking tab "Register Transfer" + chatter table; tested end to end on a restored copy (SM/INT/00022 there, not on prod) |
 | Hard delete SM/INT/00022 + 00023 (test transfers, out to OW/Anas and back) and the 0 EGP test sales 2622-1-000228/229/230 (GBAR-BTC-0001, invoices MJ-1623/1624/1625) (2026-11-17) | transfers net zero, the 4 pieces stay in SM; orders, deliveries and invoices removed by SQL (GBAR not stock-tracked); register transfers now show "by <cashier>" in Source and the cashier's user as Responsible |
+| Hard delete SM/INT/00024 + 00025 (test: GNF8-0038 out to OW/Anas and back, by Ahmed Tarek) (2026-11-17) | net zero, GNF8-0038 stays in SM |
 
 ## 6. Open items
 
