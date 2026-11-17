@@ -10,6 +10,7 @@
 // (retrying while the order/invoice is still being saved); the buttons remain
 // for a second copy or the gift copy.
 import { ReceiptScreen } from "@point_of_sale/app/screens/receipt_screen/receipt_screen";
+import OrderPaymentValidation from "@point_of_sale/app/utils/order_payment_validation";
 import { onMounted, useState } from "@odoo/owl";
 import { patch } from "@web/core/utils/patch";
 import { _t } from "@web/core/l10n/translation";
@@ -113,5 +114,14 @@ patch(ReceiptScreen.prototype, {
         } finally {
             this.a5.busy = "";
         }
+    },
+});
+
+// Odoo downloads the invoice PDF after paying every invoiced order (and every
+// order is invoiced here). The A5 printer replaces that download; a failed
+// invoice still surfaces through the auto-print warning above.
+patch(OrderPaymentValidation.prototype, {
+    shouldDownloadInvoice() {
+        return false;
     },
 });
