@@ -4,17 +4,24 @@
     Author: Mohamed A. Abdallah
     Website: https://www.revenax.com
 
-    Adds a "Print Gift Invoice" button right after "Print Full Receipt" on the
-    POS receipt screen. Verified against Odoo 19 core template
-    point_of_sale.ReceiptScreen (the Print Full Receipt button uses
-    t-on-click="() => doFullPrint.call()").
+    Receipt screen (after payment): all of Odoo's print buttons are removed and
+    replaced by "Print A5" and "Print A5 Gift", which queue the invoice at the
+    branch's A5 printer (pos_gift_invoice.js). Anchored on Odoo 19 core
+    point_of_sale.ReceiptScreen.
 -->
 <templates id="template" xml:space="preserve">
     <t t-inherit="point_of_sale.ReceiptScreen" t-inherit-mode="extension">
-        <xpath expr="//button[@t-on-click=&quot;() =&gt; doFullPrint.call()&quot;]" position="after">
-            <button class="button print btn btn-lg btn-secondary w-100 py-3" t-on-click="() => this.printGiftInvoice()">
-                <i class="fa fa-gift me-1"/>Print Gift Invoice
-            </button>
+        <xpath expr="//button[@t-on-click=&quot;() =&gt; doFullPrint.call()&quot;]/.." position="replace">
+            <div class="d-flex gap-1">
+                <button class="button print btn btn-lg btn-secondary w-100 py-3" t-att-disabled="!!a5.busy"
+                        t-on-click="() => this.printA5('a5')">
+                    <i t-attf-class="fa {{ a5.busy === 'a5' ? 'fa-fw fa-spin fa-circle-o-notch' : 'fa-print' }} me-1"/>Print A5
+                </button>
+                <button class="button print btn btn-lg btn-secondary w-100 py-3" t-att-disabled="!!a5.busy"
+                        t-on-click="() => this.printA5('gift')">
+                    <i t-attf-class="fa {{ a5.busy === 'gift' ? 'fa-fw fa-spin fa-circle-o-notch' : 'fa-gift' }} me-1"/>Print A5 Gift
+                </button>
+            </div>
         </xpath>
     </t>
 </templates>
