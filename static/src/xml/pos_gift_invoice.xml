@@ -26,5 +26,15 @@
                 <i class="fa fa-download me-1"/>Download Invoice
             </button>
         </xpath>
+        <!-- Right panel: the A5 invoice instead of the receipt (falls back to the
+             receipt while the order has no server id, e.g. offline). -->
+        <xpath expr="//OrderReceipt" position="replace">
+            <iframe t-if="typeof currentOrder.id === 'number'" class="o_mj_invoice_preview"
+                    t-att-src="'/jewellery/invoice/' + currentOrder.id + '/preview'" title="Invoice"/>
+            <OrderReceipt t-else="" order="this.currentOrder"/>
+        </xpath>
+        <xpath expr="//div[hasclass('pos-receipt-container')]/div" position="attributes">
+            <attribute name="t-att-class">{ 'w-50': !ui.isSmall and typeof currentOrder.id !== 'number', 'o_mj_invoice_frame': typeof currentOrder.id === 'number' }</attribute>
+        </xpath>
     </t>
 </templates>

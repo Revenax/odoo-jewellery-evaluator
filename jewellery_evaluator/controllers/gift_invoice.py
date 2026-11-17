@@ -60,3 +60,26 @@ class JewelleryGiftInvoice(http.Controller):
                 ("Content-Length", len(pdf)),
             ],
         )
+
+    @http.route("/jewellery/invoice/<int:order_id>/preview", type="http", auth="user")
+    def invoice_preview(self, order_id, **kw):
+        """The order's invoice as a web page, shown on the POS receipt screen in
+        place of the receipt. HTML, not PDF: tablet browsers do not show PDFs
+        inside a page. While the invoice is being created it waits and retries."""
+        order = request.env["pos.order"].browse(order_id).exists()
+        if not order or order.company_id.id not in request.env.user.company_ids.ids:
+            return request.not_found()
+        move = order.sudo().account_move
+        if not move or move.state != "posted":
+            return request.make_response(
+                '<html><head><meta http-equiv="refresh" content="3"></head>'
+                '<body style="font-family:sans-serif;color:#8890b8;text-align:center;padding:3rem">'
+                "Preparing the invoice…</body></html>",
+                headers=[("Content-Type", "text/html; charset=utf-8")],
+            )
+        html = (
+            request.env["ir.actions.report"]
+            .sudo()
+            ._render_qweb_html("account.report_invoice_with_payments", move.ids)[0]
+        )
+        return request.make_response(html, headers=[("Content-Type", "text/html; charset=utf-8")])

@@ -59,6 +59,7 @@
             'jewellery_evaluator/static/src/scss/orderline_below_min.scss',
             'jewellery_evaluator/static/src/scss/pos_helpers.scss',
             'jewellery_evaluator/static/src/scss/pos_transfer.scss',
+            'jewellery_evaluator/static/src/scss/pos_invoice_preview.scss',
             'jewellery_evaluator/static/src/scss/pos_rap_viewer.scss',
             'jewellery_evaluator/static/src/scss/pos_ledger.scss',
             'jewellery_evaluator/static/src/scss/pos_saver_logo.scss',
