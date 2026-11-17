@@ -22,6 +22,9 @@
                     <i t-attf-class="fa {{ a5.busy === 'gift' ? 'fa-fw fa-spin fa-circle-o-notch' : 'fa-gift' }} me-1"/>Print A5 Gift
                 </button>
             </div>
+            <button class="button btn btn-lg btn-light border w-100 py-2" t-on-click="() => this.downloadInvoice()">
+                <i class="fa fa-download me-1"/>Download Invoice
+            </button>
         </xpath>
     </t>
 </templates>

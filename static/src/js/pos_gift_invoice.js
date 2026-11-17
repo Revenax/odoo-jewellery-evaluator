@@ -1,7 +1,8 @@
 /** @odoo-module **/
 // Copyright 2026 Revenax Digital Services
 // Receipt screen (after payment): Odoo's print buttons are removed
-// (pos_gift_invoice.xml) and replaced by "Print A5" and "Print A5 Gift". Each one
+// (pos_gift_invoice.xml) and replaced by "Print A5", "Print A5 Gift" and a
+// "Download Invoice" fallback (regular invoice PDF to this device). Each print
 // asks the server (pos.session.jewellery_print_a5, models/pos_a5_print.py) to
 // render the order's invoice and queue it at this branch's A5 printer through
 // the operations app; the shop PC's print client prints it.
@@ -14,6 +15,15 @@ patch(ReceiptScreen.prototype, {
     setup() {
         super.setup(...arguments);
         this.a5 = useState({ busy: "", sent: "" });
+    },
+    /** Fallback: download the regular invoice PDF to this device. */
+    downloadInvoice() {
+        const orderId = this.currentOrder?.id;
+        if (!orderId || typeof orderId !== "number") {
+            this.pos.notification.add(_t("This order is not saved yet. Try again in a moment."), { type: "warning" });
+            return;
+        }
+        window.open(`/jewellery/invoice/${orderId}`, "_blank");
     },
     async printA5(kind) {
         if (this.a5.busy) {

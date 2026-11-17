@@ -35,3 +35,28 @@ class JewelleryGiftInvoice(http.Controller):
                 ("Content-Length", len(pdf)),
             ],
         )
+
+    @http.route("/jewellery/invoice/<int:order_id>", type="http", auth="user")
+    def regular_invoice(self, order_id, **kw):
+        """The order's regular invoice (gold A5 layout) as a download: the
+        receipt screen's fallback when the A5 printer is not reachable."""
+        order = request.env["pos.order"].browse(order_id).exists()
+        if not order or order.company_id.id not in request.env.user.company_ids.ids:
+            return request.not_found()
+        move = order.sudo().account_move
+        if not move:
+            return request.not_found()
+        pdf = (
+            request.env["ir.actions.report"]
+            .sudo()
+            ._render_qweb_pdf("account.report_invoice_with_payments", move.ids)[0]
+        )
+        filename = (move.name or "invoice").replace("/", "_")
+        return request.make_response(
+            pdf,
+            headers=[
+                ("Content-Type", "application/pdf"),
+                ("Content-Disposition", f'attachment; filename="{filename}.pdf"'),
+                ("Content-Length", len(pdf)),
+            ],
+        )
