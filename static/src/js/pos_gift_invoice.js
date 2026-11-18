@@ -8,12 +8,49 @@
 // the operations app; the shop PC's print client prints it.
 // The A5 invoice also prints AUTOMATICALLY once per sale when this screen opens
 // (retrying while the order/invoice is still being saved); the buttons remain
-// for a second copy or the gift copy.
+// for a second copy or the gift copy. The Orders tab gets the same buttons.
 import { ReceiptScreen } from "@point_of_sale/app/screens/receipt_screen/receipt_screen";
+import { TicketScreen } from "@point_of_sale/app/screens/ticket_screen/ticket_screen";
 import OrderPaymentValidation from "@point_of_sale/app/utils/order_payment_validation";
 import { onMounted, useState } from "@odoo/owl";
 import { patch } from "@web/core/utils/patch";
 import { _t } from "@web/core/l10n/translation";
+
+/** Queue an order's A5 invoice (kind "a5") or gift copy ("gift") at this
+ * branch's printer. Shared by the receipt screen and the Orders tab. */
+export async function sendA5(pos, orderId, kind) {
+    if (!orderId || typeof orderId !== "number") {
+        pos.notification.add(_t("This order is not saved yet. Try again in a moment."), { type: "warning" });
+        return false;
+    }
+    try {
+        const res = await pos.data.call("pos.session", "jewellery_print_a5", [
+            pos.session.id, orderId, kind, pos.cashier?.name || "",
+        ]);
+        pos.notification.add(
+            kind === "gift"
+                ? _t("Gift copy of %s sent to the A5 printer.", res.invoice)
+                : _t("%s sent to the A5 printer.", res.invoice),
+            { type: "success" }
+        );
+        return true;
+    } catch (error) {
+        pos.notification.add(
+            error?.data?.message || error?.message || _t("Printing failed. Try again."),
+            { type: "danger" }
+        );
+        return false;
+    }
+}
+
+/** Download the regular invoice PDF to this device. */
+export function downloadInvoicePdf(pos, orderId) {
+    if (!orderId || typeof orderId !== "number") {
+        pos.notification.add(_t("This order is not saved yet. Try again in a moment."), { type: "warning" });
+        return;
+    }
+    window.open(`/jewellery/invoice/${orderId}`, "_blank");
+}
 
 const AUTO_KEY = "jewellery_a5_auto_printed";
 const AUTO_TRIES = 6;
@@ -78,42 +115,43 @@ patch(ReceiptScreen.prototype, {
     },
     /** Fallback: download the regular invoice PDF to this device. */
     downloadInvoice() {
-        const orderId = this.currentOrder?.id;
-        if (!orderId || typeof orderId !== "number") {
-            this.pos.notification.add(_t("This order is not saved yet. Try again in a moment."), { type: "warning" });
-            return;
-        }
-        window.open(`/jewellery/invoice/${orderId}`, "_blank");
+        downloadInvoicePdf(this.pos, this.currentOrder?.id);
     },
     async printA5(kind) {
         if (this.a5.busy) {
             return;
         }
-        const orderId = this.currentOrder?.id;
-        if (!orderId || typeof orderId !== "number") {
-            this.pos.notification.add(_t("This order is not saved yet. Try again in a moment."), { type: "warning" });
+        this.a5.busy = kind;
+        try {
+            if (await sendA5(this.pos, this.currentOrder?.id, kind)) {
+                this.a5.sent = kind;
+            }
+        } finally {
+            this.a5.busy = "";
+        }
+    },
+});
+
+// Orders tab (past orders): the same Print A5 / Print A5 Gift / Download Invoice
+// in place of Odoo's "Print Receipt" and invoice button (pos_gift_invoice.xml).
+patch(TicketScreen.prototype, {
+    setup() {
+        super.setup(...arguments);
+        this.a5 = useState({ busy: "" });
+    },
+    async printA5(order, kind) {
+        if (this.a5.busy) {
             return;
         }
         this.a5.busy = kind;
         try {
-            const res = await this.pos.data.call("pos.session", "jewellery_print_a5", [
-                this.pos.session.id, orderId, kind, this.pos.cashier?.name || "",
-            ]);
-            this.a5.sent = kind;
-            this.pos.notification.add(
-                kind === "gift"
-                    ? _t("Gift copy of %s sent to the A5 printer.", res.invoice)
-                    : _t("%s sent to the A5 printer.", res.invoice),
-                { type: "success" }
-            );
-        } catch (error) {
-            this.pos.notification.add(
-                error?.data?.message || error?.message || _t("Printing failed. Try again."),
-                { type: "danger" }
-            );
+            await sendA5(this.pos, order?.id, kind);
         } finally {
             this.a5.busy = "";
         }
+    },
+    downloadInvoice(order) {
+        downloadInvoicePdf(this.pos, order?.id);
     },
 });
 

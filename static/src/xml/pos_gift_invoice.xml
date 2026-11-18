@@ -37,4 +37,22 @@
             <attribute name="t-att-class">{ 'w-50': !ui.isSmall and typeof currentOrder.id !== 'number', 'o_mj_invoice_frame': typeof currentOrder.id === 'number' }</attribute>
         </xpath>
     </t>
+    <!-- Orders tab: A5 printing instead of "Print Receipt" + the invoice button. -->
+    <t t-inherit="point_of_sale.TicketScreen" t-inherit-mode="extension">
+        <xpath expr="//InvoiceButton" position="replace"/>
+        <xpath expr="//button[@t-on-click=&quot;() =&gt; doPrint.call(_selectedSyncedOrder)&quot;]" position="replace">
+            <button class="control-button btn btn-secondary btn-lg lh-lg flex-grow-1 flex-shrink-1" t-att-disabled="!!a5.busy"
+                    t-on-click="() => this.printA5(_selectedSyncedOrder, 'a5')">
+                <i t-attf-class="fa {{ a5.busy === 'a5' ? 'fa-fw fa-spin fa-circle-o-notch' : 'fa-print' }} me-1"/>Print A5
+            </button>
+            <button class="control-button btn btn-secondary btn-lg lh-lg flex-grow-1 flex-shrink-1" t-att-disabled="!!a5.busy"
+                    t-on-click="() => this.printA5(_selectedSyncedOrder, 'gift')">
+                <i t-attf-class="fa {{ a5.busy === 'gift' ? 'fa-fw fa-spin fa-circle-o-notch' : 'fa-gift' }} me-1"/>Print A5 Gift
+            </button>
+            <button class="control-button btn btn-light border btn-lg lh-lg flex-grow-1 flex-shrink-1"
+                    t-on-click="() => this.downloadInvoice(_selectedSyncedOrder)">
+                <i class="fa fa-download me-1"/>Invoice
+            </button>
+        </xpath>
+    </t>
 </templates>
