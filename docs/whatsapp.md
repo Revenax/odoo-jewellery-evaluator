@@ -352,7 +352,7 @@ Tested before go-live: the gateway sent `order_confirmation` with the MJ-1619 PD
 
 ## 14. Second number: send-only name sender (2026-11-16)
 
-- **+1 555-811-8776**, phone number id 1506282735898255, WhatsApp/Messaging account 1456056179283345, display name "Marjaan Jewellery" (review pending). Owner decision: **send-only**, no inbox.
+- **+1 555-811-8776**, phone number id 1506282735898255, WhatsApp/Messaging account 1456056179283345. Display name "Marjaan Jewellery" was DECLINED on 2026-11-18 (no reason given; the same name on the main number was still in review). "Marjaan Jewellery EG" (owner's choice) was submitted the same day through the API (`POST /{phone-id}` with `new_display_name`); check `?fields=new_display_name,new_name_status`. Owner decision: **send-only**, no inbox.
 - System user "Marjaan Messaging" has full access to the account (assigned in Business settings). Registered on the Cloud API with a two-step PIN the owner chose (not stored anywhere by us).
 - `/register` and the profile calls returned **error 10** until the app was subscribed to the account (`POST /{waba}/subscribed_apps`). It was subscribed only for registration and profile setup, then unsubscribed again; profile access still works afterwards. Keep it **unsubscribed**: the gateway does not filter webhooks by `phone_number_id`, so a subscription would put this number's incoming messages in the staff inbox, answered from the Egyptian number.
 - Profile set like the main number (email info@, website, RETAIL, logo via `PHONE_ID=1506282735898255 scripts/whatsapp/set_profile_photo.py`).
