@@ -89,6 +89,7 @@ Payment journals: **CSH1** Sway Mall Vault (cash), **IPAY** InstaPay (id 15), **
 | `backdated_sale.py` (`SALE=<base64 json>`) | manual invoice on the sale date, payments on the sale date, cash kept out of open shifts, count lines removed |
 | `move_pieces.py` (`SKUS=… TO=SM [DROP_COUNT=1]`) | internal move to a warehouse's Stock location |
 | `flip_transfer.py` (`PICKINGS=… [FIX=1 HOME_LOC=SM/Stock]`) | reverse a DONE transfer entered the wrong way round (picking, moves, lines, quants), then set each piece to 1 at its real location |
+| `erase_pos_orders.py` (`REFS=262-2-000001,…`) | hard delete POS orders entered by mistake in an OPEN session: orders, lines, payments, payment entries, invoices, deliveries; stock put back |
 | `split_invoice.py` (`INVOICE=MJ-… SKUS=…`) | move pieces off a posted, paid invoice onto their own invoice (same customer/date/price); the payment is split across both; stock untouched; works while the POS session is open |
 | `remove_pos_line.py` (`INVOICE=MJ-… SKU=… [CANCEL=MJ-…]`) | take a piece rung up by mistake off an invoiced POS order in an OPEN session: line, payment, payment entry and delivery corrected; invoice re-reconciled |
 | `employee_attribution.py` (data block from Neon) | archived Odoo user per employee + re-points piece/PO creation and edit history at them (4.11) |
@@ -315,6 +316,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Hard delete SM/INT/00024 + 00025 (test: GNF8-0038 out to OW/Anas and back, by Ahmed Tarek) (2026-11-17) | net zero, GNF8-0038 stays in SM |
 | Reset sequences after the test deletions (2026-11-17) | SM/INT next = 00022; Sway Mall order_seq_id next = 626; invoices need nothing (Odoo continues from the last posted number, MJ-1622 -> MJ-1623). The receipt number "Sway Mall - 000228" is kept in the TILL's browser (localStorage key `<access_token>-unique_device_identifier`, `next_number`), so it is reset on the till itself |
 | Hard delete GBL8-0047 (2026-11-18) | done; 1.47 g, SM, registered the same evening, unsold, in no count |
+| Hard delete IR sales 262-2-000001/2/3 with their invoices (2026-11-18) | erased (`erase_pos_orders.py`): two 0 EGP GBAR-BTC-0001 tests (MJ-1624, MJ-1627) and 33,450 to Ahmed Fathy (GCL8-0029 + SB-SAM-250G, 23,450 cash + 10,000 InstaPay, MJ-1626, POSS/2026/11/0082-0083); GCL8-0029 back to 1 in IR/Stock and unsold in the ops app, SB-SAM-250G -1 -> 0; IR PoS delivery prefix SWAY/POS/ renamed IR/POS/ |
 
 ## 6. Open items
 
