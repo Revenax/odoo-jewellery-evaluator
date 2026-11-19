@@ -58,6 +58,7 @@ class ProductProduct(models.Model):
         jewellery_fields = [
             "jewellery_type",
             "jewellery_weight_g",
+            "gross_jewellery_weight_g",
             "list_price",
             "silver_purity",
             "gold_min_sale_price",

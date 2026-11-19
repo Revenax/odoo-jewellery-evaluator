@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Karat and weight under each cart line (pos_line_weight.js).
+-->
+<templates xml:space="preserve">
+    <t t-name="jewellery_evaluator.OrderlineWeight" t-inherit="point_of_sale.Orderline" t-inherit-mode="extension">
+        <xpath expr="//ul[hasclass('info-list')]" position="inside">
+            <li t-if="jewelleryWeightText" class="o_mj_line_weight text-muted">
+                <i class="fa fa-balance-scale me-1"/><t t-esc="jewelleryWeightText"/>
+            </li>
+        </xpath>
+    </t>
+</templates>
