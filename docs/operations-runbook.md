@@ -319,6 +319,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Hard delete GBL8-0047 (2026-11-18) | done; 1.47 g, SM, registered the same evening, unsold, in no count |
 | Hard delete IR sales 262-2-000001/2/3 with their invoices (2026-11-18) | erased (`erase_pos_orders.py`): two 0 EGP GBAR-BTC-0001 tests (MJ-1624, MJ-1627) and 33,450 to Ahmed Fathy (GCL8-0029 + SB-SAM-250G, 23,450 cash + 10,000 InstaPay, MJ-1626, POSS/2026/11/0082-0083); GCL8-0029 back to 1 in IR/Stock and unsold in the ops app, SB-SAM-250G -1 -> 0; IR PoS delivery prefix SWAY/POS/ renamed IR/POS/ |
 | MJ-1651 5 g bars 33,100 -> 33,230; MJ-1652 one 2 g coin 11,750 -> 11,770 (2026-11-19) | MJ-1651 504,230 -> 505,140 (7 lines, cash IR); MJ-1652 23,520 -> 23,540 (InstaPay); orders, payments, entries updated; A5 reprints queued at IR (jobs 44, 45) |
+| MJ-1651 10.35 g bar 68,500 -> 68,785 (2026-11-19) | 505,140 -> 505,425 (cash IR); A5 reprinted at IR |
 
 ## 6. Open items
 
