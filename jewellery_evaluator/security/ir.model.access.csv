@@ -11,3 +11,6 @@ access_silver_price_service_manager,silver.price.service.manager,model_silver_pr
 access_jewellery_transfer_line_user,jewellery.transfer.line.user,model_jewellery_transfer_line,stock.group_stock_user,1,0,0,0
 access_jewellery_transfer_line_manager,jewellery.transfer.line.manager,model_jewellery_transfer_line,stock.group_stock_manager,1,1,1,1
 access_jewellery_transfer_line_pos,jewellery.transfer.line.pos,model_jewellery_transfer_line,point_of_sale.group_pos_user,1,0,0,0
+access_jewellery_acquisition_order_user,jewellery.acquisition.order.user,model_jewellery_acquisition_order,base.group_user,1,1,1,1
+access_jewellery_acquisition_line_user,jewellery.acquisition.line.user,model_jewellery_acquisition_line,base.group_user,1,1,1,1
+access_jewellery_acquisition_stone_user,jewellery.acquisition.stone.user,model_jewellery_acquisition_stone,base.group_user,1,1,1,1

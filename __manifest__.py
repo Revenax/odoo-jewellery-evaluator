@@ -30,6 +30,8 @@
         'web',
         'stock',
         'purchase',
+        'mail',
+        'hr',
     ],
     'data': [
         'jewellery_evaluator/security/jewellery_evaluator_security.xml',
@@ -45,6 +47,7 @@
         'jewellery_evaluator/views/account_move_views.xml',
         'jewellery_evaluator/views/res_users_views.xml',
         'jewellery_evaluator/views/stock_picking_views.xml',
+        'jewellery_evaluator/views/acquisition_order_views.xml',
         'jewellery_evaluator/report/paperformat_gold.xml',
         'jewellery_evaluator/report/external_layout_gold.xml',
         'jewellery_evaluator/report/report_invoice_gold.xml',

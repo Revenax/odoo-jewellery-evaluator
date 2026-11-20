@@ -1388,3 +1388,57 @@ def transfer_totals(pieces: list[dict]) -> dict:
     for key in ('units', 'jewellery', 'net_gold', 'stones', 'reading'):
         totals[key] = round(totals[key], 3)
     return totals
+
+
+def acquisition_totals(lines: list[dict], stones: list[dict] | None = None,
+                       gold_price_21k: float = 0.0, usd_rate: float = 0.0) -> dict:
+    """Totals of an Acquisition Order (AO).
+
+    ``lines``: ``{karat, qty, grams, fee_per_gram}`` (one row per category /
+    karat / origin). ``stones``: ``{qty, carats, price_per_carat_usd}``.
+
+    Returns pieces, grams per karat, 21K-equivalent grams (24K x 8/7, 18K x 6/7,
+    the pricing factors), the making fee (grams x fee per gram, EGP), the metal
+    value at ``gold_price_21k`` (21K-equivalent grams x price), stones (carats,
+    USD, EGP at ``usd_rate``) and the grand total in EGP. Money is rounded to
+    2 dp, grams to 3 dp, carats to 3 dp.
+    """
+    grams = {'24K': Decimal('0'), '21K': Decimal('0'), '18K': Decimal('0')}
+    pieces = 0
+    fee = Decimal('0')
+    eq21 = Decimal('0')
+    for line in lines:
+        karat = (line.get('karat') or '').strip().upper()
+        g = Decimal(str(line.get('grams') or 0))
+        if g < 0 or Decimal(str(line.get('fee_per_gram') or 0)) < 0:
+            raise ValueError('grams and making fee must not be negative')
+        pieces += int(line.get('qty') or 0)
+        fee += g * Decimal(str(line.get('fee_per_gram') or 0))
+        if karat in grams:
+            grams[karat] += g
+            eq21 += g * GOLD_PURITY_FACTORS[karat]
+    carats = Decimal('0')
+    stones_usd = Decimal('0')
+    stone_count = 0
+    for stone in stones or []:
+        c = Decimal(str(stone.get('carats') or 0))
+        carats += c
+        stone_count += int(stone.get('qty') or 0)
+        stones_usd += c * Decimal(str(stone.get('price_per_carat_usd') or 0))
+    price = Decimal(str(gold_price_21k or 0))
+    rate = Decimal(str(usd_rate or 0))
+    metal = eq21 * price
+    stones_egp = stones_usd * rate
+    two, three = Decimal('0.01'), Decimal('0.001')
+    return {
+        'pieces': pieces,
+        'grams': {k: float(v.quantize(three, ROUND_HALF_UP)) for k, v in grams.items()},
+        'grams_21k_eq': float(eq21.quantize(three, ROUND_HALF_UP)),
+        'making_fee': float(fee.quantize(two, ROUND_HALF_UP)),
+        'metal_value': float(metal.quantize(two, ROUND_HALF_UP)),
+        'stone_count': stone_count,
+        'carats': float(carats.quantize(three, ROUND_HALF_UP)),
+        'stones_usd': float(stones_usd.quantize(two, ROUND_HALF_UP)),
+        'stones_egp': float(stones_egp.quantize(two, ROUND_HALF_UP)),
+        'total_egp': float((metal + fee + stones_egp).quantize(two, ROUND_HALF_UP)),
+    }
