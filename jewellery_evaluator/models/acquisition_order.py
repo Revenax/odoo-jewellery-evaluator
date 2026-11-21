@@ -48,6 +48,7 @@ class JewelleryAcquisitionOrder(models.Model):
     warehouse_id = fields.Many2one('stock.warehouse', string='Branch', tracking=True,
                                    help='Where the pieces will be registered.')
     vendor_ref = fields.Char(string='Vendor reference', tracking=True)
+    duplicate_warning = fields.Char(compute='_compute_duplicate_warning')
     note = fields.Html(string='Notes')
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
     currency_id = fields.Many2one(related='company_id.currency_id')
@@ -136,6 +137,20 @@ class JewelleryAcquisitionOrder(models.Model):
                 'stones_egp': t['stones_egp'],
                 'total_egp': t['total_egp'],
             })
+
+    @api.depends('partner_id', 'vendor_ref')
+    def _compute_duplicate_warning(self):
+        for order in self:
+            ref = (order.vendor_ref or '').strip()
+            other = self.env['jewellery.acquisition.order']
+            if order.partner_id and ref:
+                other = other.search([
+                    ('partner_id', '=', order.partner_id.id), ('vendor_ref', '=ilike', ref),
+                    ('state', '!=', 'cancel'), ('id', '!=', order._origin.id or 0)], limit=3)
+            order.duplicate_warning = (
+                _('%(vendor)s reference %(ref)s is already on %(orders)s. Check this is not the same purchase twice.',
+                  vendor=order.partner_id.name, ref=ref, orders=', '.join(other.mapped('name')))
+                if other else False)
 
     @api.depends('product_ids', 'line_ids.categ_id', 'line_ids.karat', 'line_ids.origin',
                  'line_ids.qty', 'line_ids.grams')
@@ -261,6 +276,19 @@ class JewelleryAcquisitionLine(models.Model):
                                 compute='_compute_fee_total', store=True)
     currency_id = fields.Many2one(related='order_id.currency_id')
 
+    @api.onchange('order_id')
+    def _onchange_carry_over(self):
+        """A new row starts with the karat, origin and making fee of the row above."""
+        for line in self:
+            if line._origin.id or not line.order_id:
+                continue
+            previous = [other for other in line.order_id.line_ids if other != line and other.karat]
+            if previous:
+                above = previous[-1]
+                line.karat = above.karat
+                line.origin = above.origin
+                line.fee_per_gram = above.fee_per_gram
+
     @api.depends('grams', 'fee_per_gram')
     def _compute_fee_total(self):
         for line in self:
@@ -309,3 +337,36 @@ class ProductTemplate(models.Model):
     acquisition_order_id = fields.Many2one(
         'jewellery.acquisition.order', string='Acquisition Order', index=True, copy=False,
         help='The AO this piece was bought on (set when it is registered).')
+
+
+class ResPartner(models.Model):
+    _inherit = 'res.partner'
+
+    acquisition_order_ids = fields.One2many('jewellery.acquisition.order', 'partner_id', string='Acquisition Orders')
+    acquisition_count = fields.Integer(string='Acquisitions', compute='_compute_acquisition_stats')
+    acquisition_grams_21k_eq = fields.Float(string='Bought (21K eq. g)', digits=(12, 3),
+                                            compute='_compute_acquisition_stats')
+    acquisition_making_fee = fields.Monetary(string='Making fee paid', compute='_compute_acquisition_stats',
+                                             currency_field='acquisition_currency_id')
+    acquisition_currency_id = fields.Many2one('res.currency', compute='_compute_acquisition_stats')
+
+    def _compute_acquisition_stats(self):
+        data = {}
+        if self.ids:
+            groups = self.env['jewellery.acquisition.order']._read_group(
+                [('partner_id', 'in', self.ids), ('state', '!=', 'cancel')], ['partner_id'],
+                ['__count', 'grams_21k_eq:sum', 'making_fee_total:sum'])
+            data = {partner.id: (count, grams, fee) for partner, count, grams, fee in groups}
+        for partner in self:
+            count, grams, fee = data.get(partner.id, (0, 0.0, 0.0))
+            partner.acquisition_count = count
+            partner.acquisition_grams_21k_eq = grams
+            partner.acquisition_making_fee = fee
+            partner.acquisition_currency_id = self.env.company.currency_id
+
+    def action_view_acquisitions(self):
+        self.ensure_one()
+        action = self.env['ir.actions.act_window']._for_xml_id('jewellery_evaluator.action_acquisition_order')
+        action['domain'] = [('partner_id', '=', self.id)]
+        action['context'] = {'default_partner_id': self.id, 'search_default_open': 0}
+        return action
