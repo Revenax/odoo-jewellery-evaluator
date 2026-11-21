@@ -1,0 +1,103 @@
+// Copyright 2026 Revenax Digital Services
+// Author: Mohamed A. Abdallah
+// Website: https://www.revenax.com
+//
+// "Purchase" window (pos_purchase.xml). Same palette as pos_helpers.scss.
+
+$mjp-navy: #0f1138;
+$mjp-cream: #fff4ee;
+$mjp-gold: #c8860a;
+$mjp-muted: #8890b8;
+$mjp-line: rgba(15, 17, 56, 0.12);
+$mjp-success: #1d7a4a;
+$mjp-danger: #b42335;
+
+.o_mjh {
+    .o_mjp_grow0 { flex: 0 0 auto !important; display: flex; align-items: flex-end; }
+    .o_mjp_list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        max-height: 50vh;
+        overflow-y: auto;
+        margin: 0.5rem 0;
+    }
+    .o_mjp_item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        width: 100%;
+        text-align: start;
+        padding: 0.7rem 0.9rem;
+        border: 1px solid $mjp-line;
+        border-radius: 10px;
+        background: #fff;
+        color: $mjp-navy;
+        &:hover { background: $mjp-cream; border-color: $mjp-gold; }
+        .fa-chevron-right { color: $mjp-muted; }
+    }
+    .o_mjp_main { flex: 1 1 auto; display: flex; flex-direction: column; }
+    .o_mjp_sub { color: $mjp-muted; font-size: 0.85rem; }
+    .o_mjp_badge {
+        background: $mjp-cream;
+        color: $mjp-gold;
+        border-radius: 999px;
+        padding: 0.15rem 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .o_mjp_owed {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        color: $mjp-danger;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .o_mjp_ok { color: $mjp-success; }
+    .o_mjp_who { font-size: 1.05rem; margin-bottom: 0.5rem; color: $mjp-navy; .fa { color: $mjp-gold; } }
+    .o_mjp_new { margin-top: 0.75rem; border-top: 1px solid $mjp-line; padding-top: 0.75rem; }
+    .o_mjp_owe_box {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        > div {
+            flex: 1 1 0;
+            background: $mjp-cream;
+            border-radius: 10px;
+            padding: 0.6rem 0.8rem;
+            display: flex;
+            flex-direction: column;
+            span { color: $mjp-muted; font-size: 0.8rem; }
+            b { font-size: 1.1rem; color: $mjp-navy; }
+        }
+    }
+    .o_mjp_table {
+        width: 100%;
+        margin-bottom: 0.5rem;
+        th { font-size: 0.8rem; color: $mjp-muted; font-weight: 600; padding: 0.25rem; }
+        td { padding: 0.25rem; vertical-align: middle; }
+        select, input {
+            width: 100%;
+            padding: 0.4rem;
+            border: 1px solid $mjp-line;
+            border-radius: 8px;
+        }
+        .o_mjp_qty { width: 4rem; }
+    }
+    .o_mjp_total {
+        margin-top: 0.75rem;
+        padding: 0.7rem 0.9rem;
+        border-radius: 10px;
+        background: $mjp-navy;
+        color: #fff;
+        text-align: end;
+        b { color: #f5c842; font-size: 1.15rem; margin-inline-start: 0.4rem; }
+    }
+    .o_mjp_done {
+        text-align: center;
+        padding: 1.5rem 0.5rem;
+        .fa-check-circle { font-size: 2.6rem; color: $mjp-success; margin-bottom: 0.5rem; }
+        b { font-size: 1.2rem; }
+    }
+}

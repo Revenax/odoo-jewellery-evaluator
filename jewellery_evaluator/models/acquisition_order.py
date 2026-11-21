@@ -18,11 +18,19 @@ from markupsafe import Markup
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from ..utils import acquisition_progress, acquisition_totals
+from ..utils import (
+    acquisition_balance,
+    acquisition_payment,
+    acquisition_progress,
+    acquisition_totals,
+    gold_price_from_metal_rate,
+)
 from .jewellery_stone import STONE_CLARITY_SELECTION, STONE_COLOR_SELECTION, STONE_SHAPE_SELECTION
 
 KARAT_SELECTION = [('24K', '24K'), ('21K', '21K'), ('18K', '18K')]
 ORIGIN_SELECTION = [('local', 'Local'), ('foreign', 'Foreign')]
+KIND_SELECTION = [('vendor', 'Vendor'), ('customer', 'Customer')]
+PAYMENT_JOURNAL_TYPES = ('cash', 'bank')
 
 
 class JewelleryAcquisitionOrder(models.Model):
@@ -48,6 +56,9 @@ class JewelleryAcquisitionOrder(models.Model):
     warehouse_id = fields.Many2one('stock.warehouse', string='Branch', tracking=True,
                                    help='Where the pieces will be registered.')
     vendor_ref = fields.Char(string='Vendor reference', tracking=True)
+    kind = fields.Selection(KIND_SELECTION, string='Bought from', required=True, default='vendor', tracking=True,
+                            help='Customer = bought over the counter at the register.')
+    pos_session_id = fields.Many2one('pos.session', string='Register session', readonly=True, copy=False)
     duplicate_warning = fields.Char(compute='_compute_duplicate_warning')
     note = fields.Html(string='Notes')
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
@@ -81,6 +92,18 @@ class JewelleryAcquisitionOrder(models.Model):
                                  compute='_compute_totals', store=True)
     stones_egp = fields.Monetary(string='Stones (EGP)', compute='_compute_totals', store=True)
     total_egp = fields.Monetary(string='Total', compute='_compute_totals', store=True)
+
+    # Payments (utils.acquisition_balance)
+    payment_ids = fields.One2many('jewellery.acquisition.payment', 'order_id', string='Payments', copy=False)
+    money_due = fields.Monetary(string='Money due', compute='_compute_totals', store=True,
+                                help='Making fee + stones, paid in money.')
+    grams_paid = fields.Float(string='Grams paid (21K eq.)', digits=(12, 3), compute='_compute_balance', store=True)
+    grams_left = fields.Float(string='Grams owed (21K eq.)', digits=(12, 3), compute='_compute_balance', store=True)
+    money_paid = fields.Monetary(compute='_compute_balance', store=True)
+    money_left = fields.Monetary(string='Money owed', compute='_compute_balance', store=True)
+    amount_paid = fields.Monetary(string='Cash paid', compute='_compute_balance', store=True)
+    payment_state = fields.Selection([('not_paid', 'Not paid'), ('partial', 'Partly paid'), ('paid', 'Paid')],
+                                     compute='_compute_balance', store=True, string='Payment')
 
     # SKUs registered against the order (utils.acquisition_progress)
     progress_html = fields.Html(string='Registration progress', compute='_compute_registered', sanitize=False)
@@ -136,7 +159,23 @@ class JewelleryAcquisitionOrder(models.Model):
                 'stones_usd': t['stones_usd'],
                 'stones_egp': t['stones_egp'],
                 'total_egp': t['total_egp'],
+                'money_due': t['making_fee'] + t['stones_egp'],
             })
+
+    @api.depends('grams_21k_eq', 'money_due', 'payment_ids.state', 'payment_ids.grams_21k',
+                 'payment_ids.money', 'payment_ids.amount')
+    def _compute_balance(self):
+        for order in self:
+            live = order.payment_ids.filtered(lambda p: p.state == 'posted')
+            b = acquisition_balance(order.grams_21k_eq, order.money_due,
+                                    [{'grams_21k': p.grams_21k, 'money': p.money} for p in live])
+            order.grams_paid = b['grams_paid']
+            order.grams_left = b['grams_left']
+            order.money_paid = b['money_paid']
+            order.money_left = b['money_left']
+            order.amount_paid = sum(live.mapped('amount'))
+            order.payment_state = ('paid' if b['settled'] and (order.grams_21k_eq or order.money_due)
+                                   else 'partial' if live else 'not_paid')
 
     @api.depends('partner_id', 'vendor_ref')
     def _compute_duplicate_warning(self):
@@ -243,10 +282,118 @@ class JewelleryAcquisitionOrder(models.Model):
         for order in self:
             if order.product_ids:
                 raise UserError(_('%s already has registered pieces; it cannot be cancelled.', order.name))
+            if order.payment_ids.filtered(lambda p: p.state == 'posted'):
+                raise UserError(_('%s has payments; cancel them first.', order.name))
         self.write({'state': 'cancel'})
 
     def action_draft(self):
         self.filtered(lambda o: o.state in ('confirmed', 'cancel')).write({'state': 'draft'})
+
+    # ------------------------------------------------------------------ payments
+    @api.model
+    def _gold_price_at(self, when=None):
+        """21K EGP/g at ``when``: the G21 metal-currency rate of that day (the
+        gold cron writes one per day), else the live price."""
+        currency = self.env.ref('jewellery_evaluator.currency_gold_21k', raise_if_not_found=False)
+        if currency and when:
+            rate = self.env['res.currency.rate'].sudo().search([
+                ('currency_id', '=', currency.id), ('name', '<=', fields.Date.to_date(when)),
+                ('company_id', 'in', (self.env.company.id, False))], order='name desc', limit=1)
+            price = gold_price_from_metal_rate(rate.rate)
+            if price > 0 and (fields.Date.to_date(when) - rate.name).days <= 7:
+                return price
+        return self._default_gold_price()
+
+    def _register_payment(self, journal, grams_21k=0.0, gold_price_21k=0.0, money=0.0, date=None,
+                          session=None, employee=None, note=None, key=None):
+        """Pay the vendor: ``grams_21k`` of metal at ``gold_price_21k`` plus ``money``
+        EGP, out of ``journal`` (a cash/bank journal). Posts Dr vendor payable /
+        Cr the journal's account (a Vault journal: the shift's Vault sync folds it
+        in). Idempotent per ``key``. Refuses paying more than is owed."""
+        self.ensure_one()
+        Payment = self.env['jewellery.acquisition.payment'].sudo()
+        if key:
+            existing = Payment.search([('key', '=', key)], limit=1)
+            if existing:
+                return existing
+        if self.state == 'cancel':
+            raise UserError(_('%s is cancelled.', self.name))
+        if self.state == 'draft':
+            self.action_confirm()
+        if journal.type not in PAYMENT_JOURNAL_TYPES or journal.company_id != self.company_id:
+            raise UserError(_('Pay from a cash or bank journal of %s.', self.company_id.name))
+        account = journal.default_account_id
+        if not account:
+            raise UserError(_('Journal %s has no account.', journal.display_name))
+        try:
+            pay = acquisition_payment(grams_21k, gold_price_21k, money)
+        except ValueError as exc:
+            raise UserError(str(exc)) from None
+        if pay['grams_21k'] > self.grams_left + 0.001:
+            raise UserError(_('%(order)s owes %(left).3f g (21K eq.); %(g).3f g is more than that.',
+                              order=self.name, left=max(self.grams_left, 0), g=pay['grams_21k']))
+        if pay['money'] > self.money_left + 1:
+            raise UserError(_('%(order)s owes %(left)s EGP in money; %(m)s is more than that.',
+                              order=self.name, left=f'{max(self.money_left, 0):,.2f}', m=f'{pay["money"]:,.2f}'))
+        when = date or fields.Datetime.now()
+        partner = self.partner_id.commercial_partner_id
+        payable = partner.with_company(self.company_id).property_account_payable_id
+        if not payable:
+            raise UserError(_('%s has no payable account.', partner.display_name))
+        parts = []
+        if pay['grams_21k']:
+            parts.append(f"{pay['grams_21k']:,.3f} g 21K @ {float(gold_price_21k):,.2f}")
+        if pay['money']:
+            parts.append(f"{pay['money']:,.2f} EGP")
+        label = _('%(order)s payment: %(what)s', order=self.name, what=' + '.join(parts))
+        misc = self.env['account.journal'].sudo().search(
+            [('type', '=', 'general'), ('company_id', '=', self.company_id.id)], limit=1)
+        if not misc:
+            raise UserError(_('No general journal found to post the payment.'))
+        move = self.env['account.move'].sudo().create({
+            'journal_id': misc.id, 'move_type': 'entry', 'date': fields.Date.to_date(when),
+            'ref': label, 'jewellery_cash_ops_key': key or False,
+            'line_ids': [
+                (0, 0, {'account_id': payable.id, 'partner_id': partner.id, 'name': label,
+                        'debit': pay['amount'], 'credit': 0.0}),
+                (0, 0, {'account_id': account.id, 'partner_id': partner.id, 'name': label,
+                        'debit': 0.0, 'credit': pay['amount']}),
+            ],
+        })
+        move.action_post()
+        payment = Payment.create({
+            'order_id': self.id, 'date': when, 'journal_id': journal.id, 'move_id': move.id,
+            'grams_21k': pay['grams_21k'], 'gold_price_21k': float(gold_price_21k or 0),
+            'metal_amount': pay['metal_amount'], 'money': pay['money'], 'amount': pay['amount'],
+            'pos_session_id': session.id if session else False,
+            'employee_id': (employee or self.env.user.employee_id).id or False,
+            'note': note or False, 'key': key or False,
+        })
+        self.message_post(body=Markup('<b>{}</b>: {} EGP {} {}').format(
+            _('Paid'), f"{pay['amount']:,.2f}", _('from'), journal.display_name) + Markup('<br/>') + label)
+        return payment
+
+    def action_open_payment_wizard(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window', 'name': _('Pay %s', self.name),
+            'res_model': 'jewellery.acquisition.payment.wizard', 'view_mode': 'form', 'target': 'new',
+            'context': {'default_order_id': self.id},
+        }
+
+    @api.model
+    def jewellery_ops_open_orders(self):
+        """Open AOs for the operations app's register form, newest first."""
+        orders = self.search([('state', 'in', ('draft', 'confirmed')), ('kind', '=', 'vendor')], limit=200)
+        return [{
+            'id': o.id, 'name': o.name, 'state': o.state,
+            'partner_id': o.partner_id.id, 'partner_name': o.partner_id.display_name,
+            'date': fields.Datetime.to_string(o.date_order), 'vendor_ref': o.vendor_ref or '',
+            'warehouse_code': o.warehouse_id.code or '', 'pieces': o.total_pieces,
+            'registered': o.registered_count, 'grams_21k_eq': o.grams_21k_eq,
+            'lines': [{'category': ln.categ_id.display_name, 'karat': ln.karat, 'origin': ln.origin,
+                       'qty': ln.qty, 'grams': ln.grams} for ln in o.line_ids],
+        } for o in orders]
 
     def unlink(self):
         if any(o.state not in ('draft', 'cancel') for o in self):
@@ -337,6 +484,120 @@ class ProductTemplate(models.Model):
     acquisition_order_id = fields.Many2one(
         'jewellery.acquisition.order', string='Acquisition Order', index=True, copy=False,
         help='The AO this piece was bought on (set when it is registered).')
+
+
+    def _jewellery_clean_ao_vals(self, vals):
+        """The operations app sends the AO picked at registration. A stale id (AO
+        deleted or cancelled meanwhile) is dropped, never allowed to fail the
+        sync: the piece must reach Odoo either way."""
+        ao_id = vals.get('acquisition_order_id')
+        if ao_id:
+            ao = self.env['jewellery.acquisition.order'].sudo().browse(int(ao_id)).exists()
+            if not ao or ao.state == 'cancel':
+                vals.pop('acquisition_order_id')
+        return vals
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._jewellery_clean_ao_vals(vals)
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if vals.get('acquisition_order_id'):
+            vals = self._jewellery_clean_ao_vals(dict(vals))
+        return super().write(vals)
+
+
+class JewelleryAcquisitionPayment(models.Model):
+    _name = 'jewellery.acquisition.payment'
+    _description = 'Acquisition Order payment'
+    _order = 'date desc, id desc'
+
+    order_id = fields.Many2one('jewellery.acquisition.order', required=True, ondelete='restrict', index=True)
+    partner_id = fields.Many2one(related='order_id.partner_id', store=True)
+    company_id = fields.Many2one(related='order_id.company_id', store=True)
+    currency_id = fields.Many2one(related='order_id.currency_id')
+    state = fields.Selection([('posted', 'Paid'), ('cancel', 'Cancelled')], default='posted', required=True)
+    date = fields.Datetime(required=True, default=fields.Datetime.now)
+    journal_id = fields.Many2one('account.journal', string='Paid from', required=True)
+    move_id = fields.Many2one('account.move', string='Entry', readonly=True)
+    grams_21k = fields.Float(string='Grams (21K eq.)', digits=(12, 3))
+    gold_price_21k = fields.Monetary(string='Gold price 21K / g')
+    metal_amount = fields.Monetary(string='For metal')
+    money = fields.Monetary(string='For making fee / stones')
+    amount = fields.Monetary(string='Cash paid')
+    pos_session_id = fields.Many2one('pos.session', string='Register session')
+    employee_id = fields.Many2one('hr.employee', string='Paid by')
+    note = fields.Char()
+    key = fields.Char(copy=False, index=True)
+
+    _key_uniq = models.Constraint('unique(key)', 'This payment was already recorded.')
+
+    def action_cancel_payment(self):
+        """Reverse the entry and take the payment off the balance."""
+        for payment in self.filtered(lambda p: p.state == 'posted'):
+            if payment.move_id and payment.move_id.state == 'posted':
+                payment.move_id.sudo()._reverse_moves(
+                    [{'ref': _('Cancelled: %s', payment.move_id.ref or '')}], cancel=True)
+            payment.state = 'cancel'
+            payment.order_id.message_post(body=_('Payment of %s EGP cancelled.', f'{payment.amount:,.2f}'))
+
+    def unlink(self):
+        if self.filtered(lambda p: p.state == 'posted'):
+            raise UserError(_('Cancel a payment instead of deleting it.'))
+        return super().unlink()
+
+
+class JewelleryAcquisitionPaymentWizard(models.TransientModel):
+    _name = 'jewellery.acquisition.payment.wizard'
+    _description = 'Pay an Acquisition Order'
+
+    order_id = fields.Many2one('jewellery.acquisition.order', required=True)
+    currency_id = fields.Many2one(related='order_id.currency_id')
+    grams_left = fields.Float(related='order_id.grams_left')
+    money_left = fields.Monetary(related='order_id.money_left')
+    journal_id = fields.Many2one(
+        'account.journal', string='Paid from', required=True,
+        domain="[('type', 'in', ('cash', 'bank')), ('company_id', '=', company_id)]")
+    company_id = fields.Many2one(related='order_id.company_id')
+    date = fields.Datetime(required=True, default=fields.Datetime.now)
+    grams_21k = fields.Float(string='Grams (21K eq.)', digits=(12, 3))
+    gold_price_21k = fields.Monetary(string='Gold price 21K / g',
+                                     help='Suggested from the price on that date; any positive value is accepted.')
+    money = fields.Monetary(string='Making fee / stones (EGP)')
+    amount = fields.Monetary(string='Cash paid', compute='_compute_amount')
+    note = fields.Char()
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        order = self.env['jewellery.acquisition.order'].browse(res.get('order_id'))
+        if order:
+            res.setdefault('grams_21k', max(order.grams_left, 0.0))
+            res.setdefault('money', max(order.money_left, 0.0))
+            res.setdefault('gold_price_21k', order._gold_price_at(fields.Datetime.now()))
+            if order.warehouse_id:
+                vault = order.warehouse_id._vault_journal()
+                if vault:
+                    res.setdefault('journal_id', vault.id)
+        return res
+
+    @api.onchange('date')
+    def _onchange_date(self):
+        if self.date and self.order_id:
+            self.gold_price_21k = self.order_id._gold_price_at(self.date)
+
+    @api.depends('grams_21k', 'gold_price_21k', 'money')
+    def _compute_amount(self):
+        for wiz in self:
+            wiz.amount = round((wiz.grams_21k or 0) * (wiz.gold_price_21k or 0), 2) + (wiz.money or 0)
+
+    def action_pay(self):
+        self.ensure_one()
+        self.order_id._register_payment(self.journal_id, self.grams_21k, self.gold_price_21k, self.money,
+                                        date=self.date, note=self.note)
+        return {'type': 'ir.actions.act_window_close'}
 
 
 class ResPartner(models.Model):

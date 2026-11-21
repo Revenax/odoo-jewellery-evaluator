@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    "Purchase" window (pos_purchase.js) on the shared HelperDialog.
+-->
+<templates id="template" xml:space="preserve">
+
+    <t t-name="jewellery_evaluator.PurchasePopup">
+        <HelperDialog title.translate="Purchase" titleAr="'شراء'" icon="'fa-shopping-basket'" size="'lg'"
+                      status="state.status" close="props.close">
+
+            <!-- Who -->
+            <t t-if="state.step === 'who'">
+                <div class="o_mjh_row mb-2">
+                    <div class="o_mjh_field mb-0">
+                        <input type="text" placeholder="Search name or phone…" t-model="state.query"
+                               t-on-keydown="onSearchKey"/>
+                    </div>
+                    <div class="o_mjp_grow0">
+                        <button class="o_mjh_btn" t-on-click="() => this.search()"><i class="fa fa-search"/> Search</button>
+                    </div>
+                </div>
+                <div class="o_mjh_note" t-if="!state.query and state.partners.length">Vendors with open acquisition orders</div>
+                <div class="o_mjp_list">
+                    <t t-foreach="state.partners" t-as="p" t-key="p.id">
+                        <button type="button" class="o_mjp_item" t-on-click="() => this.pickPartner(p)">
+                            <span class="o_mjp_main">
+                                <b t-esc="p.name"/>
+                                <span class="o_mjp_sub" t-if="p.phone" t-esc="p.phone"/>
+                            </span>
+                            <span t-if="p.open_aos" class="o_mjp_badge"><t t-esc="p.open_aos"/> open AO</span>
+                            <i class="fa fa-chevron-right"/>
+                        </button>
+                    </t>
+                    <div t-if="!state.partners.length" class="o_mjh_note">No one found. Add a new person below.</div>
+                </div>
+                <div class="o_mjp_new">
+                    <button t-if="!state.showNew" class="o_mjh_btn" t-on-click="() => this.state.showNew = true">
+                        <i class="fa fa-user-plus"/> New person
+                    </button>
+                    <div t-else="" class="o_mjh_row">
+                        <div class="o_mjh_field"><label>Name</label><input type="text" t-model="state.newName"/></div>
+                        <div class="o_mjh_field"><label>Phone</label><input type="tel" t-model="state.newPhone"/></div>
+                        <div class="o_mjh_field o_mjp_grow0"><label>&#160;</label>
+                            <button class="o_mjh_btn o_mjh_btn_primary" t-on-click="() => this.pickNewPerson()">Continue</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- What -->
+            <t t-if="state.step === 'what'">
+                <div class="o_mjp_who"><i class="fa fa-user"/> <b t-esc="state.partner.name"/></div>
+                <div class="o_mjh_note">Pay one of their acquisition orders, or buy from them now.</div>
+                <div class="o_mjp_list">
+                    <t t-foreach="state.orders" t-as="o" t-key="o.id">
+                        <button type="button" class="o_mjp_item" t-on-click="() => this.startPay(o)">
+                            <span class="o_mjp_main">
+                                <b t-esc="o.name"/>
+                                <span class="o_mjp_sub"><t t-esc="o.date.slice(0, 10)"/> · <t t-esc="o.pieces"/> pcs · <t t-esc="fmtG(o.grams_21k_eq)"/> g 21K eq.<t t-if="o.vendor_ref"> · <t t-esc="o.vendor_ref"/></t></span>
+                            </span>
+                            <span class="o_mjp_owed">
+                                <span t-if="o.grams_left &gt; 0.001"><t t-esc="fmtG(o.grams_left)"/> g owed</span>
+                                <span t-if="o.money_left &gt; 1"><t t-esc="fmtM(o.money_left)"/> EGP owed</span>
+                                <span t-if="o.payment_state === 'paid'" class="o_mjp_ok">Paid</span>
+                            </span>
+                            <i class="fa fa-chevron-right"/>
+                        </button>
+                    </t>
+                </div>
+                <button class="o_mjh_btn mt-2" t-on-click="() => this.startBuy()"><i class="fa fa-plus"/> Buy from them now</button>
+            </t>
+
+            <!-- Pay an AO -->
+            <t t-if="state.step === 'pay'">
+                <div class="o_mjp_who"><i class="fa fa-user"/> <b t-esc="state.partner.name"/> · <t t-esc="state.order.name"/></div>
+                <div class="o_mjp_owe_box">
+                    <div><span>Metal owed (21K eq.)</span><b><t t-esc="fmtG(state.order.grams_left)"/> g</b></div>
+                    <div><span>Money owed (making fee + stones)</span><b><t t-esc="fmtM(state.order.money_left)"/> EGP</b></div>
+                    <div><span>Already paid</span><b><t t-esc="fmtM(state.order.amount_paid)"/> EGP</b></div>
+                </div>
+                <div t-on-input="() => this.state.error = ''">
+                    <div class="o_mjh_row">
+                        <div class="o_mjh_field"><label>Grams 21K eq.</label>
+                            <input type="number" inputmode="decimal" step="0.001" min="0" t-model="state.payGrams"/></div>
+                        <div class="o_mjh_field"><label>Gold price 21K / g <span class="o_mjh_hint">suggested, editable</span></label>
+                            <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.payPrice"/></div>
+                        <div class="o_mjh_field"><label>Money (EGP)</label>
+                            <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.payMoney"/></div>
+                    </div>
+                </div>
+                <button class="o_mjh_btn" t-on-click="() => this.payInFull()"><i class="fa fa-check-circle"/> Pay in full</button>
+                <div class="o_mjp_total">Cash out of the drawer <b><t t-esc="fmtM(payTotal)"/> EGP</b></div>
+            </t>
+
+            <!-- Buy now -->
+            <t t-if="state.step === 'buy'">
+                <div class="o_mjp_who"><i class="fa fa-user"/> <b t-esc="state.partner.name"/>
+                    <span t-if="!state.partner.id" class="o_mjp_sub">(new)</span></div>
+                <table class="o_mjp_table">
+                    <thead><tr><th>Category</th><th>Karat</th><th>Origin</th><th>Pcs</th><th>Grams</th><th class="text-end">EGP</th><th/></tr></thead>
+                    <tbody>
+                        <t t-foreach="state.lines" t-as="l" t-key="l.uid">
+                            <tr>
+                                <td><select t-model="l.categ_id">
+                                    <t t-foreach="setupData.categories" t-as="c" t-key="c.id">
+                                        <option t-att-value="c.id" t-esc="c.name"/>
+                                    </t>
+                                </select></td>
+                                <td><select t-model="l.karat">
+                                    <t t-foreach="setupData.karats" t-as="k" t-key="k"><option t-att-value="k" t-esc="k"/></t>
+                                </select></td>
+                                <td><select t-model="l.origin">
+                                    <t t-foreach="setupData.origins" t-as="og" t-key="og.id"><option t-att-value="og.id" t-esc="og.name"/></t>
+                                </select></td>
+                                <td><input type="number" min="1" step="1" t-model="l.qty" class="o_mjp_qty"/></td>
+                                <td><input type="number" inputmode="decimal" min="0" step="0.001" t-model="l.grams"/></td>
+                                <td class="text-end"><t t-esc="fmtM(lineAmount(l))"/></td>
+                                <td><button class="o_mjh_btn o_mjh_btn_icon" t-if="state.lines.length &gt; 1"
+                                            t-on-click="() => this.removeLine(l.uid)"><i class="fa fa-trash"/></button></td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+                <button class="o_mjh_btn mb-2" t-on-click="() => this.addLine()"><i class="fa fa-plus"/> Add row</button>
+                <div class="o_mjh_row" t-on-input="() => this.state.error = ''">
+                    <div class="o_mjh_field"><label>Gold price 21K / g <span class="o_mjh_hint">18K <t t-esc="fmtM(karatPrice('18K'))"/> · 24K <t t-esc="fmtM(karatPrice('24K'))"/></span></label>
+                        <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.buyPrice" t-on-input="() => this.onBuyPrice()"/></div>
+                    <div class="o_mjh_field"><label>Or total to pay (EGP)</label>
+                        <input type="number" inputmode="decimal" step="1" min="0" t-model="state.buyTotal" t-on-input="() => this.onBuyTotal()"/></div>
+                </div>
+                <div class="o_mjh_field"><label>Note</label><input type="text" t-model="state.note"/></div>
+                <div class="o_mjp_total"><t t-esc="fmtG(buyGrams21)"/> g 21K eq. · cash out of the drawer <b><t t-esc="fmtM(buyAmount)"/> EGP</b></div>
+            </t>
+
+            <!-- Done -->
+            <t t-if="state.step === 'done'">
+                <div class="o_mjp_done">
+                    <i class="fa fa-check-circle"/>
+                    <div><b><t t-esc="fmtM(state.result.amount)"/> EGP</b> paid out of the drawer.</div>
+                    <div class="o_mjp_sub"><t t-esc="state.result.order.name"/> · entry <t t-esc="state.result.move"/></div>
+                    <div class="o_mjp_sub" t-if="state.result.order.grams_left &gt; 0.001 or state.result.order.money_left &gt; 1">
+                        Still owed: <t t-esc="fmtG(state.result.order.grams_left)"/> g · <t t-esc="fmtM(state.result.order.money_left)"/> EGP
+                    </div>
+                </div>
+            </t>
+
+            <div t-if="state.error" class="o_mjh_error" t-esc="state.error"/>
+
+            <t t-set-slot="footer">
+                <button t-if="['what', 'pay', 'buy'].includes(state.step)" class="o_mjh_btn" t-att-disabled="state.busy"
+                        t-on-click="() => this.back()"><i class="fa fa-arrow-left"/> Back</button>
+                <span class="o_mjh_spacer"/>
+                <button class="o_mjh_btn" t-att-disabled="state.busy" t-on-click="() => this.props.close()">
+                    <t t-if="state.step === 'done'">Close</t><t t-else="">Cancel</t>
+                </button>
+                <button t-if="state.step === 'pay'" class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="state.busy or payTotal &lt;= 0"
+                        t-on-click="() => this.confirmPay()">
+                    <i t-if="state.busy" class="fa fa-circle-o-notch fa-spin"/> Pay <t t-esc="fmtM(payTotal)"/> EGP
+                </button>
+                <button t-if="state.step === 'buy'" class="o_mjh_btn o_mjh_btn_primary" t-att-disabled="state.busy or buyAmount &lt;= 0"
+                        t-on-click="() => this.confirmBuy()">
+                    <i t-if="state.busy" class="fa fa-circle-o-notch fa-spin"/> Buy and pay <t t-esc="fmtM(buyAmount)"/> EGP
+                </button>
+            </t>
+        </HelperDialog>
+    </t>
+
+</templates>

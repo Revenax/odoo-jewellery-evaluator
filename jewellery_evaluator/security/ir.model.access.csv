@@ -14,3 +14,5 @@ access_jewellery_transfer_line_pos,jewellery.transfer.line.pos,model_jewellery_t
 access_jewellery_acquisition_order_user,jewellery.acquisition.order.user,model_jewellery_acquisition_order,base.group_user,1,1,1,1
 access_jewellery_acquisition_line_user,jewellery.acquisition.line.user,model_jewellery_acquisition_line,base.group_user,1,1,1,1
 access_jewellery_acquisition_stone_user,jewellery.acquisition.stone.user,model_jewellery_acquisition_stone,base.group_user,1,1,1,1
+access_jewellery_acquisition_payment_user,jewellery.acquisition.payment.user,model_jewellery_acquisition_payment,base.group_user,1,1,1,0
+access_jewellery_acquisition_payment_wizard_user,jewellery.acquisition.payment.wizard.user,model_jewellery_acquisition_payment_wizard,base.group_user,1,1,1,1

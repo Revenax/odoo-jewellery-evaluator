@@ -101,3 +101,41 @@ def test_progress_piece_without_origin_matches_on_category_and_karat():
 def test_progress_pools_identical_rows():
     p = utils.acquisition_progress([{"key": BANDS, "qty": 5, "grams": 100}, {"key": BANDS, "qty": 7, "grams": 130}], [])
     assert len(p["rows"]) == 1 and p["rows"][0]["qty"] == 12 and p["left_grams"] == 230.0
+
+
+def test_payment_metal_and_money():
+    p = utils.acquisition_payment(10, 5000, 1200)
+    assert p == {"grams_21k": 10.0, "metal_amount": 50000.0, "money": 1200.0, "amount": 51200.0}
+
+
+def test_payment_any_positive_price_and_rounding():
+    p = utils.acquisition_payment(1.2345, 4999.99)
+    assert p["grams_21k"] == 1.235
+    assert p["metal_amount"] == 6174.99
+
+
+def test_payment_rejects_bad_input():
+    with pytest.raises(ValueError):
+        utils.acquisition_payment(5, 0)
+    with pytest.raises(ValueError):
+        utils.acquisition_payment(-1, 5000)
+    with pytest.raises(ValueError):
+        utils.acquisition_payment(0, 5000, 0)
+
+
+def test_balance_partial_and_settled():
+    b = utils.acquisition_balance(505.714, 97200, [{"grams_21k": 300, "money": 50000}])
+    assert b["grams_left"] == 205.714 and b["money_left"] == 47200.0 and not b["settled"]
+    b = utils.acquisition_balance(505.714, 97200, [{"grams_21k": 300, "money": 50000},
+                                                  {"grams_21k": 205.714, "money": 47200}])
+    assert b["settled"] and b["grams_paid"] == 505.714
+
+
+def test_balance_paid_ahead_goes_negative():
+    b = utils.acquisition_balance(10, 0, [{"grams_21k": 12, "money": 0}])
+    assert b["grams_left"] == -2.0 and b["settled"]
+
+
+def test_gold_price_from_metal_rate():
+    assert utils.gold_price_from_metal_rate(1 / 5000) == 5000.0
+    assert utils.gold_price_from_metal_rate(0) == 0.0

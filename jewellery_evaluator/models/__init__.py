@@ -18,6 +18,7 @@ from . import (
     metal_currency,  # noqa: F401
     ops_sold_sync,  # noqa: F401
     pos_a5_print,  # noqa: F401
+    pos_acquisition,  # noqa: F401
     pos_cash_ops,  # noqa: F401
     pos_config,  # noqa: F401
     pos_make_payment,  # noqa: F401

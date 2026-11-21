@@ -1491,3 +1491,60 @@ def acquisition_progress(lines: list[dict], pieces: list[dict]) -> dict:
         'reg_grams': round(sum(float(p.get('grams') or 0) for p in pieces), 3),
         'left_grams': round(sum(r['left_grams'] for r in out), 3),
     }
+
+
+def acquisition_payment(grams_21k: float = 0.0, gold_price_21k: float = 0.0, money: float = 0.0) -> dict:
+    """One payment on an Acquisition Order.
+
+    The vendor is owed metal in grams (21K equivalent) and money (making fee +
+    stones). A payment settles ``grams_21k`` of metal valued at
+    ``gold_price_21k`` per gram (any positive price: the system only suggests
+    it) and ``money`` EGP. Returns the metal amount, the money and the cash
+    total, rounded to 2 dp; grams to 3 dp. Raises ValueError on a negative
+    value, metal without a positive price, or an empty payment.
+    """
+    g = Decimal(str(grams_21k or 0))
+    price = Decimal(str(gold_price_21k or 0))
+    cash = Decimal(str(money or 0))
+    if g < 0 or price < 0 or cash < 0:
+        raise ValueError('grams, price and money must not be negative')
+    if g > 0 and price <= 0:
+        raise ValueError('a metal payment needs a positive gold price')
+    two, three = Decimal('0.01'), Decimal('0.001')
+    g = g.quantize(three, ROUND_HALF_UP)
+    metal = (g * price).quantize(two, ROUND_HALF_UP)
+    cash = cash.quantize(two, ROUND_HALF_UP)
+    if metal + cash <= 0:
+        raise ValueError('a payment must settle some grams or some money')
+    return {'grams_21k': float(g), 'metal_amount': float(metal), 'money': float(cash),
+            'amount': float(metal + cash)}
+
+
+def acquisition_balance(grams_due: float, money_due: float, payments: list[dict]) -> dict:
+    """What is still owed on an Acquisition Order.
+
+    ``grams_due`` = the order's 21K-equivalent grams, ``money_due`` = making fee
+    + stones (EGP); ``payments``: ``{grams_21k, money}``. Left amounts can go
+    negative (paid ahead); ``settled`` is True once nothing is left within
+    1 mg / 1 EGP.
+    """
+    three, two = Decimal('0.001'), Decimal('0.01')
+    paid_g = sum((Decimal(str(p.get('grams_21k') or 0)) for p in payments), Decimal('0'))
+    paid_m = sum((Decimal(str(p.get('money') or 0)) for p in payments), Decimal('0'))
+    left_g = (Decimal(str(grams_due or 0)) - paid_g).quantize(three, ROUND_HALF_UP)
+    left_m = (Decimal(str(money_due or 0)) - paid_m).quantize(two, ROUND_HALF_UP)
+    return {
+        'grams_paid': float(paid_g.quantize(three, ROUND_HALF_UP)),
+        'money_paid': float(paid_m.quantize(two, ROUND_HALF_UP)),
+        'grams_left': float(left_g),
+        'money_left': float(left_m),
+        'settled': left_g <= Decimal('0.001') and left_m <= Decimal('1'),
+    }
+
+
+def gold_price_from_metal_rate(rate: float) -> float:
+    """EGP per gram from a metal currency rate (grams per EGP); 0 when unset."""
+    r = Decimal(str(rate or 0))
+    if r <= 0:
+        return 0.0
+    return float((Decimal('1') / r).quantize(Decimal('0.01'), ROUND_HALF_UP))

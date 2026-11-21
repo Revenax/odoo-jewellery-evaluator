@@ -27,6 +27,11 @@
                 <field name="total_egp" sum="Total"/>
                 <field name="registered_count" optional="show"/>
                 <field name="unregistered_count" optional="show"/>
+                <field name="kind" optional="hide"/>
+                <field name="grams_left" optional="show" sum="Total"/>
+                <field name="money_left" optional="hide" sum="Total"/>
+                <field name="payment_state" widget="badge" optional="show" decoration-success="payment_state == 'paid'"
+                       decoration-warning="payment_state == 'partial'"/>
                 <field name="currency_id" column_invisible="1"/>
                 <field name="state" widget="badge" decoration-info="state == 'draft'"
                        decoration-success="state == 'done'" decoration-warning="state == 'confirmed'"/>
@@ -41,6 +46,8 @@
             <form string="Acquisition Order">
                 <header>
                     <button name="action_confirm" type="object" string="Confirm" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_open_payment_wizard" type="object" string="Pay" icon="fa-money"
+                            class="btn-secondary" invisible="state not in ('confirmed', 'done') or payment_state == 'paid'"/>
                     <button name="action_done" type="object" string="Mark as Done" invisible="state != 'confirmed'"/>
                     <button name="action_draft" type="object" string="Back to Draft" invisible="state not in ('confirmed', 'cancel')"/>
                     <button name="action_cancel" type="object" string="Cancel" invisible="state in ('cancel', 'done')"/>
@@ -50,8 +57,10 @@
                     <i class="fa fa-exclamation-triangle me-1"/><field name="duplicate_warning" readonly="1" class="d-inline"/>
                 </div>
                 <sheet>
+                    <widget name="web_ribbon" title="Paid" bg_color="text-bg-success" invisible="payment_state != 'paid'"/>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
+                        <field name="kind" widget="radio" options="{'horizontal': true}" readonly="state != 'draft'"/>
                     </div>
                     <group>
                         <group>
@@ -86,6 +95,7 @@
                                 <field name="making_fee_total"/>
                                 <field name="stones_egp" invisible="not stone_ids"/>
                                 <field name="total_egp" class="oe_subtotal_footer_separator"/>
+                                <field name="amount_paid" invisible="not amount_paid"/>
                             </group>
                         </page>
                         <page string="Stones" name="stones">
@@ -124,6 +134,42 @@
                                     <field name="qty_available" string="On hand" optional="show"/>
                                     <field name="create_uid" string="Registered by" optional="show"/>
                                     <field name="create_date" string="Registered on" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Payments" name="payments">
+                            <field name="payment_state" invisible="1"/>
+                            <group>
+                                <group string="Metal (21K equivalent)">
+                                    <field name="grams_21k_eq" string="Bought"/>
+                                    <field name="grams_paid" string="Paid"/>
+                                    <field name="grams_left" string="Still owed" decoration-danger="grams_left &gt; 0.001"
+                                           decoration-success="grams_left &lt;= 0.001"/>
+                                </group>
+                                <group string="Money (making fee + stones)">
+                                    <field name="money_due" string="Due"/>
+                                    <field name="money_paid" string="Paid"/>
+                                    <field name="money_left" string="Still owed" decoration-danger="money_left &gt; 1"
+                                           decoration-success="money_left &lt;= 1"/>
+                                </group>
+                            </group>
+                            <field name="payment_ids" readonly="1">
+                                <list decoration-muted="state == 'cancel'" create="false" delete="false">
+                                    <field name="date"/>
+                                    <field name="grams_21k" sum="Total"/>
+                                    <field name="gold_price_21k"/>
+                                    <field name="metal_amount" sum="Total"/>
+                                    <field name="money" sum="Total"/>
+                                    <field name="amount" sum="Total"/>
+                                    <field name="journal_id"/>
+                                    <field name="employee_id" optional="show"/>
+                                    <field name="pos_session_id" optional="hide"/>
+                                    <field name="move_id" optional="show"/>
+                                    <field name="note" optional="hide"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="state" widget="badge" decoration-success="state == 'posted'"/>
+                                    <button name="action_cancel_payment" type="object" string="Cancel" icon="fa-undo"
+                                            invisible="state != 'posted'" confirm="Reverse this payment's entry?"/>
                                 </list>
                             </field>
                         </page>
@@ -199,6 +245,10 @@
                         <div class="d-flex justify-content-between small text-muted">
                             <span>Making fee <field name="making_fee_total" widget="monetary"/></span>
                             <span><t t-esc="record.registered_count.raw_value"/> / <t t-esc="record.total_pieces.raw_value"/> registered</span>
+                        </div>
+                        <div class="small mt-1">
+                            <field name="payment_state" widget="badge" decoration-success="payment_state == 'paid'"
+                                   decoration-warning="payment_state == 'partial'"/>
                         </div>
                     </t>
                 </templates>
@@ -332,4 +382,64 @@
             </xpath>
         </field>
     </record>
+    <record id="view_acquisition_payment_wizard_form" model="ir.ui.view">
+        <field name="name">jewellery.acquisition.payment.wizard.form</field>
+        <field name="model">jewellery.acquisition.payment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Pay Acquisition Order">
+                <field name="order_id" invisible="1"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="company_id" invisible="1"/>
+                <group>
+                    <group string="Still owed">
+                        <field name="grams_left" string="Metal (21K eq. g)"/>
+                        <field name="money_left" string="Money"/>
+                    </group>
+                    <group string="Payment">
+                        <field name="journal_id"/>
+                        <field name="date"/>
+                        <field name="grams_21k"/>
+                        <field name="gold_price_21k"/>
+                        <field name="money"/>
+                        <field name="amount" class="fw-bold"/>
+                        <field name="note"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_pay" type="object" string="Pay" class="btn-primary"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_acquisition_payment_list" model="ir.ui.view">
+        <field name="name">jewellery.acquisition.payment.list</field>
+        <field name="model">jewellery.acquisition.payment</field>
+        <field name="arch" type="xml">
+            <list create="false" decoration-muted="state == 'cancel'">
+                <field name="date"/>
+                <field name="order_id"/>
+                <field name="partner_id"/>
+                <field name="grams_21k" sum="Total"/>
+                <field name="gold_price_21k"/>
+                <field name="money" sum="Total"/>
+                <field name="amount" sum="Total"/>
+                <field name="journal_id"/>
+                <field name="employee_id"/>
+                <field name="move_id" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge" decoration-success="state == 'posted'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_acquisition_payment" model="ir.actions.act_window">
+        <field name="name">AO Payments</field>
+        <field name="res_model">jewellery.acquisition.payment</field>
+        <field name="view_mode">list</field>
+    </record>
+    <menuitem id="menu_acquisition_payments" name="Payments" parent="menu_acquisition_root"
+              action="action_acquisition_payment" sequence="15"/>
+
 </odoo>
