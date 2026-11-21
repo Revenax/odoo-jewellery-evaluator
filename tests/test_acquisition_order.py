@@ -62,3 +62,42 @@ def test_negative_grams_refused():
 def test_empty_order():
     t = utils.acquisition_totals([])
     assert t["pieces"] == 0 and t["total_egp"] == 0.0
+
+
+BANDS = (7, "21K", "foreign")
+BRACELET = (9, "18K", "local")
+PROGRESS_LINES = [{"key": BANDS, "qty": 12, "grams": 230}, {"key": BRACELET, "qty": 1, "grams": 123}]
+
+
+def test_progress_matches_category_karat_origin():
+    p = utils.acquisition_progress(PROGRESS_LINES, [
+        {"category": 7, "karat": "21K", "origin": "foreign", "grams": 19.5},
+        {"category": 7, "karat": "21K", "origin": "foreign", "grams": 20.1},
+        {"category": 9, "karat": "18K", "origin": "local", "grams": 123},
+    ])
+    bands, bracelet = p["rows"]
+    assert (bands["reg_qty"], bands["reg_grams"], bands["left_qty"], bands["left_grams"]) == (2, 39.6, 10, 190.4)
+    assert (bracelet["left_qty"], bracelet["over"]) == (0, False)
+    assert p["unmatched"] == [] and p["left_qty"] == 10 and p["reg_grams"] == 162.6
+
+
+def test_progress_flags_unmatched_and_over():
+    p = utils.acquisition_progress(PROGRESS_LINES, [
+        {"category": 9, "karat": "18K", "origin": "local", "grams": 100},
+        {"category": 9, "karat": "18K", "origin": "local", "grams": 30},      # a second bracelet: over
+        {"category": 9, "karat": "21K", "origin": "local", "grams": 5},       # wrong karat: unmatched
+        {"category": 3, "karat": "18K", "origin": None, "grams": 2},          # other category: unmatched
+    ])
+    assert p["rows"][1]["over"] is True
+    assert p["unmatched"] == [2, 3]
+
+
+def test_progress_piece_without_origin_matches_on_category_and_karat():
+    p = utils.acquisition_progress([{"key": (4, "18K", "local"), "qty": 10, "grams": 110}],
+                                   [{"category": 4, "karat": "18K", "origin": None, "grams": 11}])
+    assert p["rows"][0]["reg_qty"] == 1 and p["unmatched"] == []
+
+
+def test_progress_pools_identical_rows():
+    p = utils.acquisition_progress([{"key": BANDS, "qty": 5, "grams": 100}, {"key": BANDS, "qty": 7, "grams": 130}], [])
+    assert len(p["rows"]) == 1 and p["rows"][0]["qty"] == 12 and p["left_grams"] == 230.0

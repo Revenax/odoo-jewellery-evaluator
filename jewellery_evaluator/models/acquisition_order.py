@@ -14,10 +14,11 @@ the payments and returns that settle the vendor's balance.
 Totals are computed by ``utils.acquisition_totals`` (tested).
 """
 
+from markupsafe import Markup
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from ..utils import acquisition_totals
+from ..utils import acquisition_progress, acquisition_totals
 from .jewellery_stone import STONE_CLARITY_SELECTION, STONE_COLOR_SELECTION, STONE_SHAPE_SELECTION
 
 KARAT_SELECTION = [('24K', '24K'), ('21K', '21K'), ('18K', '18K')]
@@ -41,7 +42,8 @@ class JewelleryAcquisitionOrder(models.Model):
     employee_id = fields.Many2one(
         'hr.employee', string='Employee', tracking=True,
         default=lambda self: self.env.user.employee_id)
-    user_id = fields.Many2one('res.users', string='User', default=lambda self: self.env.user, tracking=True)
+    confirmed_by_id = fields.Many2one('res.users', string='Confirmed by', readonly=True, copy=False)
+    confirmed_on = fields.Datetime(readonly=True, copy=False)
     date_order = fields.Datetime(string='Date', required=True, default=fields.Datetime.now, tracking=True)
     warehouse_id = fields.Many2one('stock.warehouse', string='Branch', tracking=True,
                                    help='Where the pieces will be registered.')
@@ -79,7 +81,9 @@ class JewelleryAcquisitionOrder(models.Model):
     stones_egp = fields.Monetary(string='Stones (EGP)', compute='_compute_totals', store=True)
     total_egp = fields.Monetary(string='Total', compute='_compute_totals', store=True)
 
-    # SKUs registered against the order
+    # SKUs registered against the order (utils.acquisition_progress)
+    progress_html = fields.Html(string='Registration progress', compute='_compute_registered', sanitize=False)
+    unmatched_count = fields.Integer(string='Not in any row', compute='_compute_registered')
     registered_count = fields.Integer(string='Registered', compute='_compute_registered')
     unregistered_count = fields.Integer(string='Not registered yet', compute='_compute_registered')
     registered_grams = fields.Float(string='Registered grams', digits=(12, 3), compute='_compute_registered')
@@ -133,15 +137,68 @@ class JewelleryAcquisitionOrder(models.Model):
                 'total_egp': t['total_egp'],
             })
 
-    @api.depends('product_ids', 'total_pieces', 'line_ids.grams')
+    @api.depends('product_ids', 'line_ids.categ_id', 'line_ids.karat', 'line_ids.origin',
+                 'line_ids.qty', 'line_ids.grams')
     def _compute_registered(self):
+        origin_of = {'gold_local': 'local', 'gold_foreign': 'foreign'}
         for order in self:
             products = order.product_ids
-            grams = sum(products.mapped('gross_jewellery_weight_g') or [0.0])
-            order.registered_count = len(products)
-            order.registered_grams = round(grams, 3)
-            order.unregistered_count = max(order.total_pieces - len(products), 0)
-            order.unregistered_grams = round(max(sum(order.line_ids.mapped('grams')) - grams, 0.0), 3)
+            p = acquisition_progress(
+                [{'key': (line.categ_id.id, line.karat, line.origin), 'qty': line.qty, 'grams': line.grams}
+                 for line in order.line_ids],
+                [{'category': prod.categ_id.id, 'karat': prod.gold_purity,
+                  'origin': origin_of.get(prod.jewellery_type), 'grams': prod.gross_jewellery_weight_g}
+                 for prod in products])
+            order.registered_count = p['reg_qty']
+            order.registered_grams = p['reg_grams']
+            order.unregistered_count = p['left_qty']
+            order.unregistered_grams = p['left_grams']
+            order.unmatched_count = len(p['unmatched'])
+            order.progress_html = order._progress_table(p, products)
+
+    def _progress_table(self, p, products):
+        """Expected vs registered, per jewellery row, plus pieces that fit no row."""
+        categ = self.env['product.category'].browse
+        origin_label = dict(ORIGIN_SELECTION)
+
+        def g(value):
+            return f'{value:,.3f}'
+
+        rows = []
+        for r in p['rows']:
+            cat_id, karat, origin = r['key']
+            pct = min(100, round(100 * r['reg_qty'] / r['qty'])) if r['qty'] else 0
+            state = ('text-danger' if r['over'] else 'text-success' if not r['left_qty'] else '')
+            rows.append(Markup(
+                '<tr><td>{cat}</td><td>{karat}</td><td>{origin}</td>'
+                '<td class="text-end">{rq} / {q}</td><td class="text-end">{rg} / {gr}</td>'
+                '<td class="text-end {state}">{lq} pcs · {lg} g{over}</td>'
+                '<td style="min-width:120px"><div class="progress" style="height:8px">'
+                '<div class="progress-bar {bar}" style="width:{pct}%"></div></div></td></tr>').format(
+                cat=categ(cat_id).display_name or '', karat=karat or '', origin=origin_label.get(origin, ''),
+                rq=r['reg_qty'], q=r['qty'], rg=g(r['reg_grams']), gr=g(r['grams']), state=state,
+                lq=r['left_qty'], lg=g(r['left_grams']),
+                over=Markup(' · <b>more than bought</b>') if r['over'] else '',
+                bar='bg-danger' if r['over'] else 'bg-success', pct=pct))
+        unmatched = ''
+        if p['unmatched']:
+            items = [products[i] for i in p['unmatched']]
+            unmatched = Markup(
+                '<div class="alert alert-warning mt-2 mb-0 py-2"><b>{n} registered piece(s) fit no row</b> '
+                '(category or karat not on this AO): {skus}</div>').format(
+                n=len(items), skus=', '.join(f'{x.default_code} ({x.categ_id.display_name}, {x.gold_purity or "-"})'
+                                            for x in items))
+        return Markup(
+            '<table class="table table-sm o_ao_progress mb-0"><thead><tr>'
+            '<th>Category</th><th>Karat</th><th>Origin</th><th class="text-end">Pieces</th>'
+            '<th class="text-end">Grams</th><th class="text-end">Still to register</th><th/></tr></thead>'
+            '<tbody>{rows}</tbody><tfoot><tr class="fw-bold"><td colspan="3">Total</td>'
+            '<td class="text-end">{rq} / {q}</td><td class="text-end">{rg} / {gr}</td>'
+            '<td class="text-end">{lq} pcs · {lg} g</td><td/></tr></tfoot></table>{unmatched}').format(
+            rows=Markup('').join(rows) if rows else Markup('<tr><td colspan="7" class="text-muted">'
+                                                            'Add jewellery rows first.</td></tr>'),
+            rq=p['reg_qty'], q=p['qty'], rg=g(p['reg_grams']), gr=g(p['grams']),
+            lq=p['left_qty'], lg=g(p['left_grams']), unmatched=unmatched)
 
     # ------------------------------------------------------------------ lifecycle
     @api.model_create_multi
@@ -161,7 +218,8 @@ class JewelleryAcquisitionOrder(models.Model):
                 raise UserError(_('Set a positive gold price on %s.', order.name))
             if order.stone_ids and order.usd_rate <= 0:
                 raise UserError(_('Set a positive USD rate on %s.', order.name))
-        self.filtered(lambda o: o.state == 'draft').write({'state': 'confirmed'})
+        self.filtered(lambda o: o.state == 'draft').write({
+            'state': 'confirmed', 'confirmed_by_id': self.env.uid, 'confirmed_on': fields.Datetime.now()})
 
     def action_done(self):
         self.filtered(lambda o: o.state == 'confirmed').write({'state': 'done'})
@@ -202,17 +260,11 @@ class JewelleryAcquisitionLine(models.Model):
     fee_total = fields.Monetary(string='Making fee', currency_field='currency_id',
                                 compute='_compute_fee_total', store=True)
     currency_id = fields.Many2one(related='order_id.currency_id')
-    registered_count = fields.Integer(string='Registered', compute='_compute_registered')
 
     @api.depends('grams', 'fee_per_gram')
     def _compute_fee_total(self):
         for line in self:
             line.fee_total = round(line.grams * line.fee_per_gram, 2)
-
-    def _compute_registered(self):
-        for line in self:
-            line.registered_count = len(line.order_id.product_ids.filtered(
-                lambda p, line=line: p.categ_id == line.categ_id and p.gold_purity == line.karat))
 
     @api.constrains('qty', 'grams', 'fee_per_gram')
     def _check_positive(self):

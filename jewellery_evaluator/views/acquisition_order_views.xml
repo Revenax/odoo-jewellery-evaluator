@@ -18,6 +18,7 @@
                 <field name="date_order"/>
                 <field name="partner_id"/>
                 <field name="employee_id" optional="show"/>
+                <field name="create_uid" string="Created by" optional="hide"/>
                 <field name="warehouse_id" optional="show"/>
                 <field name="total_pieces" string="Pieces"/>
                 <field name="grams_21k_eq" string="21K eq. (g)" sum="Total"/>
@@ -51,23 +52,20 @@
                     </div>
                     <group>
                         <group>
-                            <field name="partner_id" readonly="state not in ('draft',)"/>
-                            <field name="employee_id" readonly="state not in ('draft',)"/>
-                            <field name="user_id" readonly="state not in ('draft',)"/>
-                            <field name="warehouse_id" readonly="state in ('done', 'cancel')"/>
+                            <field name="partner_id" readonly="state != 'draft'"/>
+                            <field name="employee_id" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <field name="date_order" readonly="state not in ('draft',)"/>
-                            <field name="gold_price_21k" readonly="state not in ('draft',)"/>
-                            <field name="usd_rate" readonly="state not in ('draft',)"/>
-                            <field name="currency_id" invisible="1"/>
-                            <field name="usd_currency_id" invisible="1"/>
-                            <field name="company_id" invisible="1"/>
+                            <field name="date_order" readonly="state != 'draft'"/>
+                            <field name="warehouse_id" readonly="state in ('done', 'cancel')"/>
                         </group>
                     </group>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="usd_currency_id" invisible="1"/>
+                    <field name="company_id" invisible="1"/>
                     <notebook>
                         <page string="Jewellery" name="jewellery">
-                            <field name="line_ids" readonly="state not in ('draft',)">
+                            <field name="line_ids" readonly="state != 'draft'">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="categ_id" options="{'no_create': True}"/>
@@ -77,27 +75,18 @@
                                     <field name="grams" sum="Total"/>
                                     <field name="fee_per_gram"/>
                                     <field name="fee_total" sum="Total"/>
-                                    <field name="registered_count" optional="show"/>
                                     <field name="currency_id" column_invisible="1"/>
                                 </list>
                             </field>
-                            <group class="mt-3">
-                                <group string="Gold">
-                                    <field name="grams_18k"/>
-                                    <field name="grams_21k"/>
-                                    <field name="grams_24k"/>
-                                    <field name="grams_21k_eq"/>
-                                </group>
-                                <group string="Value">
-                                    <field name="metal_value"/>
-                                    <field name="making_fee_total"/>
-                                    <field name="stones_egp" invisible="not stone_ids"/>
-                                    <field name="total_egp" class="fw-bold"/>
-                                </group>
+                            <group class="oe_subtotal_footer">
+                                <field name="metal_value"/>
+                                <field name="making_fee_total"/>
+                                <field name="stones_egp" invisible="not stone_ids"/>
+                                <field name="total_egp" class="oe_subtotal_footer_separator"/>
                             </group>
                         </page>
                         <page string="Stones" name="stones">
-                            <field name="stone_ids" readonly="state not in ('draft',)">
+                            <field name="stone_ids" readonly="state != 'draft'">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="shape"/>
@@ -111,44 +100,66 @@
                                     <field name="usd_currency_id" column_invisible="1"/>
                                 </list>
                             </field>
-                            <group class="mt-3">
-                                <group>
-                                    <field name="stone_count"/>
-                                    <field name="stone_carats"/>
-                                </group>
-                                <group>
-                                    <field name="stones_usd"/>
-                                    <field name="stones_egp"/>
-                                </group>
+                            <group class="oe_subtotal_footer" invisible="not stone_ids">
+                                <field name="stones_usd"/>
+                                <field name="stones_egp" class="oe_subtotal_footer_separator"/>
                             </group>
                         </page>
                         <page string="SKUs" name="skus">
-                            <group>
-                                <group>
-                                    <field name="registered_count"/>
-                                    <field name="registered_grams"/>
-                                </group>
-                                <group>
-                                    <field name="unregistered_count"/>
-                                    <field name="unregistered_grams"/>
-                                </group>
-                            </group>
-                            <field name="product_ids" readonly="1">
-                                <list>
+                            <field name="progress_html" nolabel="1" readonly="1"/>
+                            <field name="product_ids" readonly="1" class="mt-3">
+                                <list default_order="create_date desc">
+                                    <field name="image_128" widget="image" options="{'size': [40, 40]}" string=" "/>
                                     <field name="default_code" string="SKU"/>
-                                    <field name="categ_id"/>
+                                    <field name="categ_id" string="Category"/>
                                     <field name="gold_purity" string="Karat"/>
+                                    <field name="jewellery_type" string="Type" optional="show"/>
                                     <field name="gross_jewellery_weight_g" string="Weight (g)" sum="Total"/>
-                                    <field name="list_price" string="Price"/>
+                                    <field name="net_gold_weight_g" string="Net gold (g)" sum="Total" optional="show"/>
+                                    <field name="diamond_weight_g" string="Stones (g)" sum="Total" optional="hide"/>
+                                    <field name="list_price" string="Price" optional="show"/>
+                                    <field name="qty_available" string="On hand" optional="show"/>
+                                    <field name="create_uid" string="Registered by" optional="show"/>
+                                    <field name="create_date" string="Registered on" optional="show"/>
                                 </list>
                             </field>
                         </page>
                         <page string="Details" name="details">
                             <group>
-                                <field name="vendor_ref"/>
-                                <field name="total_pieces"/>
+                                <group string="Prices used">
+                                    <field name="gold_price_21k" readonly="state != 'draft'"/>
+                                    <field name="usd_rate" readonly="state != 'draft'"/>
+                                </group>
+                                <group string="Record">
+                                    <field name="vendor_ref"/>
+                                    <field name="create_uid" string="Created by" readonly="1"/>
+                                    <field name="create_date" string="Created on" readonly="1"/>
+                                    <field name="confirmed_by_id" invisible="not confirmed_by_id"/>
+                                    <field name="confirmed_on" invisible="not confirmed_on"/>
+                                    <field name="write_date" string="Last changed" readonly="1"/>
+                                </group>
+                                <group string="Gold">
+                                    <field name="total_pieces" string="Pieces"/>
+                                    <field name="grams_18k"/>
+                                    <field name="grams_21k"/>
+                                    <field name="grams_24k"/>
+                                    <field name="grams_21k_eq"/>
+                                </group>
+                                <group string="Stones">
+                                    <field name="stone_count" string="Stones"/>
+                                    <field name="stone_carats"/>
+                                    <field name="stones_usd"/>
+                                </group>
+                                <group string="Registration">
+                                    <field name="registered_count"/>
+                                    <field name="registered_grams"/>
+                                    <field name="unregistered_count"/>
+                                    <field name="unregistered_grams"/>
+                                    <field name="unmatched_count"/>
+                                </group>
                             </group>
-                            <field name="note" placeholder="Notes"/>
+                            <separator string="Notes"/>
+                            <field name="note" placeholder="Anything worth keeping about this purchase"/>
                         </page>
                     </notebook>
                 </sheet>

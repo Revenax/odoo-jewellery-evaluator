@@ -1442,3 +1442,52 @@ def acquisition_totals(lines: list[dict], stones: list[dict] | None = None,
         'stones_egp': float(stones_egp.quantize(two, ROUND_HALF_UP)),
         'total_egp': float((metal + fee + stones_egp).quantize(two, ROUND_HALF_UP)),
     }
+
+
+def acquisition_progress(lines: list[dict], pieces: list[dict]) -> dict:
+    """Registration progress of an AO: which registered pieces fill which row.
+
+    ``lines``: ``{key, qty, grams}`` where ``key`` = (category id, karat, origin).
+    ``pieces``: ``{category, karat, origin, grams}``; origin is ``None`` when the
+    piece has none (diamond pieces), which then matches a row on category and
+    karat alone. Rows with the same key are pooled.
+
+    Returns ``rows`` (one per distinct key, in line order: expected and
+    registered qty/grams, what is left, and ``over`` when more came than
+    bought), ``unmatched`` (pieces that fit no row, by index) and overall totals.
+    """
+    rows: dict = {}
+    for line in lines:
+        key = tuple(line['key'])
+        row = rows.setdefault(key, {'key': key, 'qty': 0, 'grams': 0.0, 'reg_qty': 0, 'reg_grams': 0.0})
+        row['qty'] += int(line.get('qty') or 0)
+        row['grams'] += float(line.get('grams') or 0)
+    unmatched = []
+    for i, piece in enumerate(pieces):
+        cat, karat, origin = piece.get('category'), piece.get('karat'), piece.get('origin')
+        row = rows.get((cat, karat, origin)) if origin else None
+        if row is None:
+            row = next((r for k, r in rows.items() if k[0] == cat and k[1] == karat), None)
+        if row is None:
+            unmatched.append(i)
+            continue
+        row['reg_qty'] += 1
+        row['reg_grams'] += float(piece.get('grams') or 0)
+    out = []
+    for row in rows.values():
+        row['grams'] = round(row['grams'], 3)
+        row['reg_grams'] = round(row['reg_grams'], 3)
+        row['left_qty'] = max(row['qty'] - row['reg_qty'], 0)
+        row['left_grams'] = round(max(row['grams'] - row['reg_grams'], 0.0), 3)
+        row['over'] = row['reg_qty'] > row['qty'] or row['reg_grams'] > row['grams'] + 0.0005
+        out.append(row)
+    return {
+        'rows': out,
+        'unmatched': unmatched,
+        'qty': sum(r['qty'] for r in out),
+        'reg_qty': len(pieces),
+        'left_qty': sum(r['left_qty'] for r in out),
+        'grams': round(sum(r['grams'] for r in out), 3),
+        'reg_grams': round(sum(float(p.get('grams') or 0) for p in pieces), 3),
+        'left_grams': round(sum(r['left_grams'] for r in out), 3),
+    }
