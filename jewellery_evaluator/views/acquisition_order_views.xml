@@ -19,7 +19,6 @@
                 <field name="partner_id"/>
                 <field name="employee_id" optional="show"/>
                 <field name="create_uid" string="Created by" optional="hide"/>
-                <field name="warehouse_id" optional="show"/>
                 <field name="total_pieces" string="Pieces"/>
                 <field name="grams_21k_eq" string="21K eq. (g)" sum="Total"/>
                 <field name="making_fee_total" sum="Total"/>
@@ -69,7 +68,6 @@
                         </group>
                         <group>
                             <field name="date_order" readonly="state != 'draft'"/>
-                            <field name="warehouse_id" readonly="state in ('done', 'cancel')"/>
                         </group>
                     </group>
                     <field name="currency_id" invisible="1"/>
@@ -236,7 +234,6 @@
                         <field name="partner_id" class="fs-5"/>
                         <div class="text-muted small">
                             <field name="employee_id"/>
-                            <t t-if="record.warehouse_id.raw_value"> · <field name="warehouse_id"/></t>
                         </div>
                         <div class="d-flex justify-content-between mt-2">
                             <span><field name="grams_21k_eq"/> g 21K eq.</span>

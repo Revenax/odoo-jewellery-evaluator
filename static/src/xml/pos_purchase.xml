@@ -92,8 +92,13 @@
                             <input type="number" inputmode="decimal" step="0.01" min="0" t-model="state.payMoney"/></div>
                     </div>
                 </div>
+                <div class="o_mjh_field"><label>Paid from</label>
+                    <select t-model="state.journalId">
+                        <t t-foreach="setupData.journals" t-as="j" t-key="j.id"><option t-att-value="j.id" t-esc="j.name"/></t>
+                    </select>
+                </div>
                 <button class="o_mjh_btn" t-on-click="() => this.payInFull()"><i class="fa fa-check-circle"/> Pay in full</button>
-                <div class="o_mjp_total">Cash out of the drawer <b><t t-esc="fmtM(payTotal)"/> EGP</b></div>
+                <div class="o_mjp_total">Paid from <t t-esc="journalName"/> <b><t t-esc="fmtM(payTotal)"/> EGP</b></div>
             </t>
 
             <!-- Buy now -->
@@ -132,15 +137,20 @@
                     <div class="o_mjh_field"><label>Or total to pay (EGP)</label>
                         <input type="number" inputmode="decimal" step="1" min="0" t-model="state.buyTotal" t-on-input="() => this.onBuyTotal()"/></div>
                 </div>
+                <div class="o_mjh_field"><label>Paid from</label>
+                    <select t-model="state.journalId">
+                        <t t-foreach="setupData.journals" t-as="j" t-key="j.id"><option t-att-value="j.id" t-esc="j.name"/></t>
+                    </select>
+                </div>
                 <div class="o_mjh_field"><label>Note</label><input type="text" t-model="state.note"/></div>
-                <div class="o_mjp_total"><t t-esc="fmtG(buyGrams21)"/> g 21K eq. · cash out of the drawer <b><t t-esc="fmtM(buyAmount)"/> EGP</b></div>
+                <div class="o_mjp_total"><t t-esc="fmtG(buyGrams21)"/> g 21K eq. · paid from <t t-esc="journalName"/> <b><t t-esc="fmtM(buyAmount)"/> EGP</b></div>
             </t>
 
             <!-- Done -->
             <t t-if="state.step === 'done'">
                 <div class="o_mjp_done">
                     <i class="fa fa-check-circle"/>
-                    <div><b><t t-esc="fmtM(state.result.amount)"/> EGP</b> paid out of the drawer.</div>
+                    <div><b><t t-esc="fmtM(state.result.amount)"/> EGP</b> paid from <t t-esc="journalName"/>.</div>
                     <div class="o_mjp_sub"><t t-esc="state.result.order.name"/> · entry <t t-esc="state.result.move"/></div>
                     <div class="o_mjp_sub" t-if="state.result.order.grams_left &gt; 0.001 or state.result.order.money_left &gt; 1">
                         Still owed: <t t-esc="fmtG(state.result.order.grams_left)"/> g · <t t-esc="fmtM(state.result.order.money_left)"/> EGP

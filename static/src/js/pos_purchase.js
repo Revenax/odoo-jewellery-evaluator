@@ -11,7 +11,9 @@
  *   2. What: pay one of their AOs (part or all: grams of 21K at a gold price,
  *      plus money for making fee / stones), or buy from them now (rows of
  *      category / karat / grams, one gold price), which creates a "customer"
- *      AO paid in full.
+ *      AO paid in full and puts the gold on hand as SCRAP-GOLD-<karat>.
+ *   Every payment picks "Paid from": the register's Vault (default) or a bank
+ *   journal; the server re-checks the choice.
  * Backend: pos.session.jewellery_ao_* (models/pos_acquisition.py). Every cash
  * out posts Dr vendor payable / Cr Vault, so the shift count includes it; one
  * idempotency key per window, reused across retries.
@@ -52,18 +54,21 @@ export class PurchasePopup extends Component {
             buyPrice: "",
             buyTotal: "",
             note: "",
+            journalId: "",
             busy: false,
             error: "",
             result: null,
         });
-        this.setupData = { gold_price_21k: 0, categories: [], karats: [], origins: [] };
+        this.setupData = { gold_price_21k: 0, categories: [], karats: [], origins: [], journals: [] };
         onWillStart(async () => {
             try {
                 const [setup, partners] = await Promise.all([
-                    this.call("jewellery_ao_setup", []),
+                    this.call("jewellery_ao_setup", [this.props.pos.session.id]),
                     this.call("jewellery_ao_partners", [""]),
                 ]);
                 this.setupData = setup;
+                const vault = setup.journals.find((j) => j.vault) || setup.journals[0];
+                this.state.journalId = vault ? String(vault.id) : "";
                 this.state.partners = partners;
                 this.state.status = "ready";
             } catch {
@@ -79,8 +84,12 @@ export class PurchasePopup extends Component {
         const pos = this.props.pos;
         return pos.config.module_pos_hr ? pos.cashier?.id || false : false;
     }
-    get vaultName() {
-        return this.props.pos.config.name;
+    get journalName() {
+        const j = this.setupData.journals.find((x) => String(x.id) === String(this.state.journalId));
+        return j?.name || _t("the drawer");
+    }
+    get journalArg() {
+        return this.state.journalId ? Number(this.state.journalId) : false;
     }
     fmtG(value) {
         return fmtNumber(value, 3);
@@ -160,6 +169,7 @@ export class PurchasePopup extends Component {
         }
         await this.submit("jewellery_ao_pay", [
             this.props.pos.session.id, this.state.order.id, grams, price, money, this.key, this.employeeId,
+            this.journalArg,
         ]);
     }
 
@@ -238,6 +248,7 @@ export class PurchasePopup extends Component {
             this.key,
             this.state.note,
             this.employeeId,
+            this.journalArg,
         ]);
     }
 
@@ -251,8 +262,9 @@ export class PurchasePopup extends Component {
             this.props.pos.notification.add(
                 this.state.result.duplicate
                     ? _t("Already recorded, not paid twice.")
-                    : _t("%(amount)s EGP paid out of the drawer (%(order)s).", {
+                    : _t("%(amount)s EGP paid from %(from)s (%(order)s).", {
                           amount: this.fmtM(this.state.result.amount),
+                          from: this.journalName,
                           order: this.state.result.order.name,
                       }),
                 { type: "success" }

@@ -1548,3 +1548,20 @@ def gold_price_from_metal_rate(rate: float) -> float:
     if r <= 0:
         return 0.0
     return float((Decimal('1') / r).quantize(Decimal('0.01'), ROUND_HALF_UP))
+
+
+def allocate_amount(total: float, shares: dict) -> dict:
+    """Split ``total`` (EGP) across keys in proportion to ``shares``, rounded to
+    2 dp, the rounding remainder on the largest share so the parts add up
+    exactly. Zero/negative shares get nothing; no positive share -> {}.
+    """
+    positive = {k: Decimal(str(v)) for k, v in shares.items() if Decimal(str(v or 0)) > 0}
+    if not positive:
+        return {}
+    two = Decimal('0.01')
+    amount = Decimal(str(total or 0)).quantize(two, ROUND_HALF_UP)
+    weight = sum(positive.values(), Decimal('0'))
+    out = {k: (amount * v / weight).quantize(two, ROUND_HALF_UP) for k, v in positive.items()}
+    biggest = max(positive, key=lambda k: positive[k])
+    out[biggest] += amount - sum(out.values(), Decimal('0'))
+    return {k: float(v) for k, v in out.items()}

@@ -139,3 +139,20 @@ def test_balance_paid_ahead_goes_negative():
 def test_gold_price_from_metal_rate():
     assert utils.gold_price_from_metal_rate(1 / 5000) == 5000.0
     assert utils.gold_price_from_metal_rate(0) == 0.0
+
+
+def test_allocate_amount_adds_up_exactly():
+    parts = utils.allocate_amount(100, {"18K": 1, "21K": 1, "24K": 1})
+    assert sum(parts.values()) == 100.0
+    assert parts["18K"] == 33.34 or parts["21K"] == 33.34 or parts["24K"] == 33.34
+
+
+def test_allocate_amount_by_21k_equivalent():
+    # 7 g 18K (= 6 g 21K eq.) and 3 g 21K at 5,000: 30,000 + 15,000
+    parts = utils.allocate_amount(45000, {"18K": 6, "21K": 3})
+    assert parts == {"18K": 30000.0, "21K": 15000.0}
+
+
+def test_allocate_amount_ignores_empty_shares():
+    assert utils.allocate_amount(10, {"18K": 0}) == {}
+    assert utils.allocate_amount(10, {"18K": 0, "21K": 2}) == {"21K": 10.0}

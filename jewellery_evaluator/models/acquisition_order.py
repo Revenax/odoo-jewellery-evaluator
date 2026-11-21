@@ -18,6 +18,7 @@ from markupsafe import Markup
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from .. import pulse
 from ..utils import (
     acquisition_balance,
     acquisition_payment,
@@ -53,8 +54,6 @@ class JewelleryAcquisitionOrder(models.Model):
     confirmed_by_id = fields.Many2one('res.users', string='Confirmed by', readonly=True, copy=False)
     confirmed_on = fields.Datetime(readonly=True, copy=False)
     date_order = fields.Datetime(string='Date', required=True, default=fields.Datetime.now, tracking=True)
-    warehouse_id = fields.Many2one('stock.warehouse', string='Branch', tracking=True,
-                                   help='Where the pieces will be registered.')
     vendor_ref = fields.Char(string='Vendor reference', tracking=True)
     kind = fields.Selection(KIND_SELECTION, string='Bought from', required=True, default='vendor', tracking=True,
                             help='Customer = bought over the counter at the register.')
@@ -305,11 +304,14 @@ class JewelleryAcquisitionOrder(models.Model):
         return self._default_gold_price()
 
     def _register_payment(self, journal, grams_21k=0.0, gold_price_21k=0.0, money=0.0, date=None,
-                          session=None, employee=None, note=None, key=None):
+                          session=None, employee=None, note=None, key=None, debit_accounts=None):
         """Pay the vendor: ``grams_21k`` of metal at ``gold_price_21k`` plus ``money``
         EGP, out of ``journal`` (a cash/bank journal). Posts Dr vendor payable /
         Cr the journal's account (a Vault journal: the shift's Vault sync folds it
-        in). Idempotent per ``key``. Refuses paying more than is owed."""
+        in). Idempotent per ``key``. Refuses paying more than is owed.
+        ``debit_accounts`` ({account: EGP}, adding up to the payment) replaces
+        the vendor-payable debit: a counter purchase debits the karat
+        inventory accounts directly, since the gold is received on the spot."""
         self.ensure_one()
         Payment = self.env['jewellery.acquisition.payment'].sudo()
         if key:
@@ -350,12 +352,16 @@ class JewelleryAcquisitionOrder(models.Model):
             [('type', '=', 'general'), ('company_id', '=', self.company_id.id)], limit=1)
         if not misc:
             raise UserError(_('No general journal found to post the payment.'))
+        debits = list((debit_accounts or {payable: pay['amount']}).items())
+        if abs(sum(amount for _acc, amount in debits) - pay['amount']) > 0.005:
+            raise UserError(_('The payment split does not add up to %s.', pay['amount']))
         move = self.env['account.move'].sudo().create({
             'journal_id': misc.id, 'move_type': 'entry', 'date': fields.Date.to_date(when),
             'ref': label, 'jewellery_cash_ops_key': key or False,
             'line_ids': [
-                (0, 0, {'account_id': payable.id, 'partner_id': partner.id, 'name': label,
-                        'debit': pay['amount'], 'credit': 0.0}),
+                (0, 0, {'account_id': acc.id, 'partner_id': partner.id, 'name': label,
+                        'debit': amount, 'credit': 0.0}) for acc, amount in debits if amount
+            ] + [
                 (0, 0, {'account_id': account.id, 'partner_id': partner.id, 'name': label,
                         'debit': 0.0, 'credit': pay['amount']}),
             ],
@@ -371,6 +377,19 @@ class JewelleryAcquisitionOrder(models.Model):
         })
         self.message_post(body=Markup('<b>{}</b>: {} EGP {} {}').format(
             _('Paid'), f"{pay['amount']:,.2f}", _('from'), journal.display_name) + Markup('<br/>') + label)
+        # Money leaving a Vault/bank account: same topic as owner payouts.
+        who = (payment.employee_id.name or self.env.user.name)
+        pulse.notify_in_background(
+            'payout-sent',
+            _('Bought from customer') if self.kind == 'customer' else _('Vendor paid'),
+            f"{pay['amount']:,.0f} EGP to {partner.display_name} ({self.name}) from {journal.name}, by {who}",
+            {'order': self.name, 'partner': partner.display_name, 'kind': self.kind,
+             'amount': pay['amount'], 'grams21kEq': pay['grams_21k'], 'goldPrice21k': float(gold_price_21k or 0),
+             'money': pay['money'], 'journal': journal.name, 'by': who, 'move': move.name,
+             'register': session.config_id.name if session else ''},
+            pulse.make_idempotency_key('ao-payment', move.name),
+            env=self.env,
+        )
         return payment
 
     def action_open_payment_wizard(self):
@@ -389,7 +408,7 @@ class JewelleryAcquisitionOrder(models.Model):
             'id': o.id, 'name': o.name, 'state': o.state,
             'partner_id': o.partner_id.id, 'partner_name': o.partner_id.display_name,
             'date': fields.Datetime.to_string(o.date_order), 'vendor_ref': o.vendor_ref or '',
-            'warehouse_code': o.warehouse_id.code or '', 'pieces': o.total_pieces,
+            'pieces': o.total_pieces,
             'registered': o.registered_count, 'grams_21k_eq': o.grams_21k_eq,
             'lines': [{'category': ln.categ_id.display_name, 'karat': ln.karat, 'origin': ln.origin,
                        'qty': ln.qty, 'grams': ln.grams} for ln in o.line_ids],
@@ -577,10 +596,9 @@ class JewelleryAcquisitionPaymentWizard(models.TransientModel):
             res.setdefault('grams_21k', max(order.grams_left, 0.0))
             res.setdefault('money', max(order.money_left, 0.0))
             res.setdefault('gold_price_21k', order._gold_price_at(fields.Datetime.now()))
-            if order.warehouse_id:
-                vault = order.warehouse_id._vault_journal()
-                if vault:
-                    res.setdefault('journal_id', vault.id)
+            last = order.payment_ids.sorted('id')[-1:]
+            if last:
+                res.setdefault('journal_id', last.journal_id.id)
         return res
 
     @api.onchange('date')
