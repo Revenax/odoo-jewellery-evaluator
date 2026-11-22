@@ -201,7 +201,10 @@ export class PurchasePopup extends Component {
         this.state.lines = this.state.lines.filter((l) => l.uid !== uid);
     }
     get buyGrams21() {
-        return this.state.lines.reduce((sum, l) => sum + num(l.grams) * (PURITY[l.karat] || 0), 0);
+        return this.state.lines.reduce(
+            (sum, l) => sum + (Math.round(num(l.grams) * 100) / 100) * (PURITY[l.karat] || 0),
+            0
+        );
     }
     lineAmount(line) {
         return num(line.grams) * (PURITY[line.karat] || 0) * num(this.state.buyPrice);
@@ -233,7 +236,7 @@ export class PurchasePopup extends Component {
                 karat: l.karat,
                 origin: l.origin,
                 qty: Math.max(parseInt(l.qty) || 1, 1),
-                grams: num(l.grams),
+                grams: Math.round(num(l.grams) * 100) / 100,
             }));
         if (!lines.length || num(this.state.buyPrice) <= 0) {
             this.state.error = _t("Enter the grams of at least one row and a positive gold price.");

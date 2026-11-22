@@ -206,7 +206,9 @@ class PosSessionAcquisition(models.Model):
             ['|', '|'] + [('complete_name', '=like', root) for root in CATEGORY_ROOTS]).ids)
         vals_lines = []
         for line in lines or []:
-            grams = float(line.get('grams') or 0)
+            # The scrap SKUs count in units rounded to 0.01, so the grams paid
+            # for are rounded the same way: stock always equals what was paid.
+            grams = round(float(line.get('grams') or 0), 2)
             if grams <= 0:
                 continue
             categ_id = int(line.get('categ_id') or 0)
