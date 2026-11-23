@@ -85,29 +85,22 @@ html body #wrapwrap #quick_reorder_button {
     display: none !important;
 }
 
-/* Shop grid and homepage tiles: studio shots carry wide white margins; zoom in a
-   little inside the (already clipped) tile so small screens still show the piece. */
-html body #wrapwrap .oe_product_image_img_wrapper img,
-html body #wrapwrap .product-item .product-img-box img {
-    transform: scale(1.35);
-    transform-origin: center;
-}
-html body #wrapwrap .product-item .product-img-box,
-html body #wrapwrap .oe_product_image_img_wrapper {
-    overflow: hidden;
-}
-
 @media (max-width: 575.98px) {
-    /* Hero buttons on one line. */
-    html body #wrapwrap .hero-btn-solid,
-    html body #wrapwrap .hero-btn-wire,
-    html body #wrapwrap .hero-clean-section .btn,
+    /* Hero buttons: stacked, full width, one line each. */
+    html body #wrapwrap .hero-clean-section :has(> a[class*="hero-btn"]) {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
     html body #wrapwrap .hero-clean-section a[class*="hero-btn"] {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
         white-space: nowrap !important;
-        letter-spacing: 0.06em !important;
-        font-size: 11px !important;
-        padding-left: 14px !important;
-        padding-right: 14px !important;
+        text-align: center !important;
+        letter-spacing: 0.08em !important;
+        font-size: 12px !important;
     }
     /* Cookie bar: a slim strip, not a quarter of the screen. */
     html body #website_cookies_bar .modal-content {
