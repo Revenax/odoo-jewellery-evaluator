@@ -10,6 +10,20 @@
             <xpath expr="//field[@name='public_categ_ids']" position="before">
                 <field name="website_title"/>
                 <field name="website_catalog_managed"/>
+                <field name="jewellery_shop_photo_count"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Extra media: mark a photo as a shop photo (the website shows only those). -->
+    <record id="product_image_form_shop_photo" model="ir.ui.view">
+        <field name="name">product.image.form.shop.photo</field>
+        <field name="model">product.image</field>
+        <field name="inherit_id" ref="website_sale.view_product_image_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//h2[field[@name='name']]" position="after">
+                <field name="jewellery_shop_photo"/>
+                <field name="jewellery_photo_source" invisible="not jewellery_shop_photo"/>
             </xpath>
         </field>
     </record>

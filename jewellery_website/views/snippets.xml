@@ -19,7 +19,7 @@
                     <span t-if="data.get('has_discounted_price')"
                           class="product-badge badge-sale">Sale</span>
                     <img class="product-img" loading="lazy"
-                         t-att-src="data['image_512']" t-att-alt="title"/>
+                         t-att-src="website.image_url(product.product_tmpl_id._get_image_holder(), 'image_512')" t-att-alt="title"/>
                 </div>
                 <h4 class="product-name" t-out="title"/>
                 <div t-if="not data.get('prevent_zero_price_sale') and not is_sample"

@@ -4,6 +4,7 @@
 # Website: https://www.revenax.com
 from . import (
     ir_qweb_fields,
+    product_image,
     product_product,
     product_template,
     res_config_settings,

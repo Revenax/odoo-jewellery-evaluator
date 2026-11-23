@@ -4,7 +4,7 @@
 # Website: https://www.revenax.com
 {
     'name': 'Jewellery Website',
-    'version': '19.0.1.5.1',
+    'version': '19.0.1.6.0',
     'summary': 'Wires the Marjaan eCommerce shop to the live jewellery catalogue',
     'description': """
 Keeps the website shop in step with the boutique's stock, so nobody curates it by hand:

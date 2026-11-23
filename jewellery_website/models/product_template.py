@@ -38,7 +38,7 @@ class ProductTemplate(models.Model):
         string='Auto-publish on Website',
         default=True,
         help='On: the website catalogue sync publishes this piece while it is in '
-             'stock with a photo and a price, takes it off when it sells, and keeps '
+             'stock with a shop photo and a price, takes it off when it sells, and keeps '
              'its eCommerce categories in step with its internal category. '
              'Off: publish and categorise it by hand.',
     )
@@ -137,12 +137,11 @@ class ProductTemplate(models.Model):
         ):
             free[product.product_tmpl_id.id] += qty - reserved
 
-        # Existence check only: reading image_1920 for every product would pull
-        # the binaries off disk.
+        # Only shop photos count (studio or approved AI photos): the website
+        # never shows the operations-app snapshot, so without one, no listing.
         self.env.cr.execute("""
-            SELECT res_id FROM ir_attachment
-             WHERE res_model = 'product.template' AND res_field = 'image_1920'
-               AND res_id = ANY(%s)""", [templates.ids])
+            SELECT DISTINCT product_tmpl_id FROM product_image
+             WHERE jewellery_shop_photo AND product_tmpl_id = ANY(%s)""", [templates.ids])
         with_image = {row[0] for row in self.env.cr.fetchall()}
 
         new_since = fields.Datetime.now() - timedelta(days=NEW_ARRIVAL_DAYS)
