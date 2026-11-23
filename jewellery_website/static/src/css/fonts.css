@@ -16,3 +16,10 @@
 
 /* Expanded letters read wide: pull the tracking in a little on body copy. */
 html body #wrapwrap { letter-spacing: -0.005em; }
+
+/* The expanded face is wider: keep all six header links on one line (Odoo folds the
+   ones that don't fit into a "+" menu at page load). */
+html body #wrapwrap header .navbar-nav > .nav-item > .nav-link {
+    letter-spacing: 0.09em !important;
+    font-size: 12.5px !important;
+}
