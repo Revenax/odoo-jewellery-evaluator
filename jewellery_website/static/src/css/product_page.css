@@ -1,0 +1,62 @@
+/* Copyright 2026 Revenax Digital Services
+ * Product page and shop tiles for one-of-a-kind jewellery shown with studio photos.
+ *
+ * - The theme capped the photo column at 320 x 280 px: give it the full half page.
+ * - Studio shots are on white. mix-blend-mode: multiply blends that white into the
+ *   page cream, but only against what is painted INSIDE the image's stacking
+ *   context, so the carousel itself gets the page colour (#faf5f0).
+ * - Every piece is unique: no quantity selector, no tag chips (karat is in the specs).
+ * Selectors carry #wrapwrap so they outrank the theme's custom head CSS.
+ */
+
+html body #wrapwrap .oe_website_sale .o_wsale_product_images {
+    max-width: none !important;
+    width: 50% !important;
+    flex: 0 0 50% !important;
+}
+
+html body #wrapwrap .oe_website_sale .o_wsale_product_images .carousel,
+html body #wrapwrap .oe_website_sale .o_wsale_product_images .o_carousel_product_outer,
+html body #wrapwrap .oe_website_sale .o_wsale_product_images .carousel-inner,
+html body #wrapwrap .oe_website_sale .o_wsale_product_images .carousel-item {
+    max-height: none !important;
+    height: auto !important;
+    aspect-ratio: auto !important;
+    backface-visibility: visible !important;
+}
+
+html body #wrapwrap .oe_website_sale .o_wsale_product_images .carousel {
+    background: #faf5f0 !important;
+}
+
+html body #wrapwrap .oe_website_sale img.product_detail_img {
+    max-height: 78vh !important;
+    max-width: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    mix-blend-mode: multiply;
+}
+
+/* Shop grid and featured grid tiles: same blend into the cream card. */
+html body #wrapwrap .oe_product_image_img_wrapper,
+html body #wrapwrap .product-item .product-img-box {
+    background: #faf5f0;
+}
+html body #wrapwrap .oe_product_image_img_wrapper img,
+html body #wrapwrap .product-item .product-img {
+    mix-blend-mode: multiply;
+    object-fit: contain;
+}
+
+/* One of a kind: nothing to count, and the karat is already in the specs. */
+html body #wrapwrap .oe_website_sale div.css_quantity,
+html body #wrapwrap .oe_website_sale .o_product_tags {
+    display: none !important;
+}
+
+@media (max-width: 991.98px) {
+    html body #wrapwrap .oe_website_sale .o_wsale_product_images {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+    }
+}
