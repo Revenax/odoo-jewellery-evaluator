@@ -93,4 +93,21 @@
             <p class="o_jewellery_tax_note small text-muted mb-0 mt-2">All prices are tax inclusive</p>
         </xpath>
     </template>
+
+    <!-- Cart and checkout thumbnails: the studio shop photo, never the ops-app snapshot. -->
+    <template id="cart_lines_shop_photo" inherit_id="website_sale.cart_lines">
+        <xpath expr="//div[@t-field='line.product_id.image_128']" position="attributes">
+            <attribute name="t-field">line.product_id.product_tmpl_id._get_image_holder().image_128</attribute>
+        </xpath>
+    </template>
+    <template id="cart_summary_shop_photo" inherit_id="website_sale.cart_summary_content">
+        <xpath expr="//span[@t-field='line.product_id.image_128']" position="attributes">
+            <attribute name="t-field">line.product_id.product_tmpl_id._get_image_holder().image_128</attribute>
+        </xpath>
+    </template>
+
+    <!-- One-of-a-kind pieces cannot be re-ordered: no "Quick reorder" in the cart. -->
+    <record id="website_sale.quick_reorder_button" model="ir.ui.view">
+        <field name="active" eval="False"/>
+    </record>
 </odoo>

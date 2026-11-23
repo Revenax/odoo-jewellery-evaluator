@@ -60,3 +60,9 @@ html body #wrapwrap .oe_website_sale .o_product_tags {
         flex: 0 0 100% !important;
     }
 }
+
+/* Checkout address: private customers, no company or VAT fields. */
+html body #wrapwrap #company_name_div,
+html body #wrapwrap #div_vat {
+    display: none !important;
+}
