@@ -321,6 +321,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | MJ-1651 5 g bars 33,100 -> 33,230; MJ-1652 one 2 g coin 11,750 -> 11,770 (2026-11-19) | MJ-1651 504,230 -> 505,140 (7 lines, cash IR); MJ-1652 23,520 -> 23,540 (InstaPay); orders, payments, entries updated; A5 reprints queued at IR (jobs 44, 45) |
 | MJ-1651 10.35 g bar 68,500 -> 68,785 (2026-11-19) | 505,140 -> 505,425 (cash IR); A5 reprinted at IR |
 | Website: studio photos only (2026-11-23) | edec457; 118 photos from 5 sheets of Marjaan Shopify Products.xlsx (New, Old, MARJAAN 11-2025, MARJAAN BILLBOARDS, 2026) attached to 115 pieces as shop photos; shop now 112 live (was ~2,036 with ops snapshots); add more: shop_photos_prepare.py + import_shop_photos.py |
+| Website live on marjaanjewellery.com (2026-11-24) | Cloudflare: apex A 23.227.38.32 (Shopify, proxied) -> 44.207.94.139 DNS only; www CNAME shops.myshopify.com -> marjaanjewellery.com; Zoho MX/TXT untouched. nginx serves odoo./apex/www (one cert, certbot --expand), old Shopify /products /collections -> 301 /shop. Odoo website domain https://marjaanjewellery.com (www redirects), robots opened. Rollback = restore the two old DNS values. |
 
 ## 6. Open items
 
