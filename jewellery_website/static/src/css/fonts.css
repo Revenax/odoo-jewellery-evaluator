@@ -1,0 +1,18 @@
+/* Copyright 2026 Revenax Digital Services
+ * Self-hosted website fonts (no Google Fonts request; preloaded from the head).
+ *
+ * Sans: Archivo (SIL OFL) baked at its widest width (wdth 125) with weights 300-700,
+ * as "Marjaan Sans Expanded": the free stand-in for Nimbus Sans Extended. It is also
+ * registered under the family names the theme's CSS already asks for ('Nimbus Sans
+ * Extd', 'Geist'), so every text switches without touching the theme.
+ * Serif: Cormorant Garamond (SIL OFL), variable 300-700 + italic, latin subset.
+ */
+@font-face { font-family: 'Marjaan Sans Expanded'; src: url('/jewellery_website/static/fonts/marjaan-sans-expanded.woff2') format('woff2'); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Nimbus Sans Extd'; src: url('/jewellery_website/static/fonts/marjaan-sans-expanded.woff2') format('woff2'); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Nimbus Sans Extended'; src: url('/jewellery_website/static/fonts/marjaan-sans-expanded.woff2') format('woff2'); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('/jewellery_website/static/fonts/marjaan-sans-expanded.woff2') format('woff2'); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Cormorant Garamond'; src: url('/jewellery_website/static/fonts/cormorant-garamond.woff2') format('woff2'); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Cormorant Garamond'; src: url('/jewellery_website/static/fonts/cormorant-garamond-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; }
+
+/* Expanded letters read wide: pull the tracking in a little on body copy. */
+html body #wrapwrap { letter-spacing: -0.005em; }

@@ -10,7 +10,19 @@ website shows only extra images flagged as shop photos: professional studio
 shots (imported from the photo sheets) or approved photos from the AI photo
 workflow. A piece with no shop photo is not published.
 """
+import base64
+import io
+import logging
+
 from odoo import api, fields, models
+
+_logger = logging.getLogger(__name__)
+
+# Odoo encodes every resized copy at JPEG quality 95 (tools/image.py), so a 1024 px
+# shop tile weighed ~70 kB. Quality 80 progressive is visually the same at screen
+# size and about half the weight. (The server's Pillow has no WebP encoder.)
+SIZES = ('image_1024', 'image_512', 'image_256', 'image_128')
+QUALITY = 80
 
 
 class ProductImage(models.Model):
@@ -27,6 +39,36 @@ class ProductImage(models.Model):
         string='Photo Reference', index=True, copy=False,
         help='Where the photo came from (sheet row / file id), so an import '
              'never adds the same photo twice.')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        images = super().create(vals_list)
+        images.filtered('jewellery_shop_photo')._jewellery_compress_sizes()
+        return images
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'image_1920' in vals or vals.get('jewellery_shop_photo'):
+            self.filtered('jewellery_shop_photo')._jewellery_compress_sizes()
+        return res
+
+    def _jewellery_compress_sizes(self):
+        """Re-encode the resized copies of shop photos at quality 80, progressive."""
+        from PIL import Image
+        Attachment = self.env['ir.attachment'].sudo()
+        for att in Attachment.search([('res_model', '=', 'product.image'), ('res_id', 'in', self.ids),
+                                      ('res_field', 'in', SIZES), ('mimetype', '=', 'image/jpeg')]):
+            try:
+                raw = base64.b64decode(att.datas)
+                pil = Image.open(io.BytesIO(raw))
+                if pil.info.get('progressive') or pil.info.get('progression'):
+                    continue
+                out = io.BytesIO()
+                pil.convert('RGB').save(out, 'JPEG', quality=QUALITY, optimize=True, progressive=True)
+                if len(out.getvalue()) < len(raw):
+                    att.datas = base64.b64encode(out.getvalue())
+            except Exception:  # noqa: BLE001 - a photo that won't recompress keeps Odoo's copy
+                _logger.warning('shop photo %s: %s not recompressed', att.res_id, att.res_field, exc_info=True)
 
 
 class ProductTemplate(models.Model):

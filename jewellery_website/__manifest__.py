@@ -37,6 +37,8 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
             'jewellery_website/static/src/js/meta_pixel_events.js',
             'jewellery_website/static/src/js/price_range.js',
             'jewellery_website/static/src/css/header.css',
+            'jewellery_website/static/src/css/fonts.css',
+            'jewellery_website/static/src/css/icons.css',
             'jewellery_website/static/src/css/product_page.css',
         ],
     },
