@@ -94,7 +94,10 @@ html body #wrapwrap #quick_reorder_button {
         gap: 10px !important;
     }
     html body #wrapwrap .hero-clean-section a[class*="hero-btn"] {
-        display: block !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 46px !important;
         width: 100% !important;
         margin: 0 !important;
         white-space: nowrap !important;
