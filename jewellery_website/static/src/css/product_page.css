@@ -84,3 +84,50 @@ html body #wrapwrap img[src*="/product.image/"][src*="image_128"] {
 html body #wrapwrap #quick_reorder_button {
     display: none !important;
 }
+
+/* Shop grid and homepage tiles: studio shots carry wide white margins; zoom in a
+   little inside the (already clipped) tile so small screens still show the piece. */
+html body #wrapwrap .oe_product_image_img_wrapper img,
+html body #wrapwrap .product-item .product-img-box img {
+    transform: scale(1.35);
+    transform-origin: center;
+}
+html body #wrapwrap .product-item .product-img-box,
+html body #wrapwrap .oe_product_image_img_wrapper {
+    overflow: hidden;
+}
+
+@media (max-width: 575.98px) {
+    /* Hero buttons on one line. */
+    html body #wrapwrap .hero-btn-solid,
+    html body #wrapwrap .hero-btn-wire,
+    html body #wrapwrap .hero-clean-section .btn,
+    html body #wrapwrap .hero-clean-section a[class*="hero-btn"] {
+        white-space: nowrap !important;
+        letter-spacing: 0.06em !important;
+        font-size: 11px !important;
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+    }
+    /* Cookie bar: a slim strip, not a quarter of the screen. */
+    html body #website_cookies_bar .modal-content {
+        padding: 10px 14px !important;
+    }
+    html body #website_cookies_bar .modal-body,
+    html body #website_cookies_bar .modal-body > * {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 4px !important;
+    }
+    html body #website_cookies_bar p,
+    html body #website_cookies_bar .o_cookies_bar_text_title,
+    html body #website_cookies_bar .o_cookies_bar_text_primary {
+        font-size: 13px !important;
+        line-height: 1.35 !important;
+    }
+    html body #website_cookies_bar .btn {
+        padding: 4px 12px !important;
+        font-size: 13px !important;
+    }
+}

@@ -110,4 +110,33 @@
     <record id="website_sale.quick_reorder_button" model="ir.ui.view">
         <field name="active" eval="False"/>
     </record>
+
+    <!-- Contact page: Marjaan's real branches and contacts instead of Odoo's demo block. -->
+    <template id="contactus_marjaan_info" inherit_id="website.contactus">
+        <xpath expr="//h5[text()='My Company']/.." position="replace">
+            <div class="col-lg-4 offset-lg-1 mt-4 mt-lg-0 o_jewellery_contact">
+                <h5>Marjaan Jewellery</h5>
+                <ul class="list-unstyled mb-3 ps-2">
+                    <li class="mb-2"><i class="fa fa-map-marker fa-fw me-2"/><b>Sway Mall</b><br/>
+                        <span class="ms-4 d-inline-block">Sway Mall, Mohamed Naguib St., New Cairo</span></li>
+                    <li class="mb-2"><i class="fa fa-map-marker fa-fw me-2"/><b>Ismail Ramzy</b><br/>
+                        <span class="ms-4 d-inline-block">27 Ismail Ramzy St., Heliopolis</span></li>
+                    <li class="mb-2"><i class="fa fa-phone fa-fw me-2"/><a href="tel:+201000226992"><span class="o_force_ltr">+20 100 022 6992</span></a></li>
+                    <li class="mb-2"><i class="fa fa-comment fa-fw me-2"/><a href="https://wa.me/201011480480" target="_blank" rel="noopener">WhatsApp <span class="o_force_ltr">+20 10 1148 0480</span></a></li>
+                    <li><i class="fa fa-envelope fa-fw me-2"/><a href="mailto:info@marjaanjewellery.com">info@marjaanjewellery.com</a></li>
+                </ul>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Product page promises: match the real refund policy and delivery options
+         (Odoo's default said "30-day money-back guarantee, Shipping 2-3 days"). -->
+    <template id="product_terms_marjaan" inherit_id="website_sale.product_terms_and_conditions">
+        <xpath expr="//small" position="replace">
+            <small class="text-muted mb-0 o_jewellery_terms">
+                <a href="/refund-policy" class="text-muted"><u>Returns and exchanges within 14 days</u></a><br/>
+                Free delivery across Egypt, or pick up at Sway Mall or Ismail Ramzy
+            </small>
+        </xpath>
+    </template>
 </odoo>
