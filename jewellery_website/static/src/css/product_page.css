@@ -66,3 +66,21 @@ html body #wrapwrap #company_name_div,
 html body #wrapwrap #div_vat {
     display: none !important;
 }
+
+/* Cart and checkout thumbnails: studio shots have wide white margins, so at 64 px the
+   piece is a speck. Zoom in inside a clipped frame and blend the white away. */
+html body #wrapwrap :is(div, span):has(> img[src*="/product.image/"][src*="image_128"]) {
+    overflow: hidden;
+    border-radius: 0.375rem;
+    background: #faf5f0;
+}
+html body #wrapwrap img[src*="/product.image/"][src*="image_128"] {
+    transform: scale(1.7);
+    mix-blend-mode: multiply;
+    border: 0 !important;
+}
+
+/* One-of-a-kind pieces cannot be re-ordered. */
+html body #wrapwrap #quick_reorder_button {
+    display: none !important;
+}
