@@ -193,3 +193,24 @@ def website_price_display(value, decimal_places, iso_code, symbol):
     whole amounts drop the decimals, anything with piastres keeps them."""
     whole = abs(float(value) - round(float(value))) < 0.005
     return (0 if whole else decimal_places), WEBSITE_CURRENCY_LABEL.get(iso_code, symbol)
+
+
+def rank_similar(target, candidates, limit=8):
+    """Ids of the pieces most like `target`, best first, for "You may also like".
+
+    Each piece is a dict with id, categories (set of eCommerce category ids),
+    jewellery_type and price. Ranked by shared categories (more = closer), then
+    the same jewellery type, then the nearest price (as a share of the target's
+    price, so a 5,000 EGP gap matters more on a 20,000 ring than on a 500,000 one).
+    The piece itself is never suggested."""
+    base = float(target.get('price') or 0) or 1.0
+    cats = set(target.get('categories') or ())
+
+    def key(c):
+        shared = len(cats & set(c.get('categories') or ()))
+        same_type = c.get('jewellery_type') == target.get('jewellery_type')
+        gap = abs(float(c.get('price') or 0) - base) / base
+        return (-shared, not same_type, gap, c['id'])
+
+    others = [c for c in candidates if c['id'] != target['id']]
+    return [c['id'] for c in sorted(others, key=key)[:limit]]

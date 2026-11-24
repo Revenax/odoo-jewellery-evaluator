@@ -137,3 +137,31 @@ class TestWebsitePriceDisplay:
 
     def test_other_currencies_keep_their_symbol(self):
         assert wu.website_price_display(1200.0, 2, "USD", "$") == (0, "$")
+
+
+class TestRankSimilar:
+    def _p(self, pid, cats, jtype, price):
+        return {'id': pid, 'categories': set(cats), 'jewellery_type': jtype, 'price': price}
+
+    def test_shared_category_beats_price(self):
+        target = self._p(1, {10, 11}, 'diamond_jewellery', 50000)
+        same_cat = self._p(2, {10, 11}, 'diamond_jewellery', 200000)
+        near_price = self._p(3, {20}, 'diamond_jewellery', 50000)
+        assert wu.rank_similar(target, [near_price, same_cat]) == [2, 3]
+
+    def test_same_type_then_nearest_price(self):
+        target = self._p(1, {10}, 'gold_foreign', 20000)
+        other_type = self._p(2, {10}, 'diamond_jewellery', 20000)
+        far = self._p(3, {10}, 'gold_foreign', 40000)
+        near = self._p(4, {10}, 'gold_foreign', 22000)
+        assert wu.rank_similar(target, [other_type, far, near]) == [4, 3, 2]
+
+    def test_never_suggests_itself_and_respects_limit(self):
+        target = self._p(1, {10}, 'gold_foreign', 1000)
+        pieces = [target] + [self._p(i, {10}, 'gold_foreign', 1000 + i) for i in range(2, 12)]
+        ranked = wu.rank_similar(target, pieces, limit=4)
+        assert 1 not in ranked and ranked == [2, 3, 4, 5]
+
+    def test_zero_price_target_does_not_divide_by_zero(self):
+        target = self._p(1, set(), 'silver', 0)
+        assert wu.rank_similar(target, [self._p(2, set(), 'silver', 10)]) == [2]

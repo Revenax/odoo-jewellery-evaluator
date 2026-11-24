@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- "Pay on site" icon in Marjaan navy and gold (Odoo's is purple). -->
+    <record id="website_sale_collect.payment_method_pay_on_site" model="payment.method">
+        <field name="image" type="base64" file="jewellery_website/static/img/pay_on_site.png"/>
+    </record>
+</odoo>

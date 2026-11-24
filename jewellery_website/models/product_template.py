@@ -14,6 +14,7 @@ from ..website_utils import (
     PUBLIC_TREE,
     is_banned_online,
     public_category_keys,
+    rank_similar,
     should_publish,
     website_title,
 )
@@ -78,6 +79,21 @@ class ProductTemplate(models.Model):
     # ── catalogue sync ──────────────────────────────────────────────────
 
     @api.model
+    def _jewellery_similar_pieces(self, limit=8):
+        """Published pieces most like this one, for the product page's
+        "You may also like" row (ranking: website_utils.rank_similar)."""
+        self.ensure_one()
+        pool = self.sudo().search([
+            ('is_published', '=', True), ('sale_ok', '=', True), ('id', '!=', self.id),
+        ], limit=400, order='create_date desc')
+
+        def piece(t):
+            return {'id': t.id, 'categories': set(t.public_categ_ids.ids),
+                    'jewellery_type': t.jewellery_type, 'price': t.list_price}
+
+        ids = rank_similar(piece(self.sudo()), [piece(t) for t in pool], limit=limit)
+        return self.browse(ids)
+
     def _website_public_categories(self):
         """key -> product.public.category, creating the tree on first use.
 

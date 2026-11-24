@@ -4,7 +4,7 @@
 # Website: https://www.revenax.com
 {
     'name': 'Jewellery Website',
-    'version': '19.0.1.6.0',
+    'version': '19.0.1.7.0',
     'summary': 'Wires the Marjaan eCommerce shop to the live jewellery catalogue',
     'description': """
 Keeps the website shop in step with the boutique's stock, so nobody curates it by hand:
@@ -23,9 +23,10 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
     'website': 'https://www.revenax.com',
     'category': 'Website/eCommerce',
     'license': 'LGPL-3',
-    'depends': ['jewellery_evaluator', 'website_sale_stock'],
+    'depends': ['jewellery_evaluator', 'website_sale_stock', 'website_sale_collect'],
     'data': [
         'data/ir_cron.xml',
+        'data/payment_method.xml',
         'views/templates.xml',
         'views/snippets.xml',
         'views/tracking.xml',
@@ -40,6 +41,7 @@ Keeps the website shop in step with the boutique's stock, so nobody curates it b
             'jewellery_website/static/src/css/fonts.css',
             'jewellery_website/static/src/css/icons.css',
             'jewellery_website/static/src/css/product_page.css',
+            'jewellery_website/static/src/css/footer.css',
         ],
     },
     'post_init_hook': 'post_init_hook',

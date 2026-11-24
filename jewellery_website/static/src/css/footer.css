@@ -1,0 +1,101 @@
+/* Copyright 2026 Revenax Digital Services
+ * Site-wide footer (views/templates.xml footer_marjaan). The base look
+ * (.custom-minimal-footer, newsletter, socials, legal row) comes from the
+ * designer's CSS in the website head code; this adds the branches/contact row
+ * and hides the old copy of the footer that sat inside the homepage content.
+ */
+
+/* The homepage carried its own footer inside #wrap; the site footer replaces it. */
+html body #wrapwrap #wrap .custom-minimal-footer {
+    display: none !important;
+}
+
+html body #wrapwrap footer#bottom {
+    background: #faf5f0;
+    border-top: 1px solid rgba(26, 26, 36, 0.08);
+}
+html body #wrapwrap #footer.o_jewellery_footer {
+    border: 0 !important;
+}
+html body #wrapwrap .o_jewellery_footer .custom-minimal-footer {
+    padding: 3rem 0 1.5rem;
+}
+
+html body #wrapwrap .o_jewellery_footer .footer-socials a {
+    color: #1a1a24;
+    display: inline-flex;
+}
+
+html body #wrapwrap .o_jewellery_footer_info {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2rem;
+    padding: 2.25rem 0;
+    margin: 2rem 0 1.5rem;
+    border-top: 1px solid rgba(26, 26, 36, 0.1);
+    border-bottom: 1px solid rgba(26, 26, 36, 0.1);
+}
+html body #wrapwrap .o_jewellery_footer_info h4 {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #1a1a24;
+    margin: 0 0 0.6rem;
+}
+html body #wrapwrap .o_jewellery_footer_info p {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: #525261;
+    margin: 0;
+}
+html body #wrapwrap .o_jewellery_footer_info a {
+    color: #525261;
+    text-decoration: none;
+}
+html body #wrapwrap .o_jewellery_footer_info a:hover {
+    color: #1a1a24;
+}
+
+@media (max-width: 991.98px) {
+    html body #wrapwrap .o_jewellery_footer .custom-minimal-footer {
+        padding: 2.5rem 1.25rem 1.5rem;
+    }
+    html body #wrapwrap .o_jewellery_footer_info {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.5rem 1rem;
+    }
+}
+@media (max-width: 575.98px) {
+    html body #wrapwrap .o_jewellery_footer_info {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+}
+
+/* Product page "You may also like": breathing room from the details above. */
+html body #wrapwrap .o_jewellery_similar {
+    background: #faf5f0;
+    padding: 4rem 0;
+    margin-top: 3rem;
+}
+
+/* WhatsApp prompt where the (uninstalled) newsletter form was. */
+html body #wrapwrap .o_jewellery_footer_btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 1.75rem;
+    border: 1px solid #1a1a24;
+    color: #1a1a24;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+html body #wrapwrap .o_jewellery_footer_btn:hover {
+    background: #1a1a24;
+    color: #faf5f0;
+}
