@@ -145,13 +145,12 @@
          CSS as the homepage featured grid. -->
     <template id="product_similar_pieces" inherit_id="website_sale.product">
         <xpath expr="//div[@id='product_full_description']" position="after">
-            <t t-set="similar_pieces" t-value="product._jewellery_similar_pieces(8)"/>
+            <t t-set="similar_pieces" t-value="product._jewellery_similar_pieces(4)"/>
             <section t-if="similar_pieces" class="featured-products-section o_jewellery_similar">
                 <t t-set="similar_prices" t-value="similar_pieces._get_sales_prices(website)"/>
                 <div class="container">
                     <div class="text-center mb-5">
                         <h2 class="featured-title">You may also like</h2>
-                        <p class="featured-subtitle">Pieces close to this one</p>
                     </div>
                     <div class="row featured-grid">
                         <div t-foreach="similar_pieces" t-as="piece" class="d-flex flex-column px-0">
@@ -187,59 +186,53 @@
     <template id="footer_marjaan" inherit_id="website.layout" priority="99">
         <xpath expr="//div[@id='footer']" position="replace">
             <div id="footer" t-if="not no_footer" class="o_jewellery_footer">
-                <div class="custom-minimal-footer">
-                    <div class="container-fluid px-lg-5">
-                        <div class="footer-top-row">
-                            <div class="footer-newsletter o_jewellery_footer_cta">
-                                <h3 class="footer-heading">Questions about a piece?</h3>
-                                <a class="o_jewellery_footer_btn" href="https://wa.me/201011480480" target="_blank" rel="noopener">Chat with us on WhatsApp</a>
-                            </div>
-                            <div class="footer-socials" t-if="website.social_facebook or website.social_instagram or website.social_tiktok">
-                                <a t-if="website.social_facebook" t-att-href="website.social_facebook" target="_blank" rel="noopener" aria-label="Facebook">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                                </a>
-                                <a t-if="website.social_instagram" t-att-href="website.social_instagram" target="_blank" rel="noopener" aria-label="Instagram">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                                </a>
-                                <a t-if="website.social_tiktok" t-att-href="website.social_tiktok" target="_blank" rel="noopener" aria-label="TikTok">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.78.12V9.77a5.7 5.7 0 0 0-.78-.05 5.68 5.68 0 1 0 5.68 5.68V9.1a7.33 7.33 0 0 0 4.28 1.37V7.39a4.28 4.28 0 0 1-3.22-1.57z"/></svg>
-                                </a>
-                            </div>
+                <div class="o_mjf container">
+                    <div class="o_mjf_grid">
+                        <div class="o_mjf_brand">
+                            <a href="/" aria-label="Marjaan"><img src="/marjaan_branding/static/img/wordmark.svg" alt="Marjaan" width="120" height="63"/></a>
+                            <p>Fine gold and diamond jewellery, made to be kept.</p>
+                            <a class="o_mjf_btn" href="https://wa.me/201011480480" target="_blank" rel="noopener">Chat on WhatsApp</a>
                         </div>
-                        <div class="o_jewellery_footer_info">
-                            <div>
-                                <h4>Sway Mall</h4>
-                                <p>Mohamed Naguib St., New Cairo</p>
-                            </div>
-                            <div>
-                                <h4>Ismail Ramzy</h4>
-                                <p>27 Ismail Ramzy St., Heliopolis</p>
-                            </div>
-                            <div>
-                                <h4>Contact</h4>
-                                <p>
-                                    <a href="tel:+201000226992"><span class="o_force_ltr">+20 100 022 6992</span></a><br/>
-                                    <a href="https://wa.me/201011480480" target="_blank" rel="noopener">WhatsApp <span class="o_force_ltr">+20 10 1148 0480</span></a><br/>
-                                    <a href="mailto:info@marjaanjewellery.com">info@marjaanjewellery.com</a>
-                                </p>
-                            </div>
-                            <div>
-                                <h4>Shop</h4>
-                                <p>
-                                    <a href="/shop">All jewellery</a><br/>
-                                    <a href="/about-us">About us</a><br/>
-                                    <a href="/contactus">Contact us</a>
-                                </p>
-                            </div>
+                        <div>
+                            <h4>Sway Mall</h4>
+                            <p>Mohamed Naguib St.<br/>New Cairo</p>
                         </div>
-                        <div class="footer-bottom-row">
-                            <p class="footer-legal">
-                                <span>© <t t-out="datetime.date.today().year"/>, Marjaan</span>
-                                <span class="legal-dot">·</span>
-                                <a href="/privacy">Privacy policy</a>
-                                <span class="legal-dot">·</span>
-                                <a href="/refund-policy">Refund policy</a>
+                        <div>
+                            <h4>Ismail Ramzy</h4>
+                            <p>27 Ismail Ramzy St.<br/>Heliopolis</p>
+                        </div>
+                        <div>
+                            <h4>Contact</h4>
+                            <p>
+                                <a href="tel:+201000226992"><span class="o_force_ltr">+20 100 022 6992</span></a><br/>
+                                <a href="mailto:info@marjaanjewellery.com">info@marjaanjewellery.com</a>
                             </p>
+                        </div>
+                        <div>
+                            <h4>Shop</h4>
+                            <p>
+                                <a href="/shop">All jewellery</a><br/>
+                                <a href="/about-us">About us</a><br/>
+                                <a href="/contactus">Contact us</a>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="o_mjf_bottom">
+                        <p>
+                            <span>© <t t-out="datetime.date.today().year"/> Marjaan</span>
+                            <a href="/privacy">Privacy policy</a>
+                            <a href="/refund-policy">Refund policy</a>
+                        </p>
+                        <div class="o_mjf_socials" t-if="website.social_facebook or website.social_instagram or website.social_tiktok">
+                            <a t-if="website.social_instagram" t-att-href="website.social_instagram" target="_blank" rel="noopener" aria-label="Instagram">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                            </a>
+                            <a t-if="website.social_facebook" t-att-href="website.social_facebook" target="_blank" rel="noopener" aria-label="Facebook">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                            </a>
+                            <a t-if="website.social_tiktok" t-att-href="website.social_tiktok" target="_blank" rel="noopener" aria-label="TikTok">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.78.12V9.77a5.7 5.7 0 0 0-.78-.05 5.68 5.68 0 1 0 5.68 5.68V9.1a7.33 7.33 0 0 0 4.28 1.37V7.39a4.28 4.28 0 0 1-3.22-1.57z"/></svg>
+                            </a>
                         </div>
                     </div>
                 </div>
