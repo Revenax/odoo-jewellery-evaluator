@@ -35,6 +35,28 @@ function askManagerOverride(dialog, props) {
 }
 
 /**
+ * The stored badge ID for a scanned badge text; same rule as
+ * utils.badge_key (tested there). Plain IDs (1-18 letters/digits) are kept;
+ * anything else is normalised (trim, lower case, no scheme, no "www.", no
+ * trailing slash) and becomes "U" + the first 17 hex digits of its SHA-1.
+ */
+function badgeKey(raw) {
+  const text = (raw || "").trim();
+  if (/^[A-Za-z0-9]{1,18}$/.test(text)) {
+    return text;
+  }
+  let norm = text.toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
+  if (norm.startsWith("www.")) {
+    norm = norm.slice(4);
+  }
+  norm = norm.replace(/\/+$/, "");
+  if (!norm) {
+    return "";
+  }
+  return "U" + Sha1.hash(norm).slice(0, 17).toUpperCase();
+}
+
+/**
  * Gather the authorised approvers for this POS and prompt for a PIN/badge.
  * Returns {approverId, approverName} on success, or null on cancel/invalid.
  * With pos_hr: matches loaded manager employees' PIN/badge hashes; otherwise a
@@ -281,7 +303,17 @@ export class ManagerOverridePopup extends Component {
     if (this.props.usesPosHr) {
       const managers = this.props.managers || [];
       const byPin = managers.find((m) => m.pin && m.pin === hash);
-      const byBadge = managers.find((m) => m.barcode && m.barcode === hash);
+      // A badge that is not a plain ID (a QR with a link) is stored as its key.
+      let keyHash = hash;
+      try {
+        const key = badgeKey(entry);
+        keyHash = key ? Sha1.hash(key) : hash;
+      } catch {
+        keyHash = hash;
+      }
+      const byBadge = managers.find(
+        (m) => m.barcode && (m.barcode === hash || m.barcode === keyHash)
+      );
       const approver =
         entry.length <= PIN_MAX_LEN ? byPin || byBadge : byBadge || byPin;
       if (approver) {

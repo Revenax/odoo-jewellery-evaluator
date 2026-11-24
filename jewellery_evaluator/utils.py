@@ -1577,3 +1577,30 @@ def next_session_number(names: list[str], branch: str) -> str:
     numbers = [int(n[len(prefix):]) for n in names
                if n and n.startswith(prefix) and n[len(prefix):].isdigit()]
     return f'{prefix}{max(numbers, default=0) + 1:05d}'
+
+
+# Badges (hr.employee.barcode) must be 1-18 letters/digits in Odoo. A badge
+# that encodes anything else (a QR with a link, 2026-11-24) is stored as this
+# key, and every place a badge is entered tries the raw text and its key.
+# static/src/js/pos_discount_override.js computes the same key (badgeKey).
+_BADGE_PLAIN = re.compile(r'[A-Za-z0-9]{1,18}')
+
+
+def badge_key(raw: str | None) -> str:
+    """The stored badge ID for a scanned badge text.
+
+    Plain IDs are kept as they are. Anything else is normalised (trimmed,
+    lower case, without scheme, "www." or trailing slashes) so the usual
+    scanner variations of one link give one key, then hashed: "U" + the first
+    17 hex digits of its SHA-1, upper case (18 characters).
+    """
+    text = (raw or '').strip()
+    if _BADGE_PLAIN.fullmatch(text):
+        return text
+    norm = re.sub(r'^[a-z][a-z0-9+.-]*://', '', text.lower())
+    if norm.startswith('www.'):
+        norm = norm[4:]
+    norm = norm.rstrip('/')
+    if not norm:
+        return ''
+    return 'U' + hashlib.sha1(norm.encode('utf-8')).hexdigest()[:17].upper()

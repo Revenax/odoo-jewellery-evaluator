@@ -7,6 +7,7 @@ import logging
 
 from markupsafe import escape
 from odoo import api, fields, models
+from odoo.addons.jewellery_evaluator.jewellery_evaluator.utils import badge_key
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -454,7 +455,9 @@ class JewelleryStockCount(models.Model):
         badge = (badge or '').strip()
         if not badge:
             return self.env['hr.employee']
-        employee = self.env['hr.employee'].sudo().search([('barcode', '=', badge)], limit=1)
+        # A badge that is not a plain ID (a QR with a link) is stored as its key.
+        employee = self.env['hr.employee'].sudo().search(
+            [('barcode', 'in', list({badge, badge_key(badge)} - {''}))], limit=1)
         if not employee:
             return employee
         configs = self.env['pos.config'].sudo().search([])
