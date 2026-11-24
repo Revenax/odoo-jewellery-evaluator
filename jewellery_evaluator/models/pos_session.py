@@ -8,6 +8,7 @@ import logging
 from odoo import api, models
 
 from .. import pulse
+from ..utils import next_session_number
 
 _logger = logging.getLogger(__name__)
 
@@ -32,6 +33,17 @@ class PosSession(models.Model):
     """
 
     _inherit = 'pos.session'
+
+    def set_opening_control(self, cashbox_value, notes):
+        """Number shifts per branch ("Ismail Ramzy/00008"), not from Odoo's one
+        counter shared by every register."""
+        was_opening = self.state == 'opening_control'
+        res = super().set_opening_control(cashbox_value, notes)
+        if was_opening:
+            branch = self.config_id.name
+            names = self.sudo().search([('config_id', '=', self.config_id.id), ('id', '!=', self.id)]).mapped('name')
+            self.name = next_session_number(names, branch)
+        return res
 
     def _vault_foreign_move_lines(self):
         """Posted move lines that hit the Vault GL account during this session

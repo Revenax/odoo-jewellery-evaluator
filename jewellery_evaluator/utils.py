@@ -1565,3 +1565,15 @@ def allocate_amount(total: float, shares: dict) -> dict:
     biggest = max(positive, key=lambda k: positive[k])
     out[biggest] += amount - sum(out.values(), Decimal('0'))
     return {k: float(v) for k, v in out.items()}
+
+
+def next_session_number(names: list[str], branch: str) -> str:
+    """Next POS shift name for a branch: "<branch>/NNNNN", counting per branch.
+
+    Odoo numbers shifts from one counter shared by every register, so a new
+    branch started at 00019. Only names "<branch>/<digits>" count.
+    """
+    prefix = branch + '/'
+    numbers = [int(n[len(prefix):]) for n in names
+               if n and n.startswith(prefix) and n[len(prefix):].isdigit()]
+    return f'{prefix}{max(numbers, default=0) + 1:05d}'
