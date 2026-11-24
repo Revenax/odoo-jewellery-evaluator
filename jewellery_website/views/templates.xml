@@ -154,13 +154,13 @@
                     </div>
                     <div class="row featured-grid">
                         <div t-foreach="similar_pieces" t-as="piece" class="d-flex flex-column px-0">
-                            <t t-set="title" t-value="piece.website_title or piece.display_name"/>
-                            <a class="product-item text-decoration-none" t-att-href="piece.website_url" t-att-title="title">
+                            <t t-set="piece_title" t-value="piece.website_title or piece.display_name"/>
+                            <a class="product-item text-decoration-none" t-att-href="piece.website_url" t-att-title="piece_title">
                                 <div class="product-img-box">
-                                    <img class="product-img" loading="lazy" t-att-alt="title"
+                                    <img class="product-img" loading="lazy" t-att-alt="piece_title"
                                          t-att-src="website.image_url(piece._get_image_holder(), 'image_512')"/>
                                 </div>
-                                <h4 class="product-name" t-out="title"/>
+                                <h4 class="product-name" t-out="piece_title"/>
                                 <div class="product-price">
                                     <span t-out="similar_prices.get(piece.id, {}).get('price_reduce', piece.list_price)"
                                           t-options="{'widget': 'monetary', 'display_currency': website.currency_id}"/>
