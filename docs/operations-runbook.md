@@ -116,8 +116,8 @@ NODE_PATH=... node scripts/ops/neon.js delete GRF8-0124
 
 - Odoo: stock move lines, moves and quants are deleted by SQL (Odoo refuses to
   unlink a product with done moves), then the template; count lines cascade.
-- The nightly valuation closing books the stock drop to `500102 Metal Price
-  Revaluation`; nothing else to post.
+- The nightly valuation closing books the stock drop to the karat's revaluation
+  account (500151/2/3; diamonds/silver: `500102`); nothing else to post.
 - If the piece was **scanned as found** in an old count, a label with that SKU
   may still be on a real piece: tell the owner (it happened with GEF8-0068,
   GEF8-0088, GRF8-0107, GRF8-0115).
@@ -327,6 +327,7 @@ ops username in "Operations app login"; nothing else. Users are ids 19–29
 | Visual audit desktop + mobile (2026-11-24) | Fixed: contact page Odoo demo block -> real branches/phone/WhatsApp/email; product page "30-day money-back / 2-3 days" -> 14-day returns + free delivery/pickup; mobile hero buttons stacked; slimmer mobile cookie bar. Open: gevent (websocket) worker hits its 768 MB limit and restarts; twin rings titled "Ring A/B"; footer has no address/phone; Pay on site icon purple. |
 | Footer, similar pieces, Pay on site icon (2026-11-24) | The site footer was empty (designer's footer lived inside the homepage only, and their head CSS hides footer#bottom): new site-wide footer `footer_marjaan` with both branches, phone, WhatsApp, email, shop links; newsletter form replaced by a WhatsApp prompt (it posted to mass_mailing, not installed); social icons show only for profiles set in Website settings (none set). Product page ends with "You may also like" (8 pieces, `rank_similar`: shared categories, type, nearest price; 2 per row on phones). Pay on site icon recoloured navy + gold (`data/payment_method.xml`). |
 | POS shifts split per day (2026-11-24) | Backup `/var/backups/marjaan/keep/pre-split-all-20261124-1113.dump`. `split_pos_session.py` with every day at counted 0/0 (owner gives real balances later): Sway Mall/00018 (open since 16 Jul, 523 orders) -> 118 closed day shifts 00018-00135, new open shift 00136; Ismail Ramzy/00020 -> 5 day shifts 00020-00024, open 00025. Counted 0 = all cash booked as Cash Difference Loss until balances arrive (Vault 105001 -607,725). Dry runs burn the shared `pos.session` sequence, so names were renumbered and the sequence reset to 137. A first commit hit a serialization failure (live POS) and rolled back; the retry went through. |
+| Hard delete 28 pieces (GBF8/GEF8/GCF8/GRF8/GDF8/GPF8/GNF8 list, 2026-11-24) | 27 done (Odoo + Neon + S3); **GCF8-0012 kept**: sold 18 Oct (Sway Mall - 000128, MJ-1486, 19,650), owner to decide. 16 SM pieces had been scanned as found in old counts: check no label with those SKUs is on a real piece |
 
 ## 6. Open items
 
