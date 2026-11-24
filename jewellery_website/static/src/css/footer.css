@@ -10,11 +10,18 @@ html body #wrapwrap #wrap .custom-minimal-footer {
     display: none !important;
 }
 
-html body #wrapwrap footer#bottom {
+/* The website head code hides Odoo's footer (#wrapwrap > footer#bottom and
+   #footer:not(.custom-minimal-footer) { display: none !important; height: 0 }).
+   These selectors outrank it. */
+html body #wrapwrap > footer#bottom.o_footer {
+    display: block !important;
+    height: auto !important;
     background: #faf5f0;
     border-top: 1px solid rgba(26, 26, 36, 0.08);
 }
-html body #wrapwrap #footer.o_jewellery_footer {
+html body #wrapwrap > footer#bottom #footer.o_jewellery_footer {
+    display: block !important;
+    height: auto !important;
     border: 0 !important;
 }
 html body #wrapwrap .o_jewellery_footer .custom-minimal-footer {
