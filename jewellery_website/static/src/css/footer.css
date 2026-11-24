@@ -50,6 +50,7 @@ html body #wrapwrap .o_mjf p {
     margin: 0;
 }
 html body #wrapwrap .o_mjf a {
+    overflow-wrap: anywhere;
     color: #525261;
     text-decoration: none;
     transition: color 0.2s ease;
@@ -143,6 +144,10 @@ html body #wrapwrap .o_jewellery_similar .container {
 html body #wrapwrap .o_jewellery_similar .text-center.mb-5 {
     margin-bottom: 2.5rem !important;
 }
+html body #wrapwrap .o_jewellery_similar .featured-title {
+    text-align: center !important;
+    margin: 0 !important;
+}
 html body #wrapwrap .o_jewellery_similar .text-center.mt-5 {
     margin-top: 3rem !important;
 }
@@ -166,12 +171,12 @@ html body #wrapwrap .o_jewellery_similar .product-name {
     flex: 1 1 auto !important;
 }
 /* Studio shots have wide white margins: enlarge the photo inside a clipped
-   4:5 frame (size, not transform: a transform breaks the multiply blend). */
+   square frame (size, not transform: a transform breaks the multiply blend). */
 html body #wrapwrap .o_jewellery_similar .product-img-box {
     width: 100% !important;
     min-width: 0 !important;
     height: auto !important;
-    aspect-ratio: 4 / 5 !important;
+    aspect-ratio: 1 / 1 !important;
     padding: 0 !important;
     overflow: hidden !important;
     position: relative !important;
