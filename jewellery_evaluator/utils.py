@@ -1349,6 +1349,31 @@ def whatsapp_mobile(phone) -> str:
     return '20' + digits if _EG_MOBILE.fullmatch(digits) else ''
 
 
+_ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789')
+
+
+def local_eg_phone(phone) -> str:
+    """An Egyptian number in local form (``01XXXXXXXXX`` / ``02XXXXXXXX``).
+
+    Accepts ``+20 106 386 4994``, ``0020106...``, ``20106...``, ``106...`` and
+    Arabic-Indic digits. Anything that is not a valid Egyptian mobile or
+    landline (foreign numbers, wrong length) is returned unchanged, so a number
+    is never damaged by being "fixed".
+    """
+    raw = str(phone or '')
+    digits = re.sub(r'\D', '', raw.translate(_ARABIC_DIGITS))
+    if not digits:
+        return raw
+    for prefix in ('0020', '20', '0', ''):
+        if digits.startswith(prefix):
+            rest = digits[len(prefix):]
+            if _EG_MOBILE.fullmatch(rest):
+                return '0' + rest
+            if prefix in ('0020', '20', '0') and re.fullmatch(r'[2-9]\d{7,8}', rest) and not rest.startswith('1'):
+                return '0' + rest
+    return raw
+
+
 def format_egp_amount(amount) -> str:
     """Thousands-separated EGP amount for customer messages: 13500 -> '13,500', 99.5 -> '99.50'."""
     value = Decimal(str(amount or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)

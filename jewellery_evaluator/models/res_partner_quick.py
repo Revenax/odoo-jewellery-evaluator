@@ -4,9 +4,12 @@
 # Website: https://www.revenax.com
 """Quick customer form for the register: Name, Phone, Email, with every other
 field behind a "More details" switch (views/res_partner_quick_views.xml; the
-register opens it instead of Odoo's full contact form, pos_quick_partner.js)."""
+register opens it instead of Odoo's full contact form, pos_quick_partner.js).
+Phone numbers are saved in Egyptian local form (utils.local_eg_phone)."""
 
 from odoo import api, fields, models
+
+from ..utils import local_eg_phone
 
 
 class ResPartner(models.Model):
@@ -24,3 +27,17 @@ class ResPartner(models.Model):
 
     def _inverse_jewellery_more_details(self):
         """A form-only switch: nothing is stored."""
+
+    # Every Egyptian number is saved in local form (010..., 02...), however it
+    # was typed (+20, 0020, spaces, Arabic digits). Foreign/invalid ones stay.
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('phone'):
+                vals['phone'] = local_eg_phone(vals['phone'])
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if vals.get('phone'):
+            vals = dict(vals, phone=local_eg_phone(vals['phone']))
+        return super().write(vals)
