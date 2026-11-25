@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright 2026 Revenax Digital Services
+    Author: Mohamed A. Abdallah
+    Website: https://www.revenax.com
+
+    Quick customer form used by the register (create / edit customer):
+    Name, Phone, Email; everything else behind "More details".
+-->
+<odoo>
+    <record id="res_partner_view_form_pos_quick" model="ir.ui.view">
+        <field name="name">res.partner.form.pos.quick</field>
+        <field name="model">res.partner</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <form string="Customer">
+                <sheet>
+                    <group>
+                        <field name="name" string="Name" placeholder="Full name" required="1"/>
+                        <field name="phone" widget="phone" placeholder="01xxxxxxxxx" options="{'enable_sms': false}"/>
+                        <field name="email" widget="email" placeholder="name@example.com"/>
+                        <field name="jewellery_more_details" widget="boolean_toggle"/>
+                    </group>
+                    <group invisible="not jewellery_more_details">
+                        <group string="Address">
+                            <field name="street" placeholder="Street"/>
+                            <field name="street2" placeholder="Street 2"/>
+                            <field name="city"/>
+                            <field name="state_id" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="zip"/>
+                            <field name="country_id" options="{'no_create': True, 'no_open': True}"/>
+                        </group>
+                        <group string="Other">
+                            <field name="company_type" widget="radio" options="{'horizontal': true}"/>
+                            <field name="vat"/>
+                            <field name="barcode"/>
+                            <field name="function" invisible="company_type == 'company'"/>
+                            <field name="website" widget="url"/>
+                            <field name="lang"/>
+                            <field name="category_id" widget="many2many_tags" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    <field name="comment" invisible="not jewellery_more_details" placeholder="Notes about this customer"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="res_partner_action_edit_pos_quick" model="ir.actions.act_window">
+        <field name="name">Customer</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="view_id" ref="res_partner_view_form_pos_quick"/>
+    </record>
+</odoo>

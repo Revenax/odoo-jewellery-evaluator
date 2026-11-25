@@ -30,6 +30,7 @@ from . import (
     product_product,  # noqa: F401
     product_template,  # noqa: F401
     product_template_actor,  # noqa: F401
+    res_partner_quick,  # noqa: F401
     silver_price_service,  # noqa: F401
     stock_warehouse,  # noqa: F401
     whatsapp_invoice,  # noqa: F401
