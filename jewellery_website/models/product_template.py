@@ -127,16 +127,18 @@ class ProductTemplate(models.Model):
         return nodes
 
     @api.model
-    def cron_sync_website_catalog(self):
+    def cron_sync_website_catalog(self, template_ids=None):
         """Publish what can be bought, unpublish what cannot, and keep the managed
         eCommerce categories in step. Writes only what changed, so a quiet run is
-        a handful of reads."""
+        a handful of reads. With template_ids, only those pieces (the stock hook
+        below runs it for every piece whose stock moved, so a sold piece leaves
+        the shop in the same transaction as the sale)."""
         nodes = self._website_public_categories()
         managed_category_ids = {rec.id for rec in nodes.values()}
-        templates = self.with_context(active_test=False).search([
-            ('website_catalog_managed', '=', True),
-            ('default_code', '!=', False),
-        ])
+        domain = [('website_catalog_managed', '=', True), ('default_code', '!=', False)]
+        if template_ids is not None:
+            domain.append(('id', 'in', list(template_ids)))
+        templates = self.with_context(active_test=False).search(domain)
         if not templates:
             return {}
 
